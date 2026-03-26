@@ -1,4 +1,4 @@
-﻿use anyhow::Result;
+use anyhow::Result;
 use sqlx::SqlitePool;
 use tauri::Manager;
 

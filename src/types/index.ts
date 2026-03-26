@@ -1,4 +1,4 @@
-﻿export interface Keypoint {
+export interface Keypoint {
   id: number
   name: string
   x: number

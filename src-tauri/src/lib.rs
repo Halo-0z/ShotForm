@@ -1,4 +1,4 @@
-﻿pub mod ai;
+pub mod ai;
 pub mod analysis;
 pub mod commands;
 pub mod database;

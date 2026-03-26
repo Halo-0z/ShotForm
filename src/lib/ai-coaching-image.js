@@ -1,4 +1,4 @@
-﻿const DATA_URL_PATTERN = /^data:image\/[a-z0-9.+-]+;base64,/i
+const DATA_URL_PATTERN = /^data:image\/[a-z0-9.+-]+;base64,/i
 const REMOTE_URL_PATTERN = /^https?:\/\//i
 
 const imageMimeTypeFromPath = (path) => {

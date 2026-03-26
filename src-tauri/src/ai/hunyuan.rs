@@ -1,4 +1,4 @@
-﻿use crate::models::{
+use crate::models::{
     AiAnalysisPayload, AiCoachingResponse, AiShotReview, CorrectionSuggestion, ShotType,
 };
 use serde::{Deserialize, Serialize};

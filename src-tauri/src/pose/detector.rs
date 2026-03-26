@@ -1,4 +1,4 @@
-﻿use crate::models::{Keypoint, PoseData};
+use crate::models::{Keypoint, PoseData};
 use anyhow::Result;
 use image::{DynamicImage, ImageFormat, RgbImage};
 use std::fs;

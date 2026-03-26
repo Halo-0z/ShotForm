@@ -1,4 +1,4 @@
-﻿use crate::models::{JointAngle, Keypoint, ShotType};
+use crate::models::{JointAngle, Keypoint, ShotType};
 
 use super::angles::{calculate_angle, calculate_release_angle};
 

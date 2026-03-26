@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="suggestion-panel">
     <div class="panel-header">
       <h3>姿势纠正建议</h3>

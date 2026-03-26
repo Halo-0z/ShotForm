@@ -1,4 +1,4 @@
-﻿use crate::ai::hunyuan;
+use crate::ai::hunyuan;
 use crate::analysis::{
     calculate_all_angles, get_default_player_templates, get_shooting_arm_angles, PoseComparator,
     ShotTypeClassifier,

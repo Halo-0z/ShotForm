@@ -1,4 +1,4 @@
-﻿use crate::database::{
+use crate::database::{
     delete_analysis_history as db_delete_history, get_analysis_history as db_get_history,
     get_player_templates as db_get_players, save_analysis_history as db_save_history,
     save_player_template as db_save_player, update_analysis_history_ai_coaching as db_update_history_ai,

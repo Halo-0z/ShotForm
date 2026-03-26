@@ -1,4 +1,4 @@
-﻿import argparse
+import argparse
 import base64
 import json
 from pathlib import Path

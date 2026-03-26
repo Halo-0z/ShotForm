@@ -284,11 +284,19 @@ const handleAiReview = async () => {
         </p>
         <label class="auto-ai-toggle">
           <input
+            class="auto-ai-toggle-input"
             :checked="analysisStore.autoAiAnalysisEnabled"
             type="checkbox"
             @change="analysisStore.setAutoAiAnalysisEnabled(($event.target as HTMLInputElement).checked)"
           />
-          <span>自动 AI 点评</span>
+          <span
+            class="auto-ai-toggle-switch"
+            :class="{ active: analysisStore.autoAiAnalysisEnabled }"
+            aria-hidden="true"
+          >
+            <span class="auto-ai-toggle-thumb"></span>
+          </span>
+          <span class="auto-ai-toggle-label">自动 AI 点评</span>
         </label>
       </header>
 
@@ -528,7 +536,13 @@ const handleAiReview = async () => {
                         <BrainCircuit class="h-3.5 w-3.5" />
                         {{ getReviewSourceLabel(analysisStore.currentAnalysis) }}
                       </Badge>
-                      <Button size="sm" variant="outline" @click="handleAiReview">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        class="ai-review-button"
+                        :disabled="isGeneratingAiReview"
+                        @click="handleAiReview"
+                      >
                         <Loader2 v-if="isGeneratingAiReview" class="mr-1.5 h-4 w-4 animate-spin" />
                         <BrainCircuit v-else class="mr-1.5 h-4 w-4" />
                         {{ aiReviewActionLabel }}
@@ -706,14 +720,88 @@ const handleAiReview = async () => {
 .auto-ai-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 10px;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.26);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.26), rgba(255, 255, 255, 0.1)),
+    linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(129, 140, 248, 0.04));
   color: var(--text-secondary);
   font-size: 13px;
+  box-shadow:
+    0 12px 28px rgba(15, 23, 42, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.42);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  cursor: pointer;
 }
 
-.auto-ai-toggle input {
-  accent-color: var(--primary-color);
+.auto-ai-toggle:hover {
+  border-color: rgba(129, 140, 248, 0.28);
+  box-shadow:
+    0 14px 32px rgba(99, 102, 241, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.48);
+}
+
+.auto-ai-toggle-input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.auto-ai-toggle-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 48px;
+  height: 28px;
+  padding: 3px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.08)),
+    rgba(148, 163, 184, 0.14);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 6px 16px rgba(15, 23, 42, 0.08);
+  transition:
+    background 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.auto-ai-toggle-switch.active {
+  border-color: rgba(129, 140, 248, 0.3);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.08)),
+    linear-gradient(135deg, rgba(99, 102, 241, 0.42), rgba(129, 140, 248, 0.28));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.36),
+    0 8px 18px rgba(99, 102, 241, 0.2);
+}
+
+.auto-ai-toggle-thumb {
+  display: block;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(232, 236, 255, 0.88));
+  box-shadow:
+    0 4px 10px rgba(15, 23, 42, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  transform: translateX(0);
+  transition: transform 180ms ease;
+}
+
+.auto-ai-toggle-switch.active .auto-ai-toggle-thumb {
+  transform: translateX(20px);
+}
+
+.auto-ai-toggle-label {
+  font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
 .module-nav {
@@ -935,13 +1023,13 @@ const handleAiReview = async () => {
   padding: 6px;
   border-radius: 999px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 249, 255, 0.84)),
-    linear-gradient(135deg, rgba(129, 220, 255, 0.12), transparent 68%);
+    linear-gradient(180deg, var(--glass-md), var(--glass-sm)),
+    linear-gradient(135deg, color-mix(in srgb, var(--primary-color) 18%, transparent), transparent 68%);
   border: 1px solid color-mix(in srgb, var(--primary-color) 15%, var(--surface-border));
   box-shadow:
     var(--shadow-md),
-    inset 0 1px 0 rgba(255, 255, 255, 0.98),
-    inset 0 -1px 0 rgba(129, 140, 248, 0.08);
+    inset 0 1px 0 color-mix(in srgb, var(--border-light) 82%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--primary-color) 12%, transparent);
 }
 
 .upload-switch-thumb {
@@ -952,10 +1040,14 @@ const handleAiReview = async () => {
   height: calc(100% - 12px);
   border-radius: 999px;
   background:
-    linear-gradient(135deg, color-mix(in srgb, var(--primary-color) 88%, white 12%), color-mix(in srgb, var(--primary-hover) 84%, white 6%));
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--primary-color) 82%, white 18%),
+      color-mix(in srgb, var(--primary-hover) 88%, rgba(255, 255, 255, 0.12))
+    );
   box-shadow:
     0 10px 20px rgba(99, 102, 241, 0.22),
-    inset 0 1px 0 rgba(255, 255, 255, 0.34);
+    inset 0 1px 0 color-mix(in srgb, var(--border-light) 56%, transparent);
   transform: translateX(calc(var(--toggle-index) * calc(100% + 8px)));
   transition:
     transform 420ms cubic-bezier(0.22, 1, 0.36, 1),
@@ -991,7 +1083,7 @@ const handleAiReview = async () => {
 }
 
 .upload-switch-btn.active {
-  color: #fff;
+  color: var(--text-inverse);
   transform: translateY(-1px);
 }
 
@@ -1126,7 +1218,19 @@ const handleAiReview = async () => {
 }
 
 .image-card.secondary {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 248, 255, 0.88));
+  border-color: color-mix(in srgb, var(--primary-color) 18%, rgba(255, 255, 255, 0.06));
+  background:
+    linear-gradient(180deg, rgba(30, 28, 48, 0.94), rgba(18, 16, 33, 0.92)),
+    radial-gradient(circle at top, color-mix(in srgb, var(--primary-color) 16%, transparent), transparent 54%);
+  box-shadow:
+    0 24px 48px rgba(5, 4, 16, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.28);
+}
+
+.image-card.secondary :deep(.card-header) {
+  border-bottom: 1px solid rgba(129, 140, 248, 0.1);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0));
 }
 
 .image-title {
@@ -1150,6 +1254,13 @@ const handleAiReview = async () => {
 
 .image-container.focus {
   min-height: clamp(320px, 42vh, 430px);
+  background:
+    radial-gradient(circle at top, rgba(56, 189, 248, 0.12), transparent 34%),
+    linear-gradient(180deg, rgba(8, 14, 28, 0.96), rgba(9, 12, 24, 0.92));
+  border-color: rgba(96, 165, 250, 0.14);
+  box-shadow:
+    0 18px 36px rgba(2, 6, 23, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .image-container.tall {
@@ -1223,6 +1334,48 @@ const handleAiReview = async () => {
   align-items: center;
   justify-content: flex-end;
   gap: 10px;
+}
+
+.ai-review-button {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(255, 255, 255, 0.22);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.08)),
+    linear-gradient(135deg, rgba(99, 102, 241, 0.14), rgba(129, 140, 248, 0.08));
+  color: var(--text-primary);
+  box-shadow:
+    0 10px 24px rgba(15, 23, 42, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+}
+
+.ai-review-button::before {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0));
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+.ai-review-button:hover:not(:disabled) {
+  border-color: rgba(129, 140, 248, 0.32);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.1)),
+    linear-gradient(135deg, rgba(99, 102, 241, 0.18), rgba(129, 140, 248, 0.12));
+  box-shadow:
+    0 14px 30px rgba(99, 102, 241, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.1);
+  transform: translateY(-1px);
+}
+
+.ai-review-button:disabled {
+  opacity: 0.72;
 }
 
 .card-caption {
@@ -1305,12 +1458,26 @@ const handleAiReview = async () => {
   scroll-snap-align: start;
 }
 
-.keyframe-card:hover,
-.keyframe-card.active {
-  border-color: var(--primary-color);
+.keyframe-card:hover {
+  border-color: color-mix(in srgb, var(--primary-color) 30%, var(--surface-border));
   box-shadow: var(--shadow-sm);
   transform: translateY(-2px);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(244, 247, 255, 0.86));
+  background: color-mix(in srgb, var(--glass-sm) 92%, transparent);
+}
+
+.keyframe-card.active {
+  border-color: var(--primary-color);
+  box-shadow:
+    var(--shadow-sm),
+    0 0 0 1px rgba(129, 140, 248, 0.18),
+    0 12px 26px rgba(79, 70, 229, 0.2);
+  transform: translateY(-2px);
+  background: linear-gradient(180deg, rgba(37, 33, 61, 0.96), rgba(25, 22, 43, 0.94));
+}
+
+.keyframe-card.active span {
+  color: var(--text-primary);
+  font-weight: 600;
 }
 
 .keyframe-card img {

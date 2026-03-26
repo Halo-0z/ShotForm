@@ -1,0 +1,144 @@
+[
+  {
+    "id": "curry_release_upright",
+    "player": "Stephen Curry",
+    "sourceImage": "../../star/Curry.png",
+    "scenario": "late release upright frame",
+    "expectedShotType": "unknown",
+    "minConfidence": 0.0,
+    "maxConfidence": 0.52,
+    "keypoints": [
+      { "id": 11, "x": -25.0, "y": 0.0 },
+      { "id": 12, "x": 0.0, "y": 0.0 },
+      { "id": 14, "x": 20.0, "y": -40.0 },
+      { "id": 16, "x": 40.0, "y": -80.0 },
+      { "id": 24, "x": 0.0, "y": 100.0 },
+      { "id": 26, "x": 0.0, "y": 200.0 },
+      { "id": 28, "x": 5.0, "y": 300.0 }
+    ],
+    "angles": []
+  },
+  {
+    "id": "ray_allen_compact_one_motion",
+    "player": "Ray Allen style",
+    "sourceImage": "../../star/PG.png",
+    "scenario": "compact set point one-motion reference",
+    "expectedShotType": "one_motion",
+    "minConfidence": 0.45,
+    "maxConfidence": 1.0,
+    "keypoints": [
+      { "id": 11, "x": -20.0, "y": 0.0 },
+      { "id": 12, "x": 20.0, "y": 0.0 },
+      { "id": 14, "x": 40.0, "y": -10.0 },
+      { "id": 16, "x": 55.0, "y": -18.0 },
+      { "id": 24, "x": 20.0, "y": 100.0 },
+      { "id": 26, "x": 24.0, "y": 190.0 },
+      { "id": 28, "x": 28.0, "y": 280.0 }
+    ],
+    "angles": [
+      { "name": "shooting_elbow_angle", "value": 90.0 },
+      { "name": "release_angle", "value": 51.0 },
+      { "name": "right_shoulder_angle", "value": 66.0 },
+      { "name": "right_knee_angle", "value": 144.0 }
+    ]
+  },
+  {
+    "id": "mj_high_set_point_two_motion",
+    "player": "Michael Jordan style",
+    "sourceImage": "../../star/MJ.png",
+    "scenario": "high set point two-motion reference",
+    "expectedShotType": "two_motion",
+    "minConfidence": 0.45,
+    "maxConfidence": 1.0,
+    "keypoints": [
+      { "id": 11, "x": -20.0, "y": 0.0 },
+      { "id": 12, "x": 20.0, "y": 0.0 },
+      { "id": 14, "x": 42.0, "y": -32.0 },
+      { "id": 16, "x": 48.0, "y": -70.0 },
+      { "id": 24, "x": 20.0, "y": 100.0 },
+      { "id": 26, "x": 22.0, "y": 190.0 },
+      { "id": 28, "x": 26.0, "y": 280.0 }
+    ],
+    "angles": [
+      { "name": "shooting_elbow_angle", "value": 118.0 },
+      { "name": "release_angle", "value": 72.0 },
+      { "name": "right_shoulder_angle", "value": 108.0 },
+      { "name": "right_knee_angle", "value": 166.0 }
+    ]
+  },
+  {
+    "id": "luka_real_image_release_frame",
+    "player": "Luka Doncic",
+    "sourceImage": "../../star/Luka Doncic.jpg",
+    "scenario": "real single-frame high set point image",
+    "expectedShotType": "two_motion",
+    "minConfidence": 0.45,
+    "maxConfidence": 1.0,
+    "keypoints": [
+      { "id": 0, "x": 401.6448031067848, "y": 504.5731486082077 },
+      { "id": 11, "x": 344.22869780659676, "y": 621.2107875347137 },
+      { "id": 12, "x": 374.771394520998, "y": 586.9883910417557 },
+      { "id": 13, "x": 451.16294288635254, "y": 513.1966404914856 },
+      { "id": 14, "x": 516.3650806546211, "y": 458.7452733516693 },
+      { "id": 15, "x": 450.67703077197075, "y": 372.86009526252747 },
+      { "id": 16, "x": 484.78435054421425, "y": 323.19955694675446 },
+      { "id": 23, "x": 458.5508616864681, "y": 949.8266308307648 },
+      { "id": 24, "x": 476.0050272345543, "y": 936.3469772338867 },
+      { "id": 25, "x": 521.8851281404495, "y": 1197.149079322815 },
+      { "id": 26, "x": 652.4469686150551, "y": 1133.9939527511597 },
+      { "id": 27, "x": 527.2695679664612, "y": 1444.6904029846191 },
+      { "id": 28, "x": 671.5878272652626, "y": 1401.3973739147186 }
+    ],
+    "angles": []
+  },
+  {
+    "id": "mj3_real_image_high_set_point",
+    "player": "Michael Jordan",
+    "sourceImage": "../../star/MJ3.png",
+    "scenario": "real single-frame release image with high set point appearance",
+    "expectedShotType": "unknown",
+    "minConfidence": 0.0,
+    "maxConfidence": 0.52,
+    "keypoints": [
+      { "id": 0, "x": 167.8838496208191, "y": 255.1437109708786 },
+      { "id": 11, "x": 123.70696234703064, "y": 315.5736654996872 },
+      { "id": 12, "x": 241.53842782974243, "y": 317.4309656023979 },
+      { "id": 13, "x": 76.59597730636597, "y": 227.96106487512589 },
+      { "id": 14, "x": 251.16236972808838, "y": 223.94851371645927 },
+      { "id": 15, "x": 112.1337103843689, "y": 145.74234187602997 },
+      { "id": 16, "x": 196.10347151756287, "y": 140.5258297920227 },
+      { "id": 23, "x": 153.78482472896576, "y": 562.0744049549103 },
+      { "id": 24, "x": 227.22759175300598, "y": 567.5265491008759 },
+      { "id": 25, "x": 147.24343407154083, "y": 725.7936894893646 },
+      { "id": 26, "x": 228.22017860412598, "y": 718.4559255838394 },
+      { "id": 27, "x": 177.46232414245605, "y": 880.2445292472839 },
+      { "id": 28, "x": 244.3007161617279, "y": 867.1870082616806 }
+    ],
+    "angles": []
+  },
+  {
+    "id": "mj2_real_image_contested_scene",
+    "player": "Michael Jordan",
+    "sourceImage": "../../star/MJ2.png",
+    "scenario": "real contested scene with defender interference",
+    "expectedShotType": "two_motion",
+    "minConfidence": 0.45,
+    "maxConfidence": 1.0,
+    "keypoints": [
+      { "id": 0, "x": 830.0200080871582, "y": 331.6360902786255 },
+      { "id": 11, "x": 879.5381784439087, "y": 431.5049457550049 },
+      { "id": 12, "x": 746.2598347663879, "y": 425.0524950027466 },
+      { "id": 13, "x": 836.5097093582153, "y": 401.3769578933716 },
+      { "id": 14, "x": 699.4927740097046, "y": 392.1943187713623 },
+      { "id": 15, "x": 786.7490458488464, "y": 272.7375268936157 },
+      { "id": 16, "x": 728.4581208229065, "y": 262.2548532485962 },
+      { "id": 23, "x": 788.9007782936096, "y": 726.7991638183594 },
+      { "id": 24, "x": 702.4373245239258, "y": 732.6650047302246 },
+      { "id": 25, "x": 782.2461533546448, "y": 935.3031063079834 },
+      { "id": 26, "x": 687.968008518219, "y": 899.566125869751 },
+      { "id": 27, "x": 807.6422095298767, "y": 1116.8665981292725 },
+      { "id": 28, "x": 695.7144641876221, "y": 1105.6012344360352 }
+    ],
+    "angles": []
+  }
+]

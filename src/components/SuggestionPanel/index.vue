@@ -1,34 +1,44 @@
-<template>
+﻿<template>
   <div class="suggestion-panel">
     <div class="panel-header">
       <h3>姿势纠正建议</h3>
       <div v-if="analysis" class="panel-actions">
-        <el-button size="small" plain :loading="loading" @click="generateAiSuggestions">
+        <Button
+          size="sm"
+          variant="outline"
+          class="ai-action-button"
+          :disabled="loading"
+          @click="generateAiSuggestions"
+        >
           {{ actionLabel }}
-        </el-button>
+        </Button>
         <span class="source-pill" :class="sourceClass">
           {{ sourceLabel }}
         </span>
       </div>
     </div>
 
+    <p v-if="successMessage" class="success-hint">
+      {{ successMessage }}
+    </p>
+
     <div v-if="loading" class="loading-state">
-      正在生成建议...
+      正在生成 AI 建议...
     </div>
 
     <div v-else-if="aiError" class="error-state">
       <p class="error-title">AI 建议暂时不可用，已回退到本地规则。</p>
       <p class="error-message">{{ aiError }}</p>
       <div v-if="canRetryAi" class="error-actions">
-        <el-button
-          type="danger"
-          plain
-          size="small"
+        <Button
+          size="sm"
+          variant="outline"
+          class="retry-ai-button"
           :disabled="retryCooldownSeconds > 0 || loading"
           @click="generateAiSuggestions"
         >
           {{ retryButtonLabel }}
-        </el-button>
+        </Button>
         <span v-if="retryCooldownSeconds > 0" class="retry-hint">
           {{ retryCooldownSeconds }}s 后可重试
         </span>
@@ -43,7 +53,7 @@
     <div v-if="!loading && suggestions.length > 0" class="suggestions">
       <el-card
         v-for="(suggestion, index) in suggestions"
-        :key="index"
+        :key="`${suggestion.bodyPart}-${index}`"
         class="suggestion-card"
         :class="`priority-${suggestion.priority}`"
       >
@@ -59,11 +69,11 @@
         <div class="suggestion-content">
           <p class="issue">
             <el-icon><Warning /></el-icon>
-            问题: {{ suggestion.issue }}
+            问题：{{ suggestion.issue }}
           </p>
           <p class="advice">
             <el-icon><CircleCheck /></el-icon>
-            建议: {{ suggestion.suggestion }}
+            建议：{{ suggestion.suggestion }}
           </p>
         </div>
       </el-card>
@@ -71,13 +81,13 @@
 
     <el-empty
       v-else-if="!loading && !analysis"
-      description="请先进行姿势分析"
+      description="请先完成姿势分析"
     />
     <el-result
       v-else-if="!loading && !suggestions.length"
       icon="success"
-      title="姿势整体较好"
-      sub-title="当前没有发现需要优先纠正的明显问题。"
+      title="暂无明显纠正项"
+      sub-title="当前姿态没有命中明显异常角度，建议继续结合视频节奏与连续帧观察。"
     />
   </div>
 </template>
@@ -85,6 +95,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+import { CircleCheck, InfoFilled, Warning, WarningFilled } from '@element-plus/icons-vue'
+import { Button } from '@/components/ui/button'
 import type {
   AiCoachingResponse,
   CorrectionSuggestion,
@@ -92,6 +104,7 @@ import type {
 } from '@/types'
 import { useAnalysisStore } from '@/stores/analysis'
 import { getRetryCooldownSeconds, isRetryableAiError } from '@/lib/ai-retry-policy.js'
+import { resolveAiImageSource } from '@/lib/ai-coaching-image.js'
 
 const props = defineProps<{
   analysis: ShotAnalysis | null
@@ -102,6 +115,7 @@ const suggestions = ref<CorrectionSuggestion[]>([])
 const summary = ref('')
 const loading = ref(false)
 const aiError = ref('')
+const successMessage = ref('')
 const retryCooldownSeconds = ref(0)
 
 let retryCooldownTimer: number | null = null
@@ -125,9 +139,7 @@ const hasCachedAiSuggestions = computed(() => {
   )
 })
 
-const canRetryAi = computed(() => {
-  return isRetryableAiError(aiError.value)
-})
+const canRetryAi = computed(() => isRetryableAiError(aiError.value))
 
 const actionLabel = computed(() => {
   if (loading.value) {
@@ -139,11 +151,11 @@ const actionLabel = computed(() => {
 
 const retryButtonLabel = computed(() => {
   if (loading.value) {
-    return '正在重试...'
+    return '重试中...'
   }
 
   if (retryCooldownSeconds.value > 0) {
-    return '稍后再试'
+    return '等待冷却'
   }
 
   return '重试 AI 建议'
@@ -159,16 +171,16 @@ const getPriorityColor = (priority: string) => {
 }
 
 const getPriorityIcon = (priority: string) => {
-  const icons: Record<string, string> = {
-    high: 'WarningFilled',
-    medium: 'Warning',
-    low: 'InfoFilled'
+  const icons = {
+    high: WarningFilled,
+    medium: Warning,
+    low: InfoFilled
   }
-  return icons[priority] || 'InfoFilled'
+  return icons[priority as keyof typeof icons] || InfoFilled
 }
 
 const getPriorityTag = (priority: string) => {
-  const tags: Record<string, string> = {
+  const tags: Record<string, 'danger' | 'warning' | 'info'> = {
     high: 'danger',
     medium: 'warning',
     low: 'info'
@@ -194,7 +206,7 @@ const buildFallbackSummary = (
   }
 
   if (!items.length) {
-    return '这次动作里没有看到特别突出的单点问题，先保持当前出手节奏，再结合连续动作去看稳定性。'
+    return '当前姿态没有明显的高风险问题，建议继续结合视频节奏、出手时机和连续动作去观察稳定性。'
   }
 
   const focus = items
@@ -202,7 +214,7 @@ const buildFallbackSummary = (
     .map(item => item.bodyPart)
     .join('、')
 
-  return `这次最值得先收的是 ${focus} 的配合。先把动作顺下来，再去抠更多细节，会比直接追角度数字更有效。`
+  return `从当前姿态看，主要需要优先关注 ${focus} 的发力与稳定性。建议先用本地规则明确训练重点，再按需生成 AI 建议做更细的动作解释。`
 }
 
 const clearRetryCooldown = () => {
@@ -251,6 +263,7 @@ const loadSuggestions = async () => {
     suggestions.value = []
     summary.value = ''
     aiError.value = ''
+    successMessage.value = ''
     analysisStore.clearAiCoachingCache()
     clearRetryCooldown()
     return
@@ -259,10 +272,12 @@ const loadSuggestions = async () => {
   if (hasCachedAiSuggestions.value) {
     syncCachedSuggestions()
     aiError.value = ''
+    successMessage.value = ''
     clearRetryCooldown()
     return
   }
 
+  successMessage.value = ''
   await loadRuleSuggestions()
 }
 
@@ -273,17 +288,34 @@ const generateAiSuggestions = async () => {
 
   loading.value = true
   aiError.value = ''
+  successMessage.value = ''
 
   try {
+    const imageData = await resolveAiImageSource(analysisStore.currentImage || null)
+    const annotatedImageData = await resolveAiImageSource(analysisStore.currentAnnotatedImage || null)
     const response = await invoke<AiCoachingResponse>('get_ai_correction_suggestions', {
       analysis: props.analysis,
-      imageData: analysisStore.currentImage || null,
-      annotatedImageData: analysisStore.currentAnnotatedImage || null
+      imageData,
+      annotatedImageData
     })
+
     analysisStore.setAiCoachingCache(response.summary, response.suggestions, 'ai')
     syncCachedSuggestions()
+
+    if (analysisStore.currentHistoryId) {
+      await analysisStore.updateHistoryAiCoaching(
+        analysisStore.currentHistoryId,
+        response.summary,
+        response.suggestions
+      )
+    }
+
+    successMessage.value = analysisStore.currentHistoryId
+      ? 'AI 建议已重新生成，并已保存到这条历史记录。'
+      : 'AI 建议已重新生成。'
     clearRetryCooldown()
   } catch (error) {
+    successMessage.value = ''
     aiError.value = error instanceof Error ? error.message : String(error)
     startRetryCooldown(aiError.value)
     console.warn('AI suggestions unavailable, falling back to local rules:', error)
@@ -293,9 +325,13 @@ const generateAiSuggestions = async () => {
   }
 }
 
-watch(() => props.analysis, loadSuggestions)
+watch(() => props.analysis, () => {
+  void loadSuggestions()
+})
 
-onMounted(loadSuggestions)
+onMounted(() => {
+  void loadSuggestions()
+})
 onBeforeUnmount(clearRetryCooldown)
 </script>
 
@@ -321,10 +357,51 @@ onBeforeUnmount(clearRetryCooldown)
   gap: 10px;
 }
 
+.ai-action-button {
+  min-width: 128px;
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.03)),
+    var(--glass-md);
+  border-color: color-mix(in srgb, var(--primary-color) 24%, var(--surface-border));
+  color: var(--text-primary);
+  box-shadow:
+    0 10px 24px rgba(15, 23, 42, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+.ai-action-button:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--primary-color) 42%, var(--surface-border));
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.05)),
+    var(--glass-lg);
+  box-shadow:
+    0 14px 28px rgba(79, 70, 229, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.ai-action-button:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow:
+    0 8px 18px rgba(79, 70, 229, 0.16),
+    inset 0 2px 6px rgba(15, 23, 42, 0.14);
+}
+
+.ai-action-button:disabled {
+  opacity: 0.72;
+}
+
 .suggestion-panel h3 {
   margin: 0;
   font-size: 18px;
   color: var(--text-primary);
+}
+
+.success-hint {
+  margin: 0 0 14px;
+  color: var(--color-success);
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .source-pill {
@@ -392,6 +469,21 @@ onBeforeUnmount(clearRetryCooldown)
   align-items: center;
   gap: 12px;
   margin-top: 12px;
+}
+
+.retry-ai-button {
+  border-color: color-mix(in srgb, var(--color-danger) 34%, var(--surface-border));
+  color: var(--color-danger-hover);
+  background:
+    linear-gradient(180deg, rgba(239, 68, 68, 0.12), rgba(239, 68, 68, 0.04)),
+    var(--glass-md);
+}
+
+.retry-ai-button:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--color-danger) 54%, var(--surface-border));
+  background:
+    linear-gradient(180deg, rgba(239, 68, 68, 0.16), rgba(239, 68, 68, 0.06)),
+    var(--glass-lg);
 }
 
 .retry-hint {

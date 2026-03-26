@@ -1,4 +1,4 @@
-use anyhow::Result;
+﻿use anyhow::Result;
 use sqlx::SqlitePool;
 use tauri::Manager;
 
@@ -176,6 +176,30 @@ pub async fn save_analysis_history(
     Ok(result.last_insert_rowid())
 }
 
+
+pub async fn update_analysis_history_ai_coaching(
+    pool: &SqlitePool,
+    id: i64,
+    ai_coaching_summary: &str,
+    ai_coaching_suggestions: &[CorrectionSuggestion],
+) -> Result<()> {
+    let ai_coaching_suggestions_json = serde_json::to_string(ai_coaching_suggestions)?;
+
+    sqlx::query(
+        r#"
+        UPDATE analysis_history
+        SET ai_coaching_summary = ?, ai_coaching_suggestions_json = ?
+        WHERE id = ?
+        "#,
+    )
+    .bind(ai_coaching_summary)
+    .bind(&ai_coaching_suggestions_json)
+    .bind(id)
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
 pub async fn get_analysis_history(pool: &SqlitePool) -> Result<Vec<AnalysisHistory>> {
     let rows = sqlx::query_as::<_, DbAnalysisHistory>(
         "SELECT * FROM analysis_history ORDER BY created_at DESC",
@@ -220,3 +244,4 @@ pub async fn delete_analysis_history(pool: &SqlitePool, id: i64) -> Result<()> {
 
     Ok(())
 }
+

@@ -1,4 +1,4 @@
-import { defineStore } from 'pinia'
+﻿import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
@@ -290,6 +290,18 @@ export const useAnalysisStore = defineStore('analysis', () => {
     )
   }
 
+  const updateHistoryAiCoaching = async (
+    historyId: number,
+    summary: string,
+    suggestions: CorrectionSuggestion[]
+  ): Promise<void> => {
+    await invoke('update_analysis_history_ai_coaching', {
+      id: historyId,
+      aiCoachingSummary: summary,
+      aiCoachingSuggestions: suggestions
+    })
+  }
+
   const saveToHistory = async (
     imagePath: string,
     annotatedImagePath: string,
@@ -353,9 +365,14 @@ export const useAnalysisStore = defineStore('analysis', () => {
     clearAiCoachingCache,
     loadPreferences,
     setAutoAiAnalysisEnabled,
+    updateHistoryAiCoaching,
     saveToHistory,
     getHistory,
     deleteHistory,
     buildAiAnalysisPayload
   }
 })
+
+
+
+

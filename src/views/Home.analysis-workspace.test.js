@@ -3,7 +3,10 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
-const source = readFileSync(resolve('D:/智能投篮分析/src/views/Home.vue'), 'utf8')
+const source = readFileSync(
+  resolve('D:/智能投篮分析/.worktrees/cinematic-home-ui/src/components/home/HomeWorkspace.vue'),
+  'utf8'
+)
 
 test('video workspace preview card uses a dark workbench surface', () => {
   const secondaryBlock = source.match(/\.image-card\.secondary \{[\s\S]*?\n\}/)?.[0] ?? ''

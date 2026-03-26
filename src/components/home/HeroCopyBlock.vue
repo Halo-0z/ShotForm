@@ -53,9 +53,11 @@ const emit = defineEmits<{
 
 .hero-headline {
   margin: 0;
+  font-family: var(--font-display), var(--font-display-cn);
   font-size: clamp(3.6rem, 9vw, 6.4rem);
   line-height: 0.96;
   letter-spacing: -0.05em;
+  text-wrap: balance;
 }
 
 .hero-subtitle {

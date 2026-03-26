@@ -3,7 +3,18 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
-const source = readFileSync(resolve('D:/智能投篮分析/src/views/Home.vue'), 'utf8')
+const source = readFileSync(
+  resolve('D:/智能投篮分析/.worktrees/cinematic-home-ui/src/components/home/HomeWorkspace.vue'),
+  'utf8'
+)
+
+test('Home workspace remaps the legacy glass variables onto a dark cinematic palette', () => {
+  const homePageBlock = source.match(/\.home-page \{[\s\S]*?\n\}/)?.[0] ?? ''
+
+  assert.match(homePageBlock, /--glass-md:\s*rgba\(255, 255, 255, 0\.1[0-9]*\)/)
+  assert.match(homePageBlock, /--text-primary:\s*var\(--hero-text\)/)
+  assert.match(homePageBlock, /--surface-border:\s*rgba\(255, 255, 255, 0\.1[0-9]*\)/)
+})
 
 test('Home upload switch uses theme variables instead of light-only glass values', () => {
   const switchBlock = source.match(/\.upload-switch \{[\s\S]*?\n\}/)?.[0] ?? ''

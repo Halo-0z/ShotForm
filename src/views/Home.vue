@@ -1,23 +1,33 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import CinematicHeroStage from '@/components/home/CinematicHeroStage.vue'
 import HeroCopyBlock from '@/components/home/HeroCopyBlock.vue'
 import HomeWorkspace from '@/components/home/HomeWorkspace.vue'
-import { HOME_HERO_COPY, getInitialHeroMode } from '@/lib/home-hero-state.js'
+import { HOME_HERO_COPY, getInitialHeroMode, shouldReduceHeroMotion } from '@/lib/home-hero-state.js'
 import { useAnalysisStore } from '@/stores/analysis'
 
 const analysisStore = useAnalysisStore()
 
 const heroMode = ref(getInitialHeroMode(Boolean(analysisStore.currentAnalysis)))
+const reduceMotion = ref(false)
 const workspaceRef = ref<HTMLElement | null>(null)
+let motionQuery: MediaQueryList | null = null
 
 const hasAnalysis = computed(() => Boolean(analysisStore.currentAnalysis))
 const isWorking = computed(() => analysisStore.isLoading || hasAnalysis.value)
 
+const syncReduceMotion = (matches: boolean) => {
+  reduceMotion.value = shouldReduceHeroMotion(matches)
+}
+
+const handleMotionPreferenceChange = (event: MediaQueryListEvent) => {
+  syncReduceMotion(event.matches)
+}
+
 const scrollWorkspaceIntoView = () => {
   requestAnimationFrame(() => {
     workspaceRef.value?.scrollIntoView({
-      behavior: 'smooth',
+      behavior: reduceMotion.value ? 'auto' : 'smooth',
       block: 'start'
     })
   })
@@ -34,11 +44,43 @@ watch(isWorking, value => {
     heroMode.value = 'workspace'
   }
 })
+
+onMounted(() => {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+    return
+  }
+
+  motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
+  syncReduceMotion(motionQuery.matches)
+
+  if (typeof motionQuery.addEventListener === 'function') {
+    motionQuery.addEventListener('change', handleMotionPreferenceChange)
+    return
+  }
+
+  motionQuery.addListener(handleMotionPreferenceChange)
+})
+
+onBeforeUnmount(() => {
+  if (!motionQuery) {
+    return
+  }
+
+  if (typeof motionQuery.removeEventListener === 'function') {
+    motionQuery.removeEventListener('change', handleMotionPreferenceChange)
+    return
+  }
+
+  motionQuery.removeListener(handleMotionPreferenceChange)
+})
 </script>
 
 <template>
-  <div class="cinematic-home" :class="{ 'is-workspace': heroMode === 'workspace' }">
-    <CinematicHeroStage class="hero-stage-shell">
+  <div
+    class="cinematic-home"
+    :class="{ 'is-workspace': heroMode === 'workspace', 'reduced-motion': reduceMotion }"
+  >
+    <CinematicHeroStage class="hero-stage-shell" :reduce-motion="reduceMotion">
       <div class="hero-stage-inner">
         <HeroCopyBlock
           :headline="HOME_HERO_COPY.headline"
@@ -103,6 +145,12 @@ watch(isWorking, value => {
     0 -1px 0 rgba(255, 255, 255, 0.04),
     0 -30px 80px rgba(0, 0, 0, 0.28);
   overflow: clip;
+}
+
+.cinematic-home.reduced-motion .workspace-reveal {
+  opacity: 1;
+  transform: none;
+  transition-duration: 0.01ms;
 }
 
 @media (max-width: 720px) {

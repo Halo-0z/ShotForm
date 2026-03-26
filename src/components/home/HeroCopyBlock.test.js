@@ -11,6 +11,10 @@ test('copy block uses the approved CTA and staggered delays', () => {
   assert.match(source, /fade-rise/)
 })
 
+test('headline uses the cinematic display font stack for English and Chinese text', () => {
+  assert.match(source, /font-family:\s*var\(--font-display\), var\(--font-display-cn\)/)
+})
+
 test('primary button uses the liquid glass treatment', () => {
   assert.match(source, /liquid-glass/)
   assert.match(source, /::before/)

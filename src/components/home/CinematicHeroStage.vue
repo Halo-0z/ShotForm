@@ -1,39 +1,68 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 const props = withDefaults(
   defineProps<{
     videoSrc?: string
+    posterSrc?: string
     figureSrc?: string
+    reduceMotion?: boolean
   }>(),
   {
     videoSrc: '/hero/home-hero-loop.mp4',
-    figureSrc: '/hero/luka2.png'
+    posterSrc: '/hero/luka2.png',
+    figureSrc: '/hero/luka2.png',
+    reduceMotion: false
   }
 )
 
 const videoFailed = ref(false)
+const videoReady = ref(false)
 
-const hasVideo = computed(() => Boolean(props.videoSrc) && !videoFailed.value)
+const hasVideo = computed(() => Boolean(props.videoSrc) && !videoFailed.value && !props.reduceMotion)
+
+const posterStyle = computed(() => ({
+  '--hero-poster-image': props.posterSrc ? `url("${props.posterSrc}")` : 'none'
+}))
+
+const resetVideoState = () => {
+  videoFailed.value = false
+  videoReady.value = false
+}
 
 const handleVideoError = () => {
   videoFailed.value = true
+  videoReady.value = false
 }
+
+const handleVideoCanPlay = () => {
+  videoReady.value = true
+}
+
+watch(() => props.videoSrc, resetVideoState)
+watch(() => props.reduceMotion, reduceMotion => {
+  if (reduceMotion) {
+    videoReady.value = false
+  }
+})
 </script>
 
 <template>
   <section class="hero-stage">
+    <div class="hero-video-poster" aria-hidden="true" :style="posterStyle"></div>
     <video
       v-if="hasVideo"
       class="hero-video"
+      :class="{ 'is-ready': videoReady }"
       :src="videoSrc"
+      :poster="posterSrc"
       autoplay
       muted
       loop
       playsinline
+      @canplay="handleVideoCanPlay"
       @error="handleVideoError"
     ></video>
-    <div v-else class="hero-video-poster" aria-hidden="true"></div>
 
     <div class="hero-atmosphere-fallback" aria-hidden="true"></div>
     <div class="hero-vignette" aria-hidden="true"></div>
@@ -67,15 +96,33 @@ const handleVideoError = () => {
 }
 
 .hero-video {
-  opacity: 0.34;
+  opacity: 0;
   object-fit: cover; /* object-cover */
+  transition: opacity 720ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.hero-video.is-ready {
+  opacity: 0.34;
 }
 
 .hero-video-poster {
-  background:
+  background-image:
     radial-gradient(circle at 70% 18%, rgba(129, 151, 215, 0.22), transparent 18%),
     radial-gradient(circle at 28% 80%, rgba(86, 110, 172, 0.24), transparent 24%),
-    linear-gradient(180deg, rgba(9, 13, 25, 0.74), rgba(4, 6, 12, 0.96));
+    linear-gradient(180deg, rgba(9, 13, 25, 0.74), rgba(4, 6, 12, 0.96)),
+    var(--hero-poster-image);
+  background-position:
+    center,
+    center,
+    center,
+    74% bottom;
+  background-repeat: no-repeat;
+  background-size:
+    auto,
+    auto,
+    auto,
+    min(34vw, 24rem) auto;
+  opacity: 0.94;
 }
 
 .hero-atmosphere-fallback {
@@ -133,6 +180,19 @@ const handleVideoError = () => {
 }
 
 @media (max-width: 900px) {
+  .hero-video-poster {
+    background-position:
+      center,
+      center,
+      center,
+      calc(100% + 0.5rem) bottom;
+    background-size:
+      auto,
+      auto,
+      auto,
+      min(48vw, 20rem) auto;
+  }
+
   .hero-figure-shell {
     right: -1.25rem;
     width: min(48vw, 20rem);
@@ -141,6 +201,19 @@ const handleVideoError = () => {
 }
 
 @media (max-width: 640px) {
+  .hero-video-poster {
+    background-position:
+      center,
+      center,
+      center,
+      calc(100% + 1.5rem) bottom;
+    background-size:
+      auto,
+      auto,
+      auto,
+      min(58vw, 17rem) auto;
+  }
+
   .hero-figure-shell {
     width: min(58vw, 17rem);
     right: -2rem;

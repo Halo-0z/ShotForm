@@ -656,10 +656,59 @@ const handleAiReview = async () => {
 
 <style scoped>
 .home-page {
+  --primary-color: #8d98ff;
+  --primary-hover: #aab2ff;
+  --primary-active: #7887f3;
+  --accent-color: #7fe0ff;
+  --accent-hover: #58c8f0;
+
+  --surface-color: rgba(12, 15, 24, 0.72);
+  --surface-border: rgba(255, 255, 255, 0.12);
+  --card-bg: rgba(18, 21, 31, 0.76);
+
+  --glass-xs: rgba(255, 255, 255, 0.03);
+  --glass-sm: rgba(255, 255, 255, 0.07);
+  --glass-md: rgba(255, 255, 255, 0.11);
+  --glass-lg: rgba(255, 255, 255, 0.15);
+
+  --text-primary: var(--hero-text);
+  --text-secondary: rgba(223, 229, 238, 0.78);
+  --text-muted: rgba(177, 186, 204, 0.58);
+  --text-inverse: #06070d;
+
+  --border-color: rgba(141, 152, 255, 0.22);
+  --border-light: rgba(255, 255, 255, 0.14);
+  --divider-color: rgba(255, 255, 255, 0.08);
+
+  --shadow-sm: 0 10px 24px rgba(0, 0, 0, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --shadow-md: 0 18px 40px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --shadow-lg: 0 24px 56px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --shadow-xl: 0 34px 84px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  --inset-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --inset-depth: inset 0 -1px 0 rgba(0, 0, 0, 0.32);
+
   min-height: 100%;
   display: flex;
   flex-direction: column;
   padding: 24px 24px 40px;
+  position: relative;
+  isolation: isolate;
+  color: var(--text-primary);
+  background:
+    radial-gradient(circle at top, rgba(113, 133, 201, 0.12), transparent 34%),
+    linear-gradient(180deg, rgba(6, 8, 14, 0.72), rgba(5, 7, 12, 0.92));
+}
+
+.home-page::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: min(26rem, 42vh);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(126, 148, 224, 0.16), transparent 60%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 78%);
+  pointer-events: none;
+  z-index: 0;
 }
 
 .home-page.workspace-page {
@@ -673,6 +722,8 @@ const handleAiReview = async () => {
   display: flex;
   flex-direction: column;
   flex: 1;
+  position: relative;
+  z-index: 1;
 }
 
 .home-header {
@@ -1092,9 +1143,16 @@ const handleAiReview = async () => {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .choice-card,
+  .result-main,
+  .result-data,
+  .reason-item,
+  .data-card,
   .upload-switch-thumb,
   .upload-switch-btn {
+    animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+    transform: none !important;
   }
 }
 

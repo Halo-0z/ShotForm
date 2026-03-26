@@ -14,5 +14,6 @@ src-tauri/target
 .venv/
 .learnings/
 .plans/
+.worktrees/
 CLAUDE.md
 star/

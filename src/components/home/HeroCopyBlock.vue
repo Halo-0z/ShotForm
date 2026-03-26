@@ -20,10 +20,10 @@ const emit = defineEmits<{
 <template>
   <div class="hero-copy-block">
     <p class="hero-kicker fade-rise">Basketball Shot Analyzer</p>
-    <h1 class="hero-headline fade-rise">{{ headline }}</h1>
-    <p class="hero-subtitle fade-rise delay-copy">{{ subtitle }}</p>
+    <h1 class="hero-headline fade-rise">{{ props.headline }}</h1>
+    <p class="hero-subtitle fade-rise delay-copy">{{ props.subtitle }}</p>
     <button type="button" class="hero-cta liquid-glass fade-rise delay-cta" @click="emit('start')">
-      {{ cta }}
+      {{ props.cta }}
     </button>
   </div>
 </template>

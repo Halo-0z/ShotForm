@@ -22,6 +22,7 @@ import ComparisonView from '@/components/ComparisonView/index.vue'
 import SuggestionPanel from '@/components/SuggestionPanel/index.vue'
 import AngleChart from '@/components/ChartComponents/AngleChart.vue'
 import HomeModuleGem from '@/components/HomeModuleGem.vue'
+import HomeWorkspaceHeroArt from '@/components/home/HomeWorkspaceHeroArt.vue'
 import { useAnalysisStore } from '@/stores/analysis'
 import { getAiReviewState } from '@/lib/ai-analysis-flow.js'
 import {
@@ -33,6 +34,9 @@ import {
 } from '@/types'
 
 const analysisStore = useAnalysisStore()
+const emit = defineEmits<{
+  uploadWorkspaceLockChange: [locked: boolean]
+}>()
 const isGeneratingAiReview = ref(false)
 
 const showUpload = ref(false)
@@ -43,6 +47,7 @@ const videoPreviewUrl = ref('')
 
 const hasAnalysis = computed(() => !!analysisStore.currentAnalysis)
 const visualizedImage = computed(() => analysisStore.currentAnnotatedImage || analysisStore.currentImage)
+const isUploadWorkspaceLocked = computed(() => showUpload.value && activeModule.value === 'upload')
 const currentVideoAnalysis = computed(() => analysisStore.currentVideoAnalysis)
 const currentVideoFrame = computed(() => {
   const analysis = currentVideoAnalysis.value
@@ -84,6 +89,14 @@ watch(
       activeModule.value = 'analysis'
     }
   }
+)
+
+watch(
+  isUploadWorkspaceLocked,
+  locked => {
+    emit('uploadWorkspaceLockChange', locked)
+  },
+  { immediate: true }
 )
 
 const modules = [
@@ -271,46 +284,63 @@ const handleAiReview = async () => {
 </script>
 
 <template>
-  <div class="home-page" :class="{ 'workspace-page': isAnalysisWorkspace }">
+  <div
+    class="home-page"
+    :class="{
+      'workspace-page': isAnalysisWorkspace,
+      'focused-workspace': showUpload,
+      'loaded-upload-workspace': showUpload && activeModule === 'upload'
+    }"
+  >
     <div class="home-container" :class="{ 'workspace-container': isAnalysisWorkspace }">
-      <header class="home-header" :class="{ compact: isAnalysisWorkspace }">
-        <Badge variant="default" class="header-badge">
-          <Sparkles class="mr-1.5 h-3.5 w-3.5" />
-          AI 智能分析
-        </Badge>
-        <h1 class="header-title">投篮姿势分析</h1>
-        <p class="header-subtitle" :class="{ compact: isAnalysisWorkspace }">
-          {{ headerSubtitle }}
-        </p>
-        <label class="auto-ai-toggle">
-          <input
-            class="auto-ai-toggle-input"
-            :checked="analysisStore.autoAiAnalysisEnabled"
-            type="checkbox"
-            @change="analysisStore.setAutoAiAnalysisEnabled(($event.target as HTMLInputElement).checked)"
-          />
-          <span
-            class="auto-ai-toggle-switch"
-            :class="{ active: analysisStore.autoAiAnalysisEnabled }"
-            aria-hidden="true"
-          >
-            <span class="auto-ai-toggle-thumb"></span>
-          </span>
-          <span class="auto-ai-toggle-label">自动 AI 点评</span>
-        </label>
-      </header>
-
-      <nav class="module-nav" :class="{ compact: isAnalysisWorkspace }" aria-label="home modules">
-        <HomeModuleGem
-          v-for="mod in modules"
-          :key="mod.key"
-          :kind="mod.kind"
-          :title="mod.title"
-          :active="activeModule === mod.key"
-          :disabled="(mod.key === 'compare' || mod.key === 'suggestion') && !hasAnalysis"
-          @select="selectModule(mod.key)"
+      <section class="analysis-hero-shell" :class="{ compact: isAnalysisWorkspace, focused: showUpload }">
+        <HomeWorkspaceHeroArt
+          class="analysis-hero-art"
+          :compact="isAnalysisWorkspace"
+          :focused="showUpload"
         />
-      </nav>
+
+        <div class="analysis-hero-copy">
+          <header class="home-header" :class="{ compact: isAnalysisWorkspace }">
+            <Badge variant="default" class="header-badge">
+              <Sparkles class="mr-1.5 h-3.5 w-3.5" />
+              AI 智能分析
+            </Badge>
+            <h1 class="header-title">投篮姿势分析</h1>
+            <p class="header-subtitle" :class="{ compact: isAnalysisWorkspace }">
+              {{ headerSubtitle }}
+            </p>
+            <label class="auto-ai-toggle">
+              <input
+                class="auto-ai-toggle-input"
+                :checked="analysisStore.autoAiAnalysisEnabled"
+                type="checkbox"
+                @change="analysisStore.setAutoAiAnalysisEnabled(($event.target as HTMLInputElement).checked)"
+              />
+              <span
+                class="auto-ai-toggle-switch"
+                :class="{ active: analysisStore.autoAiAnalysisEnabled }"
+                aria-hidden="true"
+              >
+                <span class="auto-ai-toggle-thumb"></span>
+              </span>
+              <span class="auto-ai-toggle-label">自动 AI 点评</span>
+            </label>
+          </header>
+
+          <nav class="module-nav" :class="{ compact: isAnalysisWorkspace }" aria-label="home modules">
+            <HomeModuleGem
+              v-for="mod in modules"
+              :key="mod.key"
+              :kind="mod.kind"
+              :title="mod.title"
+              :active="activeModule === mod.key"
+              :disabled="(mod.key === 'compare' || mod.key === 'suggestion') && !hasAnalysis"
+              @select="selectModule(mod.key)"
+            />
+          </nav>
+        </div>
+      </section>
 
       <main class="module-content">
         <section v-show="activeModule === 'upload'" class="upload-section" :class="{ 'active-upload': showUpload }">
@@ -370,6 +400,7 @@ const handleAiReview = async () => {
             />
             <VideoUpload
               v-else
+              :compact="showUpload"
               :loading="analysisStore.isLoading"
               @video-loaded="handleVideoLoaded"
             />
@@ -476,21 +507,32 @@ const handleAiReview = async () => {
                   <div class="video-overview-top">
                     <div class="video-summary-chip">
                       <span class="video-summary-label">整体分型</span>
-                      <strong>{{ getShotTypeName(currentVideoAnalysis.overallShotType) }}</strong>
+                      <strong class="video-summary-value" data-allow-copy="true">
+                        {{ getShotTypeName(currentVideoAnalysis.overallShotType) }}
+                      </strong>
                     </div>
                     <div class="video-summary-chip">
                       <span class="video-summary-label">置信度</span>
-                      <strong>{{ (currentVideoAnalysis.overallShotTypeConfidence * 100).toFixed(1) }}%</strong>
+                      <strong class="video-summary-value" data-allow-copy="true">
+                        {{ (currentVideoAnalysis.overallShotTypeConfidence * 100).toFixed(1) }}%
+                      </strong>
                     </div>
                     <div class="video-summary-chip">
                       <span class="video-summary-label">分析帧数</span>
-                      <strong>{{ currentVideoAnalysis.framesAnalyzed }}</strong>
+                      <strong class="video-summary-value" data-allow-copy="true">
+                        {{ currentVideoAnalysis.framesAnalyzed }}
+                      </strong>
                     </div>
                   </div>
 
                   <div class="video-overview-reasons">
                     <p class="section-kicker">片段判断</p>
-                    <p v-for="reason in currentVideoAnalysis.overallReasons" :key="reason" class="reason-item solid">
+                    <p
+                      v-for="reason in currentVideoAnalysis.overallReasons"
+                      :key="reason"
+                      class="reason-item solid"
+                      data-allow-copy="true"
+                    >
                       {{ reason }}
                     </p>
                   </div>
@@ -556,6 +598,7 @@ const handleAiReview = async () => {
                       <Badge
                         :variant="getShotTypeBadgeVariant(analysisStore.currentAnalysis)"
                         class="shot-type-badge"
+                        data-allow-copy="true"
                       >
                         {{ getDisplayedTitle(analysisStore.currentAnalysis) }}
                       </Badge>
@@ -573,7 +616,7 @@ const handleAiReview = async () => {
                         :value="getDisplayedConfidence(analysisStore.currentAnalysis) * 100"
                         class="confidence-bar"
                       />
-                      <span class="confidence-value">
+                      <span class="confidence-value" data-allow-copy="true">
                         {{ (getDisplayedConfidence(analysisStore.currentAnalysis) * 100).toFixed(1) }}%
                       </span>
                     </div>
@@ -585,7 +628,9 @@ const handleAiReview = async () => {
 
                   <div v-if="getDisplayedSummary(analysisStore.currentAnalysis)" class="analysis-summary">
                     <p class="summary-label">整体判断</p>
-                    <p class="summary-text">{{ getDisplayedSummary(analysisStore.currentAnalysis) }}</p>
+                    <p class="summary-text" data-allow-copy="true">
+                      {{ getDisplayedSummary(analysisStore.currentAnalysis) }}
+                    </p>
                   </div>
 
                   <div
@@ -593,7 +638,7 @@ const handleAiReview = async () => {
                     class="guidance-note"
                   >
                     <p class="guidance-label">分型说明</p>
-                    <p class="guidance-text">
+                    <p class="guidance-text" data-allow-copy="true">
                       {{ getShotTypeGuidanceText(analysisStore.currentAnalysis) }}
                     </p>
                   </div>
@@ -605,6 +650,7 @@ const handleAiReview = async () => {
                       v-for="(reason, index) in getCoachReasons(analysisStore.currentAnalysis)"
                       :key="reason"
                       class="reason-item"
+                      data-allow-copy="true"
                       :style="{ animationDelay: `${index * 100}ms` }"
                     >
                       {{ reason }}
@@ -690,7 +736,7 @@ const handleAiReview = async () => {
   min-height: 100%;
   display: flex;
   flex-direction: column;
-  padding: 24px 24px 40px;
+  padding: 24px 24px clamp(56px, 8vh, 96px);
   position: relative;
   isolation: isolate;
   color: var(--text-primary);
@@ -713,6 +759,28 @@ const handleAiReview = async () => {
 
 .home-page.workspace-page {
   padding-top: 16px;
+  padding-bottom: clamp(72px, 10vh, 132px);
+}
+
+.home-page.focused-workspace {
+  padding-bottom: clamp(48px, 7vh, 88px);
+}
+
+.home-page.loaded-upload-workspace {
+  padding-top: 12px;
+  padding-bottom: clamp(28px, 4vh, 56px);
+}
+
+.home-page.loaded-upload-workspace .home-header {
+  display: none;
+}
+
+.home-page.loaded-upload-workspace .module-nav {
+  display: none;
+}
+
+.home-page.loaded-upload-workspace .analysis-hero-shell {
+  display: none;
 }
 
 .home-container {
@@ -726,6 +794,32 @@ const handleAiReview = async () => {
   z-index: 1;
 }
 
+.analysis-hero-shell {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 8px;
+  padding: 28px 24px 12px;
+  border-radius: 34px;
+  border: 1px solid rgba(129, 140, 248, 0.12);
+  background:
+    radial-gradient(circle at 72% 18%, rgba(111, 133, 214, 0.14), transparent 20%),
+    linear-gradient(180deg, rgba(16, 18, 29, 0.92), rgba(10, 12, 20, 0.96));
+  box-shadow:
+    0 30px 70px rgba(4, 7, 14, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.analysis-hero-copy {
+  position: relative;
+  z-index: 1;
+}
+
+.analysis-hero-art {
+  position: absolute;
+  right: 20px;
+  bottom: 0;
+}
+
 .home-header {
   text-align: center;
   margin-bottom: 18px;
@@ -737,6 +831,11 @@ const handleAiReview = async () => {
   text-align: left;
   gap: 8px;
   margin-bottom: 14px;
+}
+
+.home-page.focused-workspace .home-header.compact {
+  gap: 4px;
+  margin-bottom: 10px;
 }
 
 .header-badge {
@@ -768,6 +867,26 @@ const handleAiReview = async () => {
   line-height: 1.65;
 }
 
+.home-page.focused-workspace .header-badge {
+  margin-bottom: 8px;
+  padding: 5px 12px;
+}
+
+.home-page.focused-workspace .header-title {
+  font-size: 28px;
+  margin-bottom: 4px;
+}
+
+.home-page.focused-workspace .header-subtitle.compact {
+  max-width: 860px;
+  font-size: 13px;
+  line-height: 1.55;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
 .auto-ai-toggle {
   display: inline-flex;
   align-items: center;
@@ -787,6 +906,12 @@ const handleAiReview = async () => {
   backdrop-filter: blur(18px) saturate(150%);
   -webkit-backdrop-filter: blur(18px) saturate(150%);
   cursor: pointer;
+}
+
+.home-page.focused-workspace .auto-ai-toggle {
+  gap: 10px;
+  margin-top: 6px;
+  padding: 8px 12px;
 }
 
 .auto-ai-toggle:hover {
@@ -865,8 +990,13 @@ const handleAiReview = async () => {
 
 .module-nav.compact {
   width: 100%;
-  margin-bottom: 18px;
+  margin-bottom: 24px;
   gap: 12px;
+}
+
+.home-page.focused-workspace .module-nav.compact {
+  margin-bottom: 16px;
+  gap: 10px;
 }
 
 .module-nav.compact :deep(.home-module-gem) {
@@ -876,12 +1006,26 @@ const handleAiReview = async () => {
   gap: 8px;
 }
 
+.home-page.focused-workspace .module-nav.compact :deep(.home-module-gem) {
+  min-height: 102px;
+  padding: 10px 10px 8px;
+  gap: 6px;
+}
+
 .module-nav.compact :deep(.gem-icon) {
   width: min(100%, 104px);
 }
 
+.home-page.focused-workspace .module-nav.compact :deep(.gem-icon) {
+  width: min(100%, 88px);
+}
+
 .module-nav.compact :deep(.gem-title) {
   font-size: 15px;
+}
+
+.home-page.focused-workspace .module-nav.compact :deep(.gem-title) {
+  font-size: 14px;
 }
 
 .module-content {
@@ -896,24 +1040,32 @@ const handleAiReview = async () => {
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding: clamp(4px, 1vh, 12px) 0 clamp(16px, 3vh, 28px);
+  padding: clamp(10px, 1.6vh, 18px) 0 clamp(48px, 7vh, 96px);
 }
 
 .upload-section.active-upload {
-  padding: clamp(2px, 0.8vh, 10px) 0 clamp(16px, 3vh, 24px);
+  padding: clamp(8px, 1.4vh, 16px) 0 clamp(72px, 10vh, 132px);
+}
+
+.home-page.focused-workspace .upload-section.active-upload {
+  padding: 4px 0 clamp(40px, 6vh, 72px);
+}
+
+.home-page.loaded-upload-workspace .upload-section.active-upload {
+  padding: 0 0 clamp(28px, 4vh, 56px);
 }
 
 .upload-stage {
   position: relative;
   width: 100%;
   max-width: 1140px;
-  min-height: min(620px, calc(100vh - 220px));
+  min-height: min(680px, calc(100vh - 176px));
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  gap: 12px;
-  padding: clamp(8px, 1.5vh, 16px) 12px 0;
+  gap: 18px;
+  padding: clamp(16px, 2.2vh, 24px) 16px clamp(52px, 7vh, 96px);
 }
 
 .upload-stage::before {
@@ -943,7 +1095,7 @@ const handleAiReview = async () => {
   display: block;
   content: '';
   position: absolute;
-  inset: 56px 2% 0;
+  inset: 56px 2% clamp(36px, 7vh, 88px);
   border-radius: 40px;
   background: linear-gradient(
     180deg,
@@ -956,7 +1108,25 @@ const handleAiReview = async () => {
 }
 
 .upload-stage.focused {
-  max-width: 1040px;
+  max-width: 1060px;
+}
+
+.home-page.focused-workspace .upload-stage.focused {
+  max-width: 1080px;
+  min-height: min(612px, calc(100vh - 252px));
+  gap: 14px;
+  padding: 8px 14px clamp(24px, 4vh, 48px);
+}
+
+.home-page.loaded-upload-workspace .upload-stage.focused {
+  max-width: 1120px;
+  min-height: min(640px, calc(100vh - 112px));
+  gap: 12px;
+  padding: 0 12px clamp(20px, 3vh, 40px);
+}
+
+.home-page.loaded-upload-workspace .upload-stage.focused::after {
+  inset: 38px 1.5% clamp(24px, 4vh, 48px);
 }
 
 .upload-stage > * {
@@ -1050,7 +1220,7 @@ const handleAiReview = async () => {
 }
 
 .upload-area.wide {
-  max-width: 980px;
+  max-width: 1000px;
 }
 
 .upload-area > * {
@@ -1061,7 +1231,15 @@ const handleAiReview = async () => {
   width: 100%;
   display: flex;
   justify-content: center;
-  margin: 0 auto 20px;
+  margin: 0 auto 28px;
+}
+
+.home-page.focused-workspace .upload-switch-wrap {
+  margin: 0 auto 16px;
+}
+
+.home-page.loaded-upload-workspace .upload-switch-wrap {
+  margin: 0 auto 12px;
 }
 
 .upload-switch {

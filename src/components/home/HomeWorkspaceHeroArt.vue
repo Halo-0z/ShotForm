@@ -40,11 +40,47 @@ const shadowSrc = '/hero/jordan-logo-shadow.png'
 }
 
 .workspace-hero-shadow {
-  opacity: 0.16;
-  transform: scale(1.1);
+  opacity: 0.14;
+  transform: translate3d(-1.2rem, 0.4rem, 0) scale(1.2);
+  filter: blur(2px) drop-shadow(0 24px 40px rgba(0, 0, 0, 0.42));
 }
 
 .workspace-hero-figure {
   z-index: 1;
+}
+
+.workspace-hero-art.compact {
+  width: min(100%, 360px);
+  min-height: 270px;
+}
+
+.workspace-hero-art.compact .workspace-hero-shadow,
+.workspace-hero-art.focused .workspace-hero-shadow {
+  opacity: 0.1;
+}
+
+.workspace-hero-art.focused {
+  width: min(100%, 340px);
+  min-height: 248px;
+}
+
+@media (max-width: 1100px) {
+  .workspace-hero-art {
+    width: min(100%, 360px);
+    min-height: 280px;
+  }
+}
+
+@media (max-width: 720px) {
+  .workspace-hero-art,
+  .workspace-hero-art.compact,
+  .workspace-hero-art.focused {
+    width: min(100%, 240px);
+    min-height: 210px;
+  }
+
+  .workspace-hero-shadow {
+    transform: translate3d(-0.8rem, 0.25rem, 0) scale(1.16);
+  }
 }
 </style>

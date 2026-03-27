@@ -799,6 +799,7 @@ const handleAiReview = async () => {
   overflow: hidden;
   margin-bottom: 8px;
   padding: 28px 24px 12px;
+  min-height: 364px;
   border-radius: 34px;
   border: 1px solid rgba(129, 140, 248, 0.12);
   background:
@@ -818,6 +819,16 @@ const handleAiReview = async () => {
   position: absolute;
   right: 20px;
   bottom: 0;
+}
+
+.analysis-hero-shell.compact {
+  min-height: 316px;
+  padding-bottom: 8px;
+}
+
+.home-page.focused-workspace .analysis-hero-shell {
+  min-height: 220px;
+  padding: 18px 20px 10px;
 }
 
 .home-header {
@@ -1927,6 +1938,15 @@ const handleAiReview = async () => {
 }
 
 @media (max-width: 1100px) {
+  .analysis-hero-shell {
+    min-height: 304px;
+    padding: 24px 20px 12px;
+  }
+
+  .analysis-hero-art {
+    right: 8px;
+  }
+
   .analysis-result {
     grid-template-columns: 1fr;
   }
@@ -1965,6 +1985,18 @@ const handleAiReview = async () => {
 @media (max-width: 720px) {
   .home-page {
     padding: 18px 14px 28px;
+  }
+
+  .analysis-hero-shell,
+  .analysis-hero-shell.compact,
+  .home-page.focused-workspace .analysis-hero-shell {
+    min-height: 204px;
+    padding: 18px 16px 10px;
+    border-radius: 28px;
+  }
+
+  .analysis-hero-art {
+    right: -12px;
   }
 
   .header-title {

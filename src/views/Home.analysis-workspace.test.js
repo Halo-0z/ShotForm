@@ -80,3 +80,10 @@ test('loaded upload workspace hides the hero shell with the rest of the landing 
 
   assert.match(loadedHeroBlock, /display: none/)
 })
+
+test('focused upload mode keeps the hero visible but compresses its spacing', () => {
+  const focusedHeroBlock = source.match(/\.home-page\.focused-workspace \.analysis-hero-shell \{[\s\S]*?\n\}/)?.[0] ?? ''
+
+  assert.match(focusedHeroBlock, /padding:/)
+  assert.match(focusedHeroBlock, /min-height:/)
+})

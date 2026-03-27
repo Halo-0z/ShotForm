@@ -16,3 +16,11 @@ test('workspace hero art exposes compact and focused variants for layout compres
   assert.match(source, /focused\?: boolean/)
   assert.match(source, /:class="\{ compact: props\.compact, focused: props\.focused \}"/)
 })
+
+test('workspace hero art enlarges the silhouette beyond the foreground figure and softens it into an echo layer', () => {
+  const shadowBlock = source.match(/\.workspace-hero-shadow \{[\s\S]*?\n\}/)?.[0] ?? ''
+
+  assert.match(shadowBlock, /opacity:\s*0\.(1|12|14|16|18)/)
+  assert.match(shadowBlock, /filter:\s*blur/)
+  assert.match(shadowBlock, /transform:\s*translate3d\([^)]*\)\s*scale\(1\.(1|15|2|25|3)\)/)
+})

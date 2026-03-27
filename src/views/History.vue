@@ -52,13 +52,21 @@ const getShotTypeBadgeVariant = (type: ShotType): 'excellent' | 'good' | 'averag
 
 <template>
   <div class="history-page">
-    <div class="page-header">
-      <Button variant="ghost" size="icon" @click="goBack">
-        <ArrowLeft class="w-5 h-5" />
-      </Button>
-      <h1 class="page-title">历史记录</h1>
-    </div>
-    
+    <section class="history-hero-banner">
+      <div class="page-header history-hero-header">
+        <Button variant="ghost" size="icon" class="history-back-button" @click="goBack">
+          <ArrowLeft class="w-5 h-5" />
+        </Button>
+
+        <div class="history-hero-copy">
+          <p class="history-hero-kicker">History</p>
+          <h1 class="page-title">历史记录</h1>
+        </div>
+      </div>
+
+      <img src="/hero/the-shot.png" alt="" class="history-hero-art" />
+    </section>
+
     <div class="history-content">
       <div v-if="historyList.length > 0" class="history-grid">
         <Card v-for="record in historyList" :key="record.id" class="history-card">
@@ -84,14 +92,19 @@ const getShotTypeBadgeVariant = (type: ShotType): 'excellent' | 'good' | 'averag
                 <Eye class="w-4 h-4 mr-1.5" />
                 查看详情
               </Button>
-              <Button variant="outline" size="sm" class="text-[var(--color-danger)] hover:bg-[var(--color-danger-bg)]" @click="deleteHistory(record.id)">
+              <Button
+                variant="outline"
+                size="sm"
+                class="text-[var(--color-danger)] hover:bg-[var(--color-danger-bg)]"
+                @click="deleteHistory(record.id)"
+              >
                 <Trash2 class="w-4 h-4" />
               </Button>
             </div>
           </CardContent>
         </Card>
       </div>
-      
+
       <Card v-else class="empty-card">
         <CardContent class="flex flex-col items-center justify-center py-16">
           <Clock class="w-12 h-12 text-[var(--text-muted)] mb-4" />
@@ -111,17 +124,73 @@ const getShotTypeBadgeVariant = (type: ShotType): 'excellent' | 'good' | 'averag
   flex-direction: column;
 }
 
+.history-hero-banner {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: var(--spacing-xl);
+  padding: 20px 24px;
+  min-height: 180px;
+  border-radius: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    radial-gradient(circle at 78% 22%, rgba(255, 255, 255, 0.08), transparent 20%),
+    radial-gradient(circle at 30% 24%, rgba(111, 133, 214, 0.12), transparent 26%),
+    linear-gradient(180deg, rgba(14, 17, 27, 0.96), rgba(9, 11, 18, 0.99));
+  box-shadow:
+    0 24px 54px rgba(0, 0, 0, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
 .page-header {
   display: flex;
   align-items: center;
   gap: var(--spacing-md);
-  margin-bottom: var(--spacing-xl);
+}
+
+.history-hero-header {
+  position: relative;
+  z-index: 1;
+  margin-bottom: 0;
+}
+
+.history-hero-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.history-hero-kicker {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, rgba(255, 255, 255, 0.78) 70%, var(--text-secondary));
+}
+
+.history-back-button {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .page-title {
   font-size: var(--font-size-xl);
   font-weight: 600;
   color: var(--text-primary);
+  margin: 0;
+}
+
+.history-hero-art {
+  position: absolute;
+  right: 18px;
+  bottom: -8px;
+  width: min(100%, 220px);
+  height: auto;
+  object-fit: contain;
+  pointer-events: none;
+  opacity: 0.92;
+  filter: drop-shadow(0 22px 36px rgba(0, 0, 0, 0.4));
 }
 
 .history-content {
@@ -145,5 +214,21 @@ const getShotTypeBadgeVariant = (type: ShotType): 'excellent' | 'good' | 'averag
 
 .empty-card {
   height: 100%;
+}
+
+@media (max-width: 720px) {
+  .history-page {
+    padding: 16px;
+  }
+
+  .history-hero-banner {
+    min-height: 148px;
+    padding: 18px 16px;
+  }
+
+  .history-hero-art {
+    width: 156px;
+    right: -2px;
+  }
 }
 </style>

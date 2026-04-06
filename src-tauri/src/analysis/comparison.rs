@@ -1,5 +1,8 @@
+use std::{cmp::Ordering, collections::HashMap};
+
 use crate::models::{
-    AngleDifference, ComparisonResult, JointAngle, Keypoint, PlayerTemplate, PoseData, ShotAnalysis,
+    AngleDifference, ComparisonResult, ComparisonSummary, JointAngle, Keypoint, PlayerTemplate,
+    PoseData, ShotAnalysis, ShotType,
 };
 
 pub struct PoseComparator;
@@ -13,13 +16,52 @@ impl PoseComparator {
         let dominant_side = self.detect_shooting_side(analysis);
         let angle_differences =
             self.calculate_angle_differences(&analysis.angles, &player.angles, dominant_side);
-        let similarity = self.calculate_similarity(&angle_differences);
+        let similarity = self.calculate_weighted_similarity(&angle_differences, &comparison_weights());
 
         ComparisonResult {
             player: player.clone(),
             similarity,
             angle_differences,
         }
+    }
+
+    pub fn rank_players(
+        &self,
+        analysis: &ShotAnalysis,
+        players: &[PlayerTemplate],
+    ) -> Vec<ComparisonSummary> {
+        let dominant_side = self.detect_shooting_side(analysis);
+        let weights = comparison_weights();
+        let mut summaries: Vec<_> = players
+            .iter()
+            .map(|player| {
+                let angle_differences =
+                    self.calculate_angle_differences(&analysis.angles, &player.angles, dominant_side);
+                let similarity = self.calculate_weighted_similarity(&angle_differences, &weights);
+                let top_differences = self.top_differences(&angle_differences, &weights);
+                let shot_type_alignment = self.shot_type_alignment(analysis, player);
+                let match_reason =
+                    self.build_match_reason(analysis, player, &angle_differences, &weights);
+
+                ComparisonSummary {
+                    player: player.clone(),
+                    similarity,
+                    top_differences,
+                    match_reason,
+                    shot_type_alignment,
+                }
+            })
+            .collect();
+
+        summaries.sort_by(|left, right| {
+            right
+                .similarity
+                .partial_cmp(&left.similarity)
+                .unwrap_or(Ordering::Equal)
+                .then_with(|| left.player.id.cmp(&right.player.id))
+        });
+
+        summaries
     }
 
     fn calculate_angle_differences(
@@ -94,23 +136,6 @@ impl PoseComparator {
         }
     }
 
-    fn calculate_similarity(&self, differences: &[AngleDifference]) -> f32 {
-        if differences.is_empty() {
-            return 0.0;
-        }
-
-        let total_diff: f32 = differences
-            .iter()
-            .map(|difference| {
-                let normalized_diff = difference.difference.abs() / 180.0;
-                normalized_diff * normalized_diff
-            })
-            .sum();
-
-        let rmse = (total_diff / differences.len() as f32).sqrt();
-        (1.0 - rmse).max(0.0)
-    }
-
     pub fn calculate_weighted_similarity(
         &self,
         differences: &[AngleDifference],
@@ -146,6 +171,195 @@ impl PoseComparator {
         let rmse = (weighted_diff / total_weight).sqrt();
         (1.0 - rmse).max(0.0)
     }
+
+    fn top_differences(
+        &self,
+        differences: &[AngleDifference],
+        weights: &[(String, f32)],
+    ) -> Vec<AngleDifference> {
+        let weight_map = self.weight_map(weights);
+        let mut ranked = differences.to_vec();
+        ranked.sort_by(|left, right| {
+            let left_weighted_gap =
+                self.difference_weight(&weight_map, &left.name) * left.difference.abs();
+            let right_weighted_gap =
+                self.difference_weight(&weight_map, &right.name) * right.difference.abs();
+
+            right_weighted_gap
+                .partial_cmp(&left_weighted_gap)
+                .unwrap_or(Ordering::Equal)
+                .then_with(|| {
+                    right
+                        .difference
+                        .abs()
+                        .partial_cmp(&left.difference.abs())
+                        .unwrap_or(Ordering::Equal)
+                })
+                .then_with(|| left.name.cmp(&right.name))
+        });
+        ranked.truncate(3);
+        ranked
+    }
+
+    fn build_match_reason(
+        &self,
+        analysis: &ShotAnalysis,
+        player: &PlayerTemplate,
+        differences: &[AngleDifference],
+        weights: &[(String, f32)],
+    ) -> String {
+        let mut reasons = Vec::new();
+
+        if let Some(alignment) = self.shot_type_alignment(analysis, player) {
+            reasons.push(alignment);
+        }
+
+        let closest_signals = self.closest_alignment_names(differences, weights);
+        if !closest_signals.is_empty() {
+            reasons.push(format!(
+                "closest mechanical overlap at {}",
+                self.join_labels(&closest_signals)
+            ));
+        }
+
+        if let Some(balance_signal) = differences.iter().find(|difference| {
+            matches!(
+                difference.name.as_str(),
+                "trunk_tilt" | "right_knee_angle" | "left_knee_angle" | "right_hip_angle" | "left_hip_angle"
+            ) && difference.difference.abs() <= 10.0
+        }) {
+            reasons.push(format!(
+                "loading stays controlled through {}",
+                self.angle_label(&balance_signal.name)
+            ));
+        }
+
+        if reasons.is_empty() {
+            format!("{} is the closest weighted mechanics match.", player.name)
+        } else {
+            format!("{} ranks highly because {}.", player.name, reasons.join(", "))
+        }
+    }
+
+    fn closest_alignment_names(
+        &self,
+        differences: &[AngleDifference],
+        weights: &[(String, f32)],
+    ) -> Vec<String> {
+        let weight_map = self.weight_map(weights);
+        let mut closest: Vec<_> = differences.iter().collect();
+        closest.sort_by(|left, right| {
+            let left_weighted_gap =
+                self.difference_weight(&weight_map, &left.name) * left.difference.abs();
+            let right_weighted_gap =
+                self.difference_weight(&weight_map, &right.name) * right.difference.abs();
+
+            left_weighted_gap
+                .partial_cmp(&right_weighted_gap)
+                .unwrap_or(Ordering::Equal)
+                .then_with(|| {
+                    left.difference
+                        .abs()
+                        .partial_cmp(&right.difference.abs())
+                        .unwrap_or(Ordering::Equal)
+                })
+                .then_with(|| left.name.cmp(&right.name))
+        });
+
+        closest
+            .into_iter()
+            .take(2)
+            .map(|difference| self.angle_label(&difference.name))
+            .collect()
+    }
+
+    fn shot_type_alignment(
+        &self,
+        analysis: &ShotAnalysis,
+        player: &PlayerTemplate,
+    ) -> Option<String> {
+        if analysis.shot_type == ShotType::Unknown {
+            return None;
+        }
+
+        let player_shot_type = self.infer_player_shot_type(player)?;
+        if player_shot_type == analysis.shot_type {
+            Some(format!(
+                "shot type aligns with a {} profile",
+                self.shot_type_label(&player_shot_type)
+            ))
+        } else {
+            Some(format!(
+                "mechanics still translate across {} and {} shot shapes",
+                self.shot_type_label(&analysis.shot_type),
+                self.shot_type_label(&player_shot_type)
+            ))
+        }
+    }
+
+    fn infer_player_shot_type(&self, player: &PlayerTemplate) -> Option<ShotType> {
+        let description = player.description.to_ascii_lowercase();
+
+        if description.contains("1.5") || description.contains("one point five") {
+            Some(ShotType::OnePointFiveMotion)
+        } else if description.contains("two-motion") || description.contains("2") {
+            Some(ShotType::TwoMotion)
+        } else if description.contains("one-motion") || description.contains("1") {
+            Some(ShotType::OneMotion)
+        } else {
+            None
+        }
+    }
+
+    fn shot_type_label(&self, shot_type: &ShotType) -> &'static str {
+        match shot_type {
+            ShotType::OneMotion => "one-motion",
+            ShotType::OnePointFiveMotion => "one-point-five-motion",
+            ShotType::TwoMotion => "two-motion",
+            ShotType::Unknown => "unknown",
+        }
+    }
+
+    fn angle_label(&self, name: &str) -> String {
+        match name {
+            "left_elbow_angle" | "right_elbow_angle" | "shooting_elbow_angle" => {
+                "elbow angle".to_string()
+            }
+            "left_shoulder_angle" | "right_shoulder_angle" | "release_angle" => {
+                "shoulder and release line".to_string()
+            }
+            "left_knee_angle" | "right_knee_angle" => "knee load".to_string(),
+            "left_hip_angle" | "right_hip_angle" => "hip stack".to_string(),
+            "trunk_tilt" => "trunk tilt".to_string(),
+            "shoulder_tilt" => "shoulder tilt".to_string(),
+            _ => name.replace('_', " "),
+        }
+    }
+
+    fn join_labels(&self, labels: &[String]) -> String {
+        match labels {
+            [] => String::new(),
+            [single] => single.clone(),
+            [first, second] => format!("{first} and {second}"),
+            _ => {
+                let mut joined = labels[..labels.len() - 1].join(", ");
+                joined.push_str(", and ");
+                joined.push_str(labels.last().unwrap());
+                joined
+            }
+        }
+    }
+
+    fn weight_map<'a>(&self, weights: &'a [(String, f32)]) -> HashMap<&'a str, f32> {
+        weights
+            .iter()
+            .map(|(name, weight)| (name.as_str(), *weight))
+            .collect()
+    }
+
+    fn difference_weight(&self, weight_map: &HashMap<&str, f32>, name: &str) -> f32 {
+        *weight_map.get(name).unwrap_or(&1.0)
+    }
 }
 
 impl Default for PoseComparator {
@@ -158,6 +372,23 @@ impl Default for PoseComparator {
 enum ShootingSide {
     Left,
     Right,
+}
+
+pub fn comparison_weights() -> Vec<(String, f32)> {
+    vec![
+        ("shooting_elbow_angle".to_string(), 2.6),
+        ("right_elbow_angle".to_string(), 2.4),
+        ("left_elbow_angle".to_string(), 2.4),
+        ("release_angle".to_string(), 2.3),
+        ("right_shoulder_angle".to_string(), 2.1),
+        ("left_shoulder_angle".to_string(), 2.1),
+        ("trunk_tilt".to_string(), 1.6),
+        ("right_hip_angle".to_string(), 1.4),
+        ("left_hip_angle".to_string(), 1.4),
+        ("right_knee_angle".to_string(), 1.3),
+        ("left_knee_angle".to_string(), 1.3),
+        ("shoulder_tilt".to_string(), 1.1),
+    ]
 }
 
 pub fn get_default_player_templates() -> Vec<PlayerTemplate> {
@@ -332,7 +563,6 @@ pub fn get_default_player_templates() -> Vec<PlayerTemplate> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::ShotType;
 
     fn keypoint(id: u32, x: f32, y: f32) -> Keypoint {
         Keypoint {
@@ -352,6 +582,66 @@ mod tests {
             normal_range: (0.0, 180.0),
             status: "normal".to_string(),
             confidence: 1.0,
+        }
+    }
+
+    fn sample_analysis() -> ShotAnalysis {
+        ShotAnalysis {
+            pose_data: PoseData {
+                keypoints: vec![
+                    keypoint(11, -20.0, 0.0),
+                    keypoint(15, -35.0, 20.0),
+                    keypoint(23, -20.0, 100.0),
+                    keypoint(12, 20.0, 0.0),
+                    keypoint(16, 35.0, -30.0),
+                    keypoint(24, 20.0, 100.0),
+                ],
+                width: 640,
+                height: 480,
+            },
+            angles: vec![
+                joint_angle("right_elbow_angle", 90.0),
+                joint_angle("right_shoulder_angle", 48.0),
+                joint_angle("right_knee_angle", 145.0),
+                joint_angle("trunk_tilt", 5.0),
+            ],
+            shot_type: ShotType::OneMotion,
+            shot_type_confidence: 0.88,
+            shot_type_reasons: vec![],
+            ai_review: None,
+            timestamp: 0,
+        }
+    }
+
+    fn closer_player() -> PlayerTemplate {
+        PlayerTemplate {
+            id: 10,
+            name: "Closer".to_string(),
+            team: "A".to_string(),
+            description: "compact one-motion release".to_string(),
+            pose_data: PoseData::default(),
+            angles: vec![
+                joint_angle("right_elbow_angle", 91.0),
+                joint_angle("right_shoulder_angle", 50.0),
+                joint_angle("right_knee_angle", 144.0),
+                joint_angle("trunk_tilt", 4.0),
+            ],
+        }
+    }
+
+    fn farther_player() -> PlayerTemplate {
+        PlayerTemplate {
+            id: 11,
+            name: "Farther".to_string(),
+            team: "B".to_string(),
+            description: "tall two-motion release".to_string(),
+            pose_data: PoseData::default(),
+            angles: vec![
+                joint_angle("right_elbow_angle", 120.0),
+                joint_angle("right_shoulder_angle", 80.0),
+                joint_angle("right_knee_angle", 170.0),
+                joint_angle("trunk_tilt", 16.0),
+            ],
         }
     }
 
@@ -405,5 +695,20 @@ mod tests {
             .angle_differences
             .iter()
             .any(|difference| difference.name == "right_elbow_angle"));
+    }
+
+    #[test]
+    fn ranks_players_by_weighted_similarity_and_builds_match_reason() {
+        let comparator = PoseComparator::new();
+        let analysis = sample_analysis();
+        let players = vec![farther_player(), closer_player()];
+
+        let ranked = comparator.rank_players(&analysis, &players);
+
+        assert_eq!(ranked.len(), 2);
+        assert_eq!(ranked[0].player.name, "Closer");
+        assert!(ranked[0].similarity > ranked[1].similarity);
+        assert!(!ranked[0].match_reason.trim().is_empty());
+        assert!(ranked[0].top_differences.len() <= 3);
     }
 }

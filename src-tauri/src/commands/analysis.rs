@@ -3,15 +3,18 @@ use crate::analysis::{
     calculate_all_angles, get_default_player_templates, get_shooting_arm_angles, PoseComparator,
     ShotTypeClassifier,
 };
+use crate::database::get_or_seed_player_templates;
 use crate::image::{ImageProcessor, PoseVisualizer};
 use crate::models::{
     AiAnalysisPayload, AiAnglePayloadItem, AiCoachingResponse, AiPayloadFlags, AiShotContext,
-    AiShotReview, ComparisonResult, CorrectionSuggestion, Keypoint, PlayerTemplate, PoseData,
-    ShotAnalysis, ShotType, VideoAnalysisFrame, VideoShotAnalysis,
+    AiShotReview, ComparisonResult, ComparisonWorkbenchResult, CorrectionSuggestion, Keypoint,
+    PlayerTemplate, PoseData, ShotAnalysis, ShotType, VideoAnalysisFrame, VideoShotAnalysis,
 };
 use crate::pose::PoseDetector;
+use sqlx::SqlitePool;
 use tauri::AppHandle;
 use tauri::Emitter;
+use tauri::Manager;
 
 #[derive(Clone, serde::Serialize)]
 struct AnalysisProgress {
@@ -36,6 +39,23 @@ fn current_timestamp_ms() -> Result<u64, String> {
         .duration_since(std::time::UNIX_EPOCH)
         .map_err(|error| error.to_string())
         .map(|duration| duration.as_millis() as u64)
+}
+
+async fn load_player_templates(app_handle: &AppHandle) -> Vec<PlayerTemplate> {
+    let defaults = get_default_player_templates();
+
+    let Some(pool) = app_handle.try_state::<SqlitePool>() else {
+        return defaults;
+    };
+
+    match get_or_seed_player_templates(&pool, &defaults).await {
+        Ok(templates) if !templates.is_empty() => templates,
+        Ok(_) => defaults,
+        Err(error) => {
+            eprintln!("Failed to load player templates from database: {error}");
+            defaults
+        }
+    }
 }
 
 fn analyze_pose_frame(pose_data: PoseData, timestamp: u64) -> ShotAnalysis {
@@ -469,16 +489,17 @@ mod tests {
 }
 
 #[tauri::command]
-pub async fn get_player_templates() -> Result<Vec<PlayerTemplate>, String> {
-    Ok(get_default_player_templates())
+pub async fn get_player_templates(app_handle: AppHandle) -> Result<Vec<PlayerTemplate>, String> {
+    Ok(load_player_templates(&app_handle).await)
 }
 
 #[tauri::command]
 pub async fn compare_with_player(
+    app_handle: AppHandle,
     analysis: ShotAnalysis,
     player_id: i64,
 ) -> Result<ComparisonResult, String> {
-    let templates = get_default_player_templates();
+    let templates = load_player_templates(&app_handle).await;
 
     let player = templates
         .into_iter()
@@ -489,6 +510,24 @@ pub async fn compare_with_player(
     let result = comparator.compare(&analysis, &player);
 
     Ok(result)
+}
+
+#[tauri::command]
+pub async fn compare_against_all_players(
+    app_handle: AppHandle,
+    analysis: ShotAnalysis,
+) -> Result<ComparisonWorkbenchResult, String> {
+    let templates = load_player_templates(&app_handle).await;
+    let comparator = PoseComparator::new();
+    let summaries = comparator.rank_players(&analysis, &templates);
+    let selected_comparison = summaries
+        .first()
+        .map(|summary| comparator.compare(&analysis, &summary.player));
+
+    Ok(ComparisonWorkbenchResult {
+        summaries,
+        selected_comparison,
+    })
 }
 
 #[tauri::command]

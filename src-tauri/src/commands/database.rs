@@ -1,7 +1,9 @@
 use crate::database::{
     delete_analysis_history as db_delete_history, get_analysis_history as db_get_history,
     get_player_templates as db_get_players, save_analysis_history as db_save_history,
-    save_player_template as db_save_player, update_analysis_history_ai_coaching as db_update_history_ai,
+    save_player_template as db_save_player,
+    update_analysis_history_ai_coaching as db_update_history_ai,
+    update_analysis_history_comparison as db_update_history_comparison,
 };
 use crate::models::{
     AnalysisHistory, ComparisonResult, CorrectionSuggestion, PlayerTemplate, ShotAnalysis,
@@ -49,6 +51,17 @@ pub async fn update_analysis_history_ai_coaching(
     )
     .await
     .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn update_analysis_history_comparison(
+    pool: State<'_, SqlitePool>,
+    id: i64,
+    comparison: Option<ComparisonResult>,
+) -> Result<(), String> {
+    db_update_history_comparison(&pool, id, comparison.as_ref())
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]

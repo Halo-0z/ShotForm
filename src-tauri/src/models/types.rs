@@ -179,6 +179,25 @@ pub struct ComparisonResult {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ComparisonSummary {
+    pub player: PlayerTemplate,
+    pub similarity: f32,
+    pub top_differences: Vec<AngleDifference>,
+    pub match_reason: String,
+    #[serde(default)]
+    pub shot_type_alignment: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ComparisonWorkbenchResult {
+    pub summaries: Vec<ComparisonSummary>,
+    #[serde(default)]
+    pub selected_comparison: Option<ComparisonResult>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CorrectionSuggestion {
     pub body_part: String,
     pub issue: String,

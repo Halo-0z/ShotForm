@@ -7,19 +7,15 @@ const props = withDefaults(
     videoSrc?: string
     posterSrc?: string
     figureSrc?: string
-    slideId?: string
     reduceMotion?: boolean
     transitioningOut?: boolean
-    workspaceActive?: boolean
   }>(),
   {
     videoSrc: '/hero/home-hero-loop.mp4',
     posterSrc: '/hero/luka2.png',
     figureSrc: '/hero/luka2.png',
-    slideId: 'luka',
     reduceMotion: false,
-    transitioningOut: false,
-    workspaceActive: false
+    transitioningOut: false
   }
 )
 
@@ -28,9 +24,6 @@ const videoReady = ref(false)
 const { isLightTheme } = useResolvedThemeState()
 
 const hasVideo = computed(() => Boolean(props.videoSrc) && !videoFailed.value && !props.reduceMotion && !props.transitioningOut)
-const heroSlideClass = computed(() => (props.slideId ? `slide-${props.slideId}` : 'slide-luka'))
-const activePosterKey = computed(() => `poster-${props.slideId || props.posterSrc || 'default'}`)
-const activeFigureKey = computed(() => `figure-${props.slideId || props.figureSrc || 'default'}`)
 
 const posterStyle = computed(() => ({
   '--hero-poster-image': props.posterSrc ? `url("${props.posterSrc}")` : 'none'
@@ -65,20 +58,9 @@ watch(() => props.transitioningOut, transitioningOut => {
 </script>
 
 <template>
-  <section
-    class="hero-stage"
-    :class="[heroSlideClass, { 'is-transitioning-out': props.transitioningOut, 'light-mode': isLightTheme }]"
-  >
+  <section class="hero-stage" :class="{ 'is-transitioning-out': props.transitioningOut, 'light-mode': isLightTheme }">
     <div class="hero-video-poster" aria-hidden="true" :style="posterStyle"></div>
-    <Transition name="hero-poster-swap" mode="out-in">
-      <div
-        :key="activePosterKey"
-        class="hero-poster-figure"
-        :class="{ 'is-hidden': props.workspaceActive, 'is-transitioning-out': props.transitioningOut }"
-        :style="posterStyle"
-        aria-hidden="true"
-      ></div>
-    </Transition>
+    <div class="hero-poster-figure" :class="{ 'is-transitioning-out': props.transitioningOut }" :style="posterStyle" aria-hidden="true"></div>
     <video
       v-if="hasVideo"
       class="hero-video"
@@ -101,16 +83,9 @@ watch(() => props.transitioningOut, transitioningOut => {
       <slot />
     </div>
 
-    <Transition name="hero-figure-swap" mode="out-in">
-      <div
-        :key="activeFigureKey"
-        class="hero-figure-shell"
-        :class="{ 'is-hidden': props.workspaceActive, 'is-transitioning-out': props.transitioningOut }"
-        aria-hidden="true"
-      >
-        <img :src="figureSrc" alt="" class="hero-figure" />
-      </div>
-    </Transition>
+    <div class="hero-figure-shell" :class="{ 'is-transitioning-out': props.transitioningOut }" aria-hidden="true">
+      <img :src="figureSrc" alt="" class="hero-figure" />
+    </div>
   </section>
 </template>
 
@@ -211,43 +186,11 @@ watch(() => props.transitioningOut, transitioningOut => {
   will-change: opacity, transform, filter;
 }
 
-.hero-poster-figure.is-hidden {
-  opacity: 0;
-  transform: translate3d(2.25rem, -1.25rem, 0) scale(0.95);
-  filter: blur(12px);
-}
-
 .hero-stage.is-transitioning-out .hero-poster-figure,
 .hero-poster-figure.is-transitioning-out {
   opacity: 0.08;
   transform: translate3d(0.75rem, -0.25rem, 0) scale(0.985);
   filter: blur(0);
-}
-
-.hero-poster-swap-enter-active {
-  transition:
-    opacity 560ms cubic-bezier(0.16, 1, 0.3, 1),
-    transform 620ms cubic-bezier(0.16, 1, 0.3, 1),
-    filter 560ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.hero-poster-swap-leave-active {
-  transition:
-    opacity 260ms cubic-bezier(0.4, 0, 1, 1),
-    transform 320ms cubic-bezier(0.4, 0, 1, 1),
-    filter 260ms cubic-bezier(0.4, 0, 1, 1);
-}
-
-.hero-poster-swap-enter-from {
-  opacity: 0;
-  transform: translate3d(1.8rem, -1rem, 0) scale(0.95);
-  filter: blur(16px) saturate(0.88);
-}
-
-.hero-poster-swap-leave-to {
-  opacity: 0;
-  transform: translate3d(-0.6rem, 0.7rem, 0) scale(1.02);
-  filter: blur(14px) saturate(0.9);
 }
 
 .hero-atmosphere-fallback {
@@ -307,43 +250,11 @@ watch(() => props.transitioningOut, transitioningOut => {
   will-change: opacity, transform, filter;
 }
 
-.hero-figure-shell.is-hidden {
-  opacity: 0;
-  transform: translate3d(1.75rem, -1.5rem, 0) scale(0.94);
-  filter: blur(10px);
-}
-
 .hero-stage.is-transitioning-out .hero-figure-shell,
 .hero-figure-shell.is-transitioning-out {
   opacity: 0.12;
   transform: translate3d(0.8rem, -0.65rem, 0) scale(0.99);
   filter: blur(0);
-}
-
-.hero-figure-swap-enter-active {
-  transition:
-    opacity 640ms cubic-bezier(0.16, 1, 0.3, 1),
-    transform 720ms cubic-bezier(0.16, 1, 0.3, 1),
-    filter 640ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.hero-figure-swap-leave-active {
-  transition:
-    opacity 260ms cubic-bezier(0.4, 0, 1, 1),
-    transform 320ms cubic-bezier(0.4, 0, 1, 1),
-    filter 260ms cubic-bezier(0.4, 0, 1, 1);
-}
-
-.hero-figure-swap-enter-from {
-  opacity: 0;
-  transform: translate3d(1.35rem, 0.4rem, 0) scale(0.975);
-  filter: blur(18px);
-}
-
-.hero-figure-swap-leave-to {
-  opacity: 0;
-  transform: translate3d(-0.45rem, 0.8rem, 0) scale(1.015);
-  filter: blur(14px);
 }
 
 .hero-figure-shell::before {
@@ -406,30 +317,6 @@ watch(() => props.transitioningOut, transitioningOut => {
   --hero-figure-shell-shadow: rgba(179, 142, 111, 0.18);
 }
 
-.hero-stage.slide-kobe-shot {
-  --hero-figure-width: clamp(16.9rem, min(20.7vw, 35.2vh), 23.2rem);
-  --hero-poster-width: clamp(18.3rem, min(22.5vw, 38.8vh), 25.8rem);
-  --hero-figure-right: clamp(-0.1rem, 1.8vw, 1.55rem);
-  --hero-poster-right-offset: clamp(8.1rem, 10.9vw, 12.4rem);
-  --hero-poster-bottom-position: calc(100% + clamp(1.55rem, 2.35vh, 2.45rem));
-}
-
-.hero-stage.slide-dirk-shot {
-  --hero-figure-right: clamp(-0.15rem, 1.65vw, 1.55rem);
-  --hero-figure-bottom: clamp(-0.1rem, -0.2vh, 0.2rem);
-  --hero-poster-right-offset: clamp(8.2rem, 11.1vw, 12.8rem);
-  --hero-poster-bottom-position: calc(100% + clamp(1.35rem, 2.05vh, 2.1rem));
-}
-
-.hero-stage.slide-jordan-shot-2 {
-  --hero-figure-width: clamp(16.6rem, min(20.2vw, 34.8vh), 22.9rem);
-  --hero-poster-width: clamp(18rem, min(22vw, 38.2vh), 25.3rem);
-  --hero-figure-right: clamp(0.15rem, 2.2vw, 2rem);
-  --hero-figure-bottom: clamp(-0.14rem, -0.25vh, 0.18rem);
-  --hero-poster-right-offset: clamp(8.4rem, 11.2vw, 12.8rem);
-  --hero-poster-bottom-position: calc(100% + clamp(1.45rem, 2.2vh, 2.3rem));
-}
-
 @media (max-width: 900px) {
   .hero-stage {
     --hero-top-safe-clearance: 3.25rem;
@@ -444,10 +331,6 @@ watch(() => props.transitioningOut, transitioningOut => {
 
   .hero-figure-shell {
     opacity: 0.88;
-  }
-
-  .hero-stage.slide-jordan-shot-2 {
-    --hero-figure-right: clamp(-0.25rem, 1.5vw, 1rem);
   }
 }
 

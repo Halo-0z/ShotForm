@@ -1,19 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import {
-  HOME_HERO_COPY,
-  getInitialHeroMode,
-  shouldReduceHeroMotion
-} from './home-hero-state.js'
-
-test('starts in cover mode when no analysis is loaded', () => {
-  assert.equal(getInitialHeroMode(false), 'cover')
-})
-
-test('starts in workspace mode when an analysis already exists', () => {
-  assert.equal(getInitialHeroMode(true), 'workspace')
-})
+import { HOME_HERO_COPY, shouldReduceHeroMotion } from './home-hero-state.js'
 
 test('locks the approved professional poster copy', () => {
   assert.deepEqual(HOME_HERO_COPY, {

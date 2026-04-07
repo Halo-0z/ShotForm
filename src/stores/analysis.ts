@@ -7,6 +7,7 @@ import {
   type AiAnalysisPayload,
   type AiShotReview,
   type AnalysisHistory,
+  type ComparisonResult,
   type CorrectionSuggestion,
   type ShotAnalysis,
   type VideoShotAnalysis
@@ -31,6 +32,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
   const currentImage = ref<string>('')
   const currentAnnotatedImage = ref<string>('')
   const currentHistoryId = ref<number | null>(null)
+  const currentComparison = ref<ComparisonResult | null>(null)
   const currentAiCoachingSummary = ref('')
   const currentAiCoachingSuggestions = ref<CorrectionSuggestion[]>([])
   const currentAiCoachingSource = ref<AiCoachingSource>('idle')
@@ -58,9 +60,12 @@ export const useAnalysisStore = defineStore('analysis', () => {
     }))
   })
 
+  const normalizeComparison = (comparison: ComparisonResult | null | undefined) => comparison ?? null
+
   const normalizeHistoryRecord = (record: AnalysisHistory): AnalysisHistory => ({
     ...record,
     analysis: normalizeAnalysis(record.analysis),
+    comparison: normalizeComparison(record.comparison),
     aiCoachingSummary: record.aiCoachingSummary ?? null,
     aiCoachingSuggestions: record.aiCoachingSuggestions ?? null
   })
@@ -79,6 +84,10 @@ export const useAnalysisStore = defineStore('analysis', () => {
     setAiCoachingCache('', [], 'idle')
   }
 
+  const setCurrentComparison = (comparison: ComparisonResult | null) => {
+    currentComparison.value = normalizeComparison(comparison)
+  }
+
   const applyVideoFrameSelection = (analysis: VideoShotAnalysis | null, frameIndex: number) => {
     if (!analysis || !analysis.frames.length) {
       currentVideoFrameIndex.value = 0
@@ -91,6 +100,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
     currentAnalysis.value = normalizeAnalysis(frame.analysis)
     currentImage.value = frame.imageData
     currentAnnotatedImage.value = frame.annotatedImageData || frame.imageData
+    currentComparison.value = null
     clearAiCoachingCache()
   }
 
@@ -123,6 +133,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
     currentAnnotatedImage.value = ''
     currentAnalysis.value = null
     currentHistoryId.value = null
+    currentComparison.value = null
     clearAiCoachingCache()
   }
 
@@ -190,6 +201,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
     clearVideoState()
     clearAiCoachingCache()
     currentHistoryId.value = null
+    currentComparison.value = null
     currentImage.value = imageData
     currentAnnotatedImage.value = ''
     currentAnalysis.value = null
@@ -273,6 +285,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
   const setCurrentAnalysis = (analysis: ShotAnalysis) => {
     currentHistoryId.value = null
     currentAnalysis.value = normalizeAnalysis(analysis)
+    currentComparison.value = null
     clearAiCoachingCache()
   }
 
@@ -282,6 +295,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
     currentAnalysis.value = normalizedRecord.analysis
     currentImage.value = normalizedRecord.imagePath
     currentAnnotatedImage.value = normalizedRecord.annotatedImagePath
+    currentComparison.value = normalizedRecord.comparison ?? null
     clearVideoState()
     setAiCoachingCache(
       normalizedRecord.aiCoachingSummary,
@@ -302,6 +316,16 @@ export const useAnalysisStore = defineStore('analysis', () => {
     })
   }
 
+  const updateHistoryComparison = async (
+    historyId: number,
+    comparison: ComparisonResult | null
+  ): Promise<void> => {
+    await invoke('update_analysis_history_comparison', {
+      id: historyId,
+      comparison: normalizeComparison(comparison)
+    })
+  }
+
   const saveToHistory = async (
     imagePath: string,
     annotatedImagePath: string,
@@ -317,7 +341,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
       imagePath,
       annotatedImagePath,
       analysis: currentAnalysis.value,
-      comparison: null,
+      comparison: currentComparison.value,
       suggestions: options?.suggestions ?? [],
       aiCoachingSummary: options?.aiCoachingSummary ?? null,
       aiCoachingSuggestions: options?.aiCoachingSuggestions ?? null
@@ -349,6 +373,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
     currentImage,
     currentAnnotatedImage,
     currentHistoryId,
+    currentComparison,
     currentAiCoachingSummary,
     currentAiCoachingSuggestions,
     currentAiCoachingSource,
@@ -361,11 +386,13 @@ export const useAnalysisStore = defineStore('analysis', () => {
     generateAiReview,
     setCurrentAnalysis,
     setCurrentHistoryRecord,
+    setCurrentComparison,
     setAiCoachingCache,
     clearAiCoachingCache,
     loadPreferences,
     setAutoAiAnalysisEnabled,
     updateHistoryAiCoaching,
+    updateHistoryComparison,
     saveToHistory,
     getHistory,
     deleteHistory,

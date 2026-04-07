@@ -190,6 +190,24 @@ export interface ComparisonResult {
   }>
 }
 
+export interface ComparisonSummary {
+  player: PlayerTemplate
+  similarity: number
+  topDifferences: Array<{
+    name: string
+    userValue: number
+    playerValue: number
+    difference: number
+  }>
+  matchReason: string
+  shotTypeAlignment?: string | null
+}
+
+export interface ComparisonWorkbenchResult {
+  summaries: ComparisonSummary[]
+  selectedComparison?: ComparisonResult | null
+}
+
 export interface CorrectionSuggestion {
   bodyPart: string
   issue: string
@@ -210,7 +228,7 @@ export interface AnalysisHistory {
   imagePath: string
   annotatedImagePath: string
   analysis: ShotAnalysis
-  comparison?: ComparisonResult
+  comparison?: ComparisonResult | null
   suggestions: CorrectionSuggestion[]
   aiCoachingSummary?: string | null
   aiCoachingSuggestions?: CorrectionSuggestion[] | null

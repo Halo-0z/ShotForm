@@ -9,16 +9,16 @@ export const badgeVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-[rgba(99,102,241,0.1)] text-[var(--primary-color)] border border-[rgba(99,102,241,0.25)]",
-        secondary:
           "bg-[var(--glass-sm)] text-[var(--text-secondary)] border border-[var(--surface-border)]",
+        secondary:
+          "bg-[var(--glass-xs)] text-[var(--text-muted)] border border-[var(--border-color)]",
         destructive:
           "bg-[var(--color-danger-bg)] text-[var(--color-danger)] border border-[var(--color-danger-border)]",
         outline: "text-[var(--text-primary)] border border-[var(--surface-border)] bg-[var(--glass-xs)]",
         excellent:
           "bg-[var(--color-success-bg)] text-[var(--quality-excellent)] border border-[var(--color-success-border)]",
         good:
-          "bg-[rgba(59,130,246,0.1)] text-[var(--quality-good)] border border-[rgba(59,130,246,0.25)]",
+          "bg-[color-mix(in_srgb,var(--quality-good)_14%,transparent)] text-[var(--quality-good)] border border-[color-mix(in_srgb,var(--quality-good)_34%,transparent)]",
         average:
           "bg-[var(--color-warning-bg)] text-[var(--quality-average)] border border-[var(--color-warning-border)]",
         poor:

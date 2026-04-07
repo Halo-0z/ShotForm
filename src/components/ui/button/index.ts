@@ -8,16 +8,20 @@ export const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-gradient-to-br from-[var(--primary-color)] to-[var(--primary-hover)] text-white shadow-[0_2px_8px_rgba(99,102,241,0.3),var(--inset-highlight)] hover:shadow-[0_4px_12px_rgba(99,102,241,0.4),var(--inset-highlight)] active:shadow-[var(--inset-depth)]",
+        default: "button-variant-default",
         destructive:
           "bg-gradient-to-br from-[var(--color-danger)] to-[var(--color-danger-hover)] text-white shadow-[0_2px_8px_rgba(239,68,68,0.3),var(--inset-highlight)] hover:shadow-[0_4px_12px_rgba(239,68,68,0.4),var(--inset-highlight)]",
         outline:
-          "border border-[var(--surface-border)] bg-[var(--glass-md)] backdrop-blur-sm text-[var(--text-primary)] shadow-[var(--shadow-sm),var(--inset-highlight)] hover:bg-[var(--glass-lg)] hover:border-[var(--border-color)] hover:shadow-[var(--shadow-md),var(--inset-highlight)]",
+          "border border-[var(--surface-border)] bg-[var(--card-bg)] text-[var(--text-primary)] shadow-[var(--shadow-sm),var(--inset-highlight)] hover:bg-[var(--glass-sm)] hover:border-[var(--border-color)]",
         secondary:
-          "bg-[var(--glass-md)] backdrop-blur-sm text-[var(--text-primary)] border border-[var(--surface-border)] shadow-[var(--shadow-sm),var(--inset-highlight)] hover:bg-[var(--glass-lg)] hover:border-[var(--border-color)]",
-        ghost: "hover:bg-[var(--glass-sm)] hover:text-[var(--text-primary)]",
+          "bg-[var(--glass-sm)] text-[var(--text-secondary)] border border-[var(--surface-border)] shadow-[var(--shadow-sm),var(--inset-highlight)] hover:bg-[var(--glass-md)] hover:text-[var(--text-primary)] hover:border-[var(--border-color)]",
+        "segmented-active":
+          "button-variant-segmented-active",
+        "upload-cta":
+          "button-variant-upload-cta",
+        ghost: "hover:bg-[var(--glass-xs)] hover:text-[var(--text-primary)]",
         link: "text-[var(--primary-color)] underline-offset-4 hover:underline",
-        accent: "bg-gradient-to-br from-[var(--accent-color)] to-[var(--accent-hover)] text-white shadow-[0_2px_8px_rgba(16,185,129,0.3),var(--inset-highlight)] hover:shadow-[0_4px_12px_rgba(16,185,129,0.4),var(--inset-highlight)]",
+        accent: "bg-[var(--accent-color)] text-[var(--text-inverse)] border border-[color-mix(in_srgb,var(--accent-hover)_78%,black)] shadow-[var(--shadow-sm),inset_0_1px_0_rgba(255,255,255,0.14)] hover:bg-[var(--accent-hover)] hover:shadow-[var(--shadow-md),inset_0_1px_0_rgba(255,255,255,0.16)]",
       },
       size: {
         "default": "h-9 px-4 py-2",

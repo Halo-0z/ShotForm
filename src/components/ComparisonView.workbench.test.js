@@ -17,9 +17,14 @@ test('comparison view falls back to legacy template loading when ranked comparis
   assert.match(source, /const loadFallbackWorkbench = async \(/)
   assert.match(source, /withTimeout\(\s*invoke<ComparisonWorkbenchResult>\('compare_against_all_players'/)
   assert.match(source, /Promise\.allSettled\(/)
-  assert.match(source, /invoke<PlayerTemplate\[]>\('get_player_templates'/)
+  assert.match(source, /withTimeout\(\s*invoke<PlayerTemplate\[]>\('get_player_templates'/)
   assert.match(source, /withTimeout\(\s*invoke<ComparisonResult>\('compare_with_player'/)
-  assert.match(source, /const fallbackSummaries = fallbackResults/)
+})
+
+test('comparison view hardens the primary detail request against indefinite loading', () => {
+  assert.match(source, /const loadComparison = async \(playerId: number, persistHistory = true\) =>/)
+  assert.match(source, /withTimeout\(\s*invoke<ComparisonResult>\('compare_with_player'/)
+  assert.match(source, /compare_with_player\(\$\{playerId\}\) timed out/)
 })
 
 test('comparison view exposes a retry path when ranking fails or times out', () => {

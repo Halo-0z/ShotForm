@@ -1,9 +1,8 @@
 use crate::ai::hunyuan;
 use crate::analysis::{
-    calculate_all_angles, get_default_player_templates, get_shooting_arm_angles, PoseComparator,
-    ShotTypeClassifier,
+    calculate_all_angles, get_shooting_arm_angles, PoseComparator, ShotTypeClassifier,
 };
-use crate::database::get_or_seed_player_templates;
+use crate::database::get_player_templates as get_player_templates_from_db;
 use crate::image::{ImageProcessor, PoseVisualizer};
 use crate::models::{
     AiAnalysisPayload, AiAnglePayloadItem, AiCoachingResponse, AiPayloadFlags, AiShotContext,
@@ -42,18 +41,15 @@ fn current_timestamp_ms() -> Result<u64, String> {
 }
 
 async fn load_player_templates(app_handle: &AppHandle) -> Vec<PlayerTemplate> {
-    let defaults = get_default_player_templates();
-
     let Some(pool) = app_handle.try_state::<SqlitePool>() else {
-        return defaults;
+        return Vec::new();
     };
 
-    match get_or_seed_player_templates(&pool, &defaults).await {
-        Ok(templates) if !templates.is_empty() => templates,
-        Ok(_) => defaults,
+    match get_player_templates_from_db(&pool).await {
+        Ok(templates) => templates,
         Err(error) => {
             eprintln!("Failed to load player templates from database: {error}");
-            defaults
+            Vec::new()
         }
     }
 }

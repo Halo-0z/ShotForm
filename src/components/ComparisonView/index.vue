@@ -21,12 +21,15 @@
       </button>
 
       <div v-if="isLoadingRankings" class="comparison-loading">
-        <p class="comparison-loading__title">正在匹配球星模板</p>
-        <p class="comparison-loading__body">优先尝试智能排序，如果超时会自动回退到本地模板对比。</p>
+        <p class="comparison-loading__title">正在加载球星模板</p>
+        <p class="comparison-loading__body">如果模板排序或详情请求超时，会自动结束等待并显示可用结果。</p>
         <el-skeleton :rows="6" animated />
       </div>
 
-      <el-empty v-else-if="!rankedSummaries.length" description="暂无可用球星模板" />
+      <el-empty
+        v-else-if="!rankedSummaries.length"
+        description="暂无球星模板，请先导入模板后再进行对比。"
+      />
 
       <template v-else>
         <section class="comparison-ranking">
@@ -414,10 +417,14 @@ const loadComparison = async (playerId: number, persistHistory = true) => {
   comparisonError.value = ''
 
   try {
-    const result = await invoke<ComparisonResult>('compare_with_player', {
-      analysis: props.analysis,
-      playerId
-    })
+    const result = await withTimeout(
+      invoke<ComparisonResult>('compare_with_player', {
+        analysis: props.analysis,
+        playerId
+      }),
+      1600,
+      `compare_with_player(${playerId}) timed out`
+    )
 
     if (requestId !== comparisonRequestId) {
       return
@@ -443,10 +450,22 @@ const loadFallbackWorkbench = async (
   analysis: ShotAnalysis,
   requestId: number
 ) => {
-  const players = await invoke<PlayerTemplate[]>('get_player_templates')
+  const players = await withTimeout(
+    invoke<PlayerTemplate[]>('get_player_templates'),
+    1200,
+    'get_player_templates timed out'
+  )
 
-  if (requestId !== rankingRequestId || !players.length) {
+  if (requestId !== rankingRequestId) {
     return false
+  }
+
+  if (!players.length) {
+    rankedSummaries.value = []
+    selectedPlayerId.value = null
+    comparisonResult.value = null
+    analysisStore.setCurrentComparison(null)
+    return true
   }
 
   const settledFallbackResults = await Promise.allSettled(

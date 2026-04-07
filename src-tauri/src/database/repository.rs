@@ -303,7 +303,6 @@ pub async fn delete_analysis_history(pool: &SqlitePool, id: i64) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::analysis::get_default_player_templates;
     use crate::models::{AngleDifference, JointAngle, PoseData, ShotType};
 
     async fn setup_in_memory_pool() -> SqlitePool {
@@ -403,15 +402,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn seeds_default_player_templates_when_table_is_empty() {
+    async fn get_player_templates_returns_empty_when_table_is_empty() {
         let pool = setup_in_memory_pool().await;
 
-        let templates = get_or_seed_player_templates(&pool, &get_default_player_templates())
+        let templates = get_player_templates(&pool)
             .await
-            .expect("seed templates");
+            .expect("query templates");
 
-        assert!(!templates.is_empty());
-        assert_eq!(templates.len(), get_default_player_templates().len());
+        assert!(templates.is_empty());
     }
 
     #[tokio::test]

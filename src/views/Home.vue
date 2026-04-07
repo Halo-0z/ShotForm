@@ -1,48 +1,150 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import CinematicHeroStage from '@/components/home/CinematicHeroStage.vue'
 import HeroCopyBlock from '@/components/home/HeroCopyBlock.vue'
-import HomeWorkspace from '@/components/home/HomeWorkspace.vue'
-import { HOME_HERO_COPY, getInitialHeroMode, shouldReduceHeroMotion } from '@/lib/home-hero-state.js'
-import { useAnalysisStore } from '@/stores/analysis'
+import { navigateWithFogTransition } from '@/composables/useFogRouteTransition'
+import {
+  HOME_HERO_COPY,
+  HOME_HERO_ROTATION_MS,
+  HOME_HERO_SLIDES,
+  shouldReduceHeroMotion
+} from '@/lib/home-hero-state.js'
 
-const analysisStore = useAnalysisStore()
+type HeroCopyMotionMode = 'intro' | 'return' | 'settled'
 
-const heroMode = ref(getInitialHeroMode(Boolean(analysisStore.currentAnalysis)))
+const router = useRouter()
 const reduceMotion = ref(false)
-const workspaceRef = ref<HTMLElement | null>(null)
-let motionQuery: MediaQueryList | null = null
+const heroCopyMotionMode = ref<HeroCopyMotionMode>('intro')
+const isTransitioningToUpload = ref(false)
+const activeHeroIndex = ref(0)
+const activeHeroSlide = computed(() => HOME_HERO_SLIDES[activeHeroIndex.value] ?? HOME_HERO_SLIDES[0])
+const preloadUploadPage = () => import('@/views/Upload.vue')
 
-const hasAnalysis = computed(() => Boolean(analysisStore.currentAnalysis))
-const isWorking = computed(() => analysisStore.isLoading || hasAnalysis.value)
+const HERO_COPY_INTRO_DURATION = 1400
+
+let motionQuery: MediaQueryList | null = null
+let heroCopySettleTimer: ReturnType<typeof setTimeout> | null = null
+let heroRotationTimer: ReturnType<typeof setInterval> | null = null
+let uploadPreloadTimer: ReturnType<typeof setTimeout> | null = null
+let uploadPreloadIdleCallbackId: number | null = null
+
+const clearHeroCopySettleTimer = () => {
+  if (!heroCopySettleTimer) {
+    return
+  }
+
+  clearTimeout(heroCopySettleTimer)
+  heroCopySettleTimer = null
+}
+
+const clearUploadPreloadSchedule = () => {
+  if (uploadPreloadTimer) {
+    clearTimeout(uploadPreloadTimer)
+    uploadPreloadTimer = null
+  }
+
+  if (uploadPreloadIdleCallbackId !== null && typeof window !== 'undefined' && typeof window.cancelIdleCallback === 'function') {
+    window.cancelIdleCallback(uploadPreloadIdleCallbackId)
+    uploadPreloadIdleCallbackId = null
+  }
+}
+
+const clearHeroRotationTimer = () => {
+  if (!heroRotationTimer) {
+    return
+  }
+
+  clearInterval(heroRotationTimer)
+  heroRotationTimer = null
+}
+
+const advanceHeroSlide = () => {
+  if (HOME_HERO_SLIDES.length <= 1) {
+    return
+  }
+
+  activeHeroIndex.value = (activeHeroIndex.value + 1) % HOME_HERO_SLIDES.length
+}
+
+const syncHeroRotation = () => {
+  clearHeroRotationTimer()
+
+  if (reduceMotion.value || isTransitioningToUpload.value || HOME_HERO_SLIDES.length <= 1) {
+    return
+  }
+
+  heroRotationTimer = setInterval(() => {
+    advanceHeroSlide()
+  }, HOME_HERO_ROTATION_MS)
+}
+
+const scheduleUploadPreload = () => {
+  clearUploadPreloadSchedule()
+
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  if (typeof window.requestIdleCallback === 'function') {
+    uploadPreloadIdleCallbackId = window.requestIdleCallback(() => {
+      uploadPreloadIdleCallbackId = null
+      void preloadUploadPage()
+    }, { timeout: 900 })
+    return
+  }
+
+  uploadPreloadTimer = setTimeout(() => {
+    uploadPreloadTimer = null
+    void preloadUploadPage()
+  }, 180)
+}
+
+const settleHeroCopyMotion = () => {
+  clearHeroCopySettleTimer()
+  heroCopyMotionMode.value = 'settled'
+}
+
+const scheduleHeroCopySettle = (delay: number) => {
+  clearHeroCopySettleTimer()
+  heroCopySettleTimer = setTimeout(() => {
+    heroCopyMotionMode.value = 'settled'
+    heroCopySettleTimer = null
+  }, delay)
+}
 
 const syncReduceMotion = (matches: boolean) => {
   reduceMotion.value = shouldReduceHeroMotion(matches)
+
+  if (reduceMotion.value) {
+    activeHeroIndex.value = 0
+  }
 }
 
 const handleMotionPreferenceChange = (event: MediaQueryListEvent) => {
   syncReduceMotion(event.matches)
-}
 
-const scrollWorkspaceIntoView = () => {
-  requestAnimationFrame(() => {
-    workspaceRef.value?.scrollIntoView({
-      behavior: reduceMotion.value ? 'auto' : 'smooth',
-      block: 'start'
-    })
-  })
-}
-
-const enterWorkspace = async () => {
-  heroMode.value = 'workspace'
-  await nextTick()
-  scrollWorkspaceIntoView()
-}
-
-watch(isWorking, value => {
-  if (value) {
-    heroMode.value = 'workspace'
+  if (reduceMotion.value) {
+    settleHeroCopyMotion()
   }
+}
+
+const handleStartAnalysis = async () => {
+  isTransitioningToUpload.value = true
+  clearUploadPreloadSchedule()
+  clearHeroRotationTimer()
+
+  try {
+    await navigateWithFogTransition(router, '/upload', {
+      preload: preloadUploadPage
+    })
+  } finally {
+    isTransitioningToUpload.value = false
+  }
+}
+
+watch([reduceMotion, isTransitioningToUpload], () => {
+  syncHeroRotation()
 })
 
 onMounted(() => {
@@ -53,6 +155,15 @@ onMounted(() => {
   motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
   syncReduceMotion(motionQuery.matches)
 
+  if (reduceMotion.value) {
+    settleHeroCopyMotion()
+  } else {
+    scheduleHeroCopySettle(HERO_COPY_INTRO_DURATION)
+  }
+
+  scheduleUploadPreload()
+  syncHeroRotation()
+
   if (typeof motionQuery.addEventListener === 'function') {
     motionQuery.addEventListener('change', handleMotionPreferenceChange)
     return
@@ -62,6 +173,10 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  clearHeroCopySettleTimer()
+  clearHeroRotationTimer()
+  clearUploadPreloadSchedule()
+
   if (!motionQuery) {
     return
   }
@@ -76,34 +191,33 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div
-    class="cinematic-home"
-    :class="{ 'is-workspace': heroMode === 'workspace', 'reduced-motion': reduceMotion }"
-  >
-    <CinematicHeroStage class="hero-stage-shell" :reduce-motion="reduceMotion">
+  <div class="cinematic-home" :class="{ 'reduced-motion': reduceMotion }">
+    <CinematicHeroStage
+      class="hero-stage-shell"
+      :slide-id="activeHeroSlide.id"
+      :video-src="activeHeroSlide.videoSrc ?? ''"
+      :figure-src="activeHeroSlide.figureSrc"
+      :poster-src="activeHeroSlide.posterSrc ?? activeHeroSlide.figureSrc"
+      :reduce-motion="reduceMotion"
+      :transitioning-out="isTransitioningToUpload"
+    >
       <div class="hero-stage-inner">
         <HeroCopyBlock
           :headline="HOME_HERO_COPY.headline"
           :subtitle="HOME_HERO_COPY.subtitle"
           :cta="HOME_HERO_COPY.cta"
-          @start="enterWorkspace"
+          :motion-mode="heroCopyMotionMode"
+          @start="handleStartAnalysis"
         />
       </div>
     </CinematicHeroStage>
-
-    <section ref="workspaceRef" class="workspace-reveal" :class="{ visible: heroMode === 'workspace' }">
-      <div class="workspace-surface">
-        <HomeWorkspace />
-      </div>
-    </section>
   </div>
 </template>
 
 <style scoped>
 .cinematic-home {
-  background:
-    radial-gradient(circle at top, rgba(76, 99, 158, 0.16), transparent 28%),
-    linear-gradient(180deg, #06070d 0%, #05060a 44%, #090d17 100%);
+  min-height: 100%;
+  background: transparent;
 }
 
 .hero-stage-shell {
@@ -112,55 +226,9 @@ onBeforeUnmount(() => {
 
 .hero-stage-inner {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
+  justify-content: flex-start;
   min-height: 100vh;
-}
-
-.workspace-reveal {
-  position: relative;
-  margin-top: -5rem;
-  padding: 0 0 4rem;
-  opacity: 0.74;
-  transform: translateY(3.5rem);
-  transition:
-    opacity 420ms ease,
-    transform 560ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.workspace-reveal.visible {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.workspace-surface {
-  position: relative;
-  margin: 0 auto;
-  width: min(100% - 2rem, 92rem);
-  border-radius: 2rem 2rem 0 0;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background:
-    linear-gradient(180deg, rgba(12, 14, 22, 0.96), rgba(9, 11, 18, 0.98)),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.06), transparent 42%);
-  box-shadow:
-    0 -1px 0 rgba(255, 255, 255, 0.04),
-    0 -30px 80px rgba(0, 0, 0, 0.28);
-  overflow: clip;
-}
-
-.cinematic-home.reduced-motion .workspace-reveal {
-  opacity: 1;
-  transform: none;
-  transition-duration: 0.01ms;
-}
-
-@media (max-width: 720px) {
-  .workspace-reveal {
-    margin-top: -2rem;
-  }
-
-  .workspace-surface {
-    width: calc(100% - 1rem);
-    border-radius: 1.5rem 1.5rem 0 0;
-  }
+  padding: clamp(3.6rem, 8vh, 5.2rem) clamp(1.1rem, 3.2vw, 3.2rem) clamp(3rem, 8vh, 4.8rem);
 }
 </style>

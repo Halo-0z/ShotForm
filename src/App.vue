@@ -1,22 +1,34 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
+import FogRouteTransition from '@/components/transition/FogRouteTransition.vue'
 import TitleBar from '@/components/TitleBar.vue'
 import { useTheme } from '@/composables/useTheme'
+import { COPY_LOCK_CLASS, createCopyGuardHandlers } from '@/lib/copy-guard.js'
 
 const route = useRoute()
 const { initTheme } = useTheme()
+const { handleCopy, handleCut } = createCopyGuardHandlers()
 
 const isImmersiveChrome = computed(() => Boolean(route.meta.immersiveChrome))
+const isWorkbenchChrome = computed(() => Boolean(route.meta.workbenchPage))
 
 onMounted(() => {
   initTheme()
+  document.addEventListener('copy', handleCopy)
+  document.addEventListener('cut', handleCut)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('copy', handleCopy)
+  document.removeEventListener('cut', handleCut)
 })
 </script>
 
 <template>
-  <div class="app-container" :class="{ 'immersive-home': isImmersiveChrome }">
-    <TitleBar :immersive="isImmersiveChrome" />
+  <div class="app-container" :class="[COPY_LOCK_CLASS, { 'immersive-home': isImmersiveChrome }]">
+    <TitleBar :immersive="isImmersiveChrome" :workbench="isWorkbenchChrome" />
+    <FogRouteTransition />
     <div class="app-content" :class="{ 'immersive-home': isImmersiveChrome }">
       <router-view />
     </div>
@@ -55,9 +67,26 @@ body,
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 .app-content.immersive-home {
   position: relative;
+}
+
+.app-copy-locked,
+.app-copy-locked * {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.app-copy-locked input,
+.app-copy-locked textarea,
+.app-copy-locked [contenteditable='true'],
+.app-copy-locked [contenteditable='plaintext-only'],
+.app-copy-locked [data-allow-copy='true'],
+.app-copy-locked [data-allow-copy='true'] * {
+  user-select: text;
+  -webkit-user-select: text;
 }
 </style>

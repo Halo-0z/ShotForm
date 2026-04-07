@@ -10,9 +10,11 @@ import { useTheme } from '@/composables/useTheme'
 const props = withDefaults(
   defineProps<{
     immersive?: boolean
+    workbench?: boolean
   }>(),
   {
-    immersive: false
+    immersive: false,
+    workbench: false
   }
 )
 
@@ -65,7 +67,7 @@ const handleOpenHistory = async () => {
 <template>
   <div
     class="titlebar"
-    :class="{ immersive: props.immersive, 'workbench': !props.immersive, 'immersive-light': props.immersive && isLightTheme }"
+    :class="{ immersive: props.immersive, workbench: props.workbench, 'immersive-light': props.immersive && isLightTheme }"
     data-tauri-drag-region
   >
     <div class="titlebar-left">

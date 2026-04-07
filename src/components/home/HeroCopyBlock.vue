@@ -6,7 +6,7 @@ const props = withDefaults(
     headline?: string
     subtitle?: string
     cta?: string
-    motionMode?: 'intro' | 'return' | 'settled'
+    motionMode?: 'intro' | 'settled'
   }>(),
   {
     headline: '看见你的出手节奏',
@@ -77,11 +77,6 @@ const { isLightTheme } = useResolvedThemeState()
 .hero-copy-block.motion-intro .hero-cta {
   opacity: 0;
   animation: fade-rise 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
-
-.hero-copy-block.motion-return {
-  animation: hero-copy-return 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
-  will-change: transform, opacity, filter;
 }
 
 .hero-kicker {
@@ -269,20 +264,6 @@ const { isLightTheme } = useResolvedThemeState()
   }
 }
 
-@keyframes hero-copy-return {
-  from {
-    opacity: 0.74;
-    transform: translateY(10px);
-    filter: blur(2px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-    filter: blur(0);
-  }
-}
-
 @keyframes cta-idle-drift {
   0%,
   100% {
@@ -330,8 +311,7 @@ const { isLightTheme } = useResolvedThemeState()
   .hero-copy-block.motion-intro .hero-kicker,
   .hero-copy-block.motion-intro .hero-headline,
   .hero-copy-block.motion-intro .hero-subtitle,
-  .hero-copy-block.motion-intro .hero-cta,
-  .hero-copy-block.motion-return {
+  .hero-copy-block.motion-intro .hero-cta {
     animation: none;
     opacity: 1;
     transform: none;

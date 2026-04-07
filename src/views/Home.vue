@@ -6,7 +6,7 @@ import HeroCopyBlock from '@/components/home/HeroCopyBlock.vue'
 import { navigateWithFogTransition } from '@/composables/useFogRouteTransition'
 import { HOME_HERO_COPY, shouldReduceHeroMotion } from '@/lib/home-hero-state.js'
 
-type HeroCopyMotionMode = 'intro' | 'return' | 'settled'
+type HeroCopyMotionMode = 'intro' | 'settled'
 
 const router = useRouter()
 const reduceMotion = ref(false)

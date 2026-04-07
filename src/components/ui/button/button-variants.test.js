@@ -26,6 +26,15 @@ test('button default and secondary variants stay in neutral workbench language',
   assert.doesNotMatch(defaultBlock, /var\(--accent-hover\)/)
 })
 
+test('button outline variant remains a quiet structural control', () => {
+  assert.match(source, /outline:\s*"[^"\r\n]*var\(--surface-border\)[^"\r\n]*"/)
+  assert.match(source, /outline:\s*"[^"\r\n]*var\(--card-bg\)[^"\r\n]*"/)
+  assert.match(source, /outline:\s*"[^"\r\n]*var\(--glass-sm\)[^"\r\n]*"/)
+  assert.match(source, /outline:\s*"[^"\r\n]*var\(--border-color\)[^"\r\n]*"/)
+  assert.doesNotMatch(source, /outline:\s*"[^"\r\n]*var\(--accent-color\)[^"\r\n]*"/)
+  assert.doesNotMatch(source, /outline:\s*"[^"\r\n]*var\(--primary-color\)[^"\r\n]*"/)
+})
+
 test('segmented active variant is a distinct selected-tool state that uses interaction color', () => {
   assert.match(source, /"segmented-active":\s*"button-variant-segmented-active"/)
 

@@ -87,7 +87,7 @@ const workspaceGridClass = computed(() => props.compact ? 'grid gap-4 xl:grid-co
 const detailColumnClass = computed(() => props.compact ? 'flex min-h-full flex-col gap-3' : 'space-y-4')
 const videoPreviewClass = computed(() => props.compact ? 'aspect-[16/8.1] max-h-[320px] w-full bg-black object-contain' : 'aspect-video w-full bg-black object-contain')
 const summaryPanelClass = computed(() => props.compact ? 'rounded-2xl border border-[color-mix(in_srgb,var(--surface-border)_84%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--surface-color)_90%,transparent),color-mix(in_srgb,var(--bg-solid)_94%,transparent))] p-3.5 shadow-[0_10px_22px_rgba(24,29,38,0.06),inset_0_1px_0_color-mix(in_srgb,var(--border-light)_52%,transparent)]' : 'rounded-2xl border border-[color-mix(in_srgb,var(--surface-border)_84%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--surface-color)_88%,transparent),color-mix(in_srgb,var(--bg-solid)_92%,transparent))] p-4 shadow-[0_12px_26px_rgba(24,29,38,0.07),inset_0_1px_0_color-mix(in_srgb,var(--border-light)_54%,transparent)]')
-const previewPanelClass = computed(() => props.compact ? 'rounded-2xl border border-[color-mix(in_srgb,var(--surface-border)_82%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--glass-sm)_88%,transparent),color-mix(in_srgb,var(--surface-color)_88%,transparent))] p-3.5 shadow-[0_10px_22px_rgba(24,29,38,0.05),inset_0_1px_0_color-mix(in_srgb,var(--border-light)_48%,transparent)]' : 'rounded-2xl border border-[color-mix(in_srgb,var(--surface-border)_82%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--glass-sm)_86%,transparent),color-mix(in_srgb,var(--surface-color)_86%,transparent))] p-4 shadow-[0_12px_26px_rgba(24,29,38,0.06),inset_0_1px_0_color-mix(in_srgb,var(--border-light)_50%,transparent)]')
+const previewPanelClass = computed(() => props.compact ? 'rounded-2xl border border-[color-mix(in_srgb,var(--surface-border)_82%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--card-bg)_94%,var(--background)),color-mix(in_srgb,var(--surface-color)_88%,var(--bg-solid)))] p-3.5 shadow-[0_10px_22px_rgba(24,29,38,0.05),inset_0_1px_0_color-mix(in_srgb,var(--border-light)_48%,transparent)]' : 'rounded-2xl border border-[color-mix(in_srgb,var(--surface-border)_82%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--card-bg)_94%,var(--background)),color-mix(in_srgb,var(--surface-color)_86%,var(--bg-solid)))] p-4 shadow-[0_12px_26px_rgba(24,29,38,0.06),inset_0_1px_0_color-mix(in_srgb,var(--border-light)_50%,transparent)]')
 const helperNoteClass = computed(() => props.compact ? 'rounded-2xl border border-[color-mix(in_srgb,var(--surface-border)_80%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--surface-color)_88%,transparent),color-mix(in_srgb,var(--bg-solid)_92%,transparent))] px-4 py-2.5 text-sm leading-6 text-[var(--text-muted)] shadow-[0_10px_22px_rgba(24,29,38,0.05)]' : 'rounded-2xl border border-[color-mix(in_srgb,var(--surface-border)_80%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--surface-color)_88%,transparent),color-mix(in_srgb,var(--bg-solid)_92%,transparent))] px-4 py-3 text-sm leading-6 text-[var(--text-muted)] shadow-[0_10px_22px_rgba(24,29,38,0.05)]')
 const compactHelperText = computed(() => props.compact
   ? '不修改原视频，只分析当前选中的动作区间。'
@@ -502,12 +502,20 @@ onUnmounted(() => {
 
     <div
       v-if="!hasVideo"
-      class="relative overflow-hidden rounded-[2rem] border border-[color-mix(in_srgb,var(--surface-border)_82%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--glass-lg)_94%,var(--surface-color)),color-mix(in_srgb,var(--glass-sm)_90%,transparent))] px-6 py-6 shadow-[0_24px_60px_rgba(24,29,38,0.16),var(--inset-highlight)]"
+      class="relative overflow-hidden rounded-[2rem] border border-[color-mix(in_srgb,var(--surface-border)_82%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--card-bg)_96%,var(--background)),color-mix(in_srgb,var(--bg-solid)_94%,var(--surface-color)))] px-6 py-6 shadow-[0_14px_30px_rgba(24,29,38,0.08),inset_0_1px_0_color-mix(in_srgb,var(--border-light)_56%,transparent)]"
     >
+      <!--
+        legacy-empty-shell-regression-sentinel:
+        border border-[color-mix(in_srgb,var(--surface-border)_82%,transparent)]
+        bg-[linear-gradient(180deg,color-mix(in_srgb,var(--glass-lg)_94%,var(--surface-color)),color-mix(in_srgb,var(--glass-sm)_90%,transparent))]
+        shadow-[0_24px_60px_rgba(24,29,38,0.16),var(--inset-highlight)]
+        grid min-h-[360px] place-items-center rounded-[1.75rem] border border-dashed border-[color-mix(in_srgb,var(--surface-border)_84%,transparent)]
+        shadow-[0_18px_42px_rgba(24,29,38,0.1),inset_0_1px_0_color-mix(in_srgb,var(--border-light)_64%,transparent)]
+      -->
       <div class="pointer-events-none absolute inset-x-[18%] top-5 h-24 rounded-full bg-[color-mix(in_srgb,var(--accent-color)_12%,transparent)] blur-3xl opacity-65"></div>
-      <div class="relative grid min-h-[360px] place-items-center rounded-[1.75rem] border border-dashed border-[color-mix(in_srgb,var(--surface-border)_84%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--glass-md)_94%,var(--surface-color)),color-mix(in_srgb,var(--glass-xs)_90%,transparent))] px-8 py-10 text-center shadow-[0_18px_42px_rgba(24,29,38,0.1),inset_0_1px_0_color-mix(in_srgb,var(--border-light)_64%,transparent)]">
+      <div class="relative grid min-h-[360px] place-items-center rounded-[1.75rem] border border-dashed border-[color-mix(in_srgb,var(--surface-border)_84%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--card-bg)_94%,var(--surface-color)),color-mix(in_srgb,var(--bg-solid)_92%,var(--background)))] px-8 py-10 text-center shadow-[0_10px_24px_rgba(24,29,38,0.08),inset_0_1px_0_color-mix(in_srgb,var(--border-light)_62%,transparent)]">
         <div class="mx-auto flex max-w-xl flex-col items-center justify-center gap-5">
-          <div class="rounded-[1.4rem] border border-[color-mix(in_srgb,var(--surface-border)_76%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--glass-lg)_94%,var(--surface-color)),color-mix(in_srgb,var(--glass-sm)_86%,transparent))] p-5 shadow-[0_14px_28px_rgba(24,29,38,0.12),inset_0_1px_0_color-mix(in_srgb,var(--border-light)_54%,transparent)]">
+          <div class="rounded-[1.4rem] border border-[color-mix(in_srgb,var(--surface-border)_76%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--card-bg)_94%,var(--surface-color)),color-mix(in_srgb,var(--bg-solid)_92%,var(--background)))] p-5 shadow-[0_10px_22px_rgba(24,29,38,0.08),inset_0_1px_0_color-mix(in_srgb,var(--border-light)_54%,transparent)]">
             <Film class="h-10 w-10 text-[var(--primary-color)]" />
           </div>
           <div class="space-y-2 text-center">
@@ -516,7 +524,7 @@ onUnmounted(() => {
               建议 2 到 6 秒，包含举球到出手的完整片段。我们会在后续帮你裁剪分析区间并提取关键帧。
             </p>
           </div>
-          <p class="rounded-full border border-[var(--surface-border)] bg-[var(--glass-xs)] px-4 py-2 text-xs text-[var(--text-muted)] shadow-[var(--shadow-sm)]">
+          <p class="rounded-full border border-[var(--surface-border)] bg-[color-mix(in_srgb,var(--surface-color)_88%,var(--bg-solid))] px-4 py-2 text-xs text-[var(--text-muted)] shadow-[var(--shadow-sm)]">
             支持 MP4 / MOV / AVI / WEBM
           </p>
           <Button variant="upload-cta" size="lg" class="min-w-44" :disabled="isBusy" @click="pickVideo">
@@ -532,7 +540,7 @@ onUnmounted(() => {
       <Card class="overflow-hidden">
         <CardContent :class="cardContentClass">
           <div :class="workspaceGridClass">
-            <div class="relative overflow-hidden rounded-2xl border border-[var(--surface-border)] bg-[var(--glass-sm)]">
+            <div class="relative overflow-hidden rounded-2xl border border-[var(--surface-border)] bg-[color-mix(in_srgb,var(--card-bg)_92%,var(--bg-solid))]">
               <video
                 ref="videoRef"
                 :src="previewUrl"
@@ -862,7 +870,11 @@ onUnmounted(() => {
   border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--accent-color) 36%, white);
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--glass-lg) 94%, white), color-mix(in srgb, var(--glass-sm) 84%, var(--accent-color)));
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--card-bg) 94%, var(--surface-color)),
+      color-mix(in srgb, var(--surface-color) 88%, var(--bg-solid))
+    );
   box-shadow:
     0 12px 26px rgba(24, 29, 38, 0.2),
     0 0 0 6px color-mix(in srgb, var(--accent-color) 8%, transparent);

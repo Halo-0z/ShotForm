@@ -4,19 +4,24 @@ import { readFileSync } from 'node:fs'
 
 const source = readFileSync(new URL('./UploadWorkbenchPage.vue', import.meta.url), 'utf8')
 
-test('upload workbench exposes a compact utility bar, media switcher, editor surface, and stable action area', () => {
+test('upload workbench keeps rail, mode switch, main surface, and status in one coherent page', () => {
   assert.match(source, /upload-workbench__rail/)
-  assert.match(source, /upload-workbench__deck/)
+  assert.match(source, /upload-workbench__main/)
   assert.match(source, /upload-workbench__mode-strip/)
   assert.match(source, /upload-workbench__surface/)
   assert.match(source, /upload-workbench__status-rail/)
   assert.match(source, /upload-workbench__action-buttons/)
+  assert.match(
+    source,
+    /<section class="upload-workbench__main">[\s\S]*upload-workbench__mode-strip[\s\S]*upload-workbench__surface[\s\S]*upload-workbench__status-rail/
+  )
 })
 
-test('upload workbench does not render homepage feature-card navigation', () => {
-  assert.doesNotMatch(source, /涓婁紶绱犳潗/)
-  assert.doesNotMatch(source, /鐞冩槦瀵规瘮/)
-  assert.doesNotMatch(source, /鐭寤鸿/)
+test('upload workbench keeps Home and History in a visible but utility-level rail', () => {
+  assert.match(source, /<Button variant="ghost" size="sm" @click="goHome">/)
+  assert.match(source, /<Button variant="outline" size="sm" @click="goHistory">/)
+  assert.doesNotMatch(source, /<Button variant="default" size="sm" @click="goHome">/)
+  assert.doesNotMatch(source, /<Button variant="default" size="sm" @click="goHistory">/)
 })
 
 test('upload workbench reuses the dedicated image and video upload tools', () => {
@@ -40,7 +45,7 @@ test('upload workbench guards Tauri-only analysis when opened in a plain browser
   assert.match(source, /handoffError\.value = browserModeMessage/)
 })
 
-test('upload workbench mode switch gives the selected mode its own segmented-active button semantics', () => {
+test('upload workbench mode switch gives the selected mode segmented-active semantics', () => {
   assert.match(source, /upload-workbench__mode-strip/)
   assert.match(source, /uploadMode === 'image' \? 'segmented-active' : 'secondary'/)
   assert.match(source, /uploadMode === 'video' \? 'segmented-active' : 'secondary'/)

@@ -17,7 +17,7 @@ const handoffError = ref('')
 
 const workbenchKey = computed(() => `${uploadMode.value}-${uploadResetKey.value}`)
 const isBusy = computed(() => analysisStore.isLoading)
-const browserModeMessage = '当前是浏览器预览模式，素材可以选择和裁剪，但姿势分析需要在桌面版应用中运行。'
+const browserModeMessage = '当前是浏览器预览模式：可上传与裁剪素材，但姿态分析需在桌面端运行。'
 
 const hasTauriRuntime = () => {
   if (typeof window === 'undefined') return false
@@ -87,27 +87,28 @@ const handleVideoLoaded = async (payload: {
   <section class="upload-workbench">
     <header class="upload-workbench__rail">
       <div class="upload-workbench__rail-main">
-        <div class="upload-workbench__eyebrow">上传工作台</div>
+        <p class="upload-workbench__eyebrow">Upload Workbench</p>
         <div class="upload-workbench__heading">
-          <h1>上传分析</h1>
-          <p>直接导入图片或视频，完成后立即进入分析结果页。</p>
+          <h1>上传素材</h1>
+          <p>选择图片或视频，确认后直接进入分析。</p>
         </div>
       </div>
 
       <div class="upload-workbench__rail-actions">
         <Button variant="ghost" size="sm" @click="goHome">
           <ArrowLeft class="h-4 w-4" />
-          返回首页
+          首页
         </Button>
         <Button variant="outline" size="sm" @click="goHistory">
           <Clock3 class="h-4 w-4" />
-          历史记录
+          历史
         </Button>
       </div>
     </header>
 
-    <section class="upload-workbench__deck">
-      <div class="upload-workbench__mode-strip" aria-label="上传模式切换">
+    <section class="upload-workbench__main">
+      <div class="upload-workbench__mode-strip" aria-label="上传工具选择">
+        <p class="upload-workbench__mode-label">输入类型</p>
         <Button
           :variant="uploadMode === 'image' ? 'segmented-active' : 'secondary'"
           size="sm"
@@ -144,12 +145,12 @@ const handleVideoLoaded = async (payload: {
 
       <footer class="upload-workbench__status-rail">
         <p class="upload-workbench__status">
-          {{ uploadMode === 'image' ? '图片模式适合单帧姿态分析。' : '视频模式支持裁剪片段并进入关键帧分析。' }}
+          {{ uploadMode === 'image' ? '适合单帧动作判断。' : '先裁剪动作区间，再进入关键帧分析。' }}
         </p>
         <div class="upload-workbench__action-buttons">
           <Button variant="outline" size="sm" @click="resetWorkbench">
             <RotateCcw class="h-4 w-4" />
-            重新开始
+            重置当前素材
           </Button>
         </div>
       </footer>
@@ -162,42 +163,46 @@ const handleVideoLoaded = async (payload: {
 <style scoped>
 .upload-workbench {
   display: grid;
-  gap: 18px;
+  gap: 16px;
 }
 
 .upload-workbench__rail {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 16px;
-  padding: 15px 16px;
-  border-radius: 24px;
-  border: 1px solid color-mix(in srgb, var(--surface-border) 82%, transparent);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--card-bg) 94%, var(--background)), color-mix(in srgb, var(--surface-color) 90%, transparent));
+  gap: 14px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--surface-border) 78%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--card-bg) 94%, var(--background)),
+    color-mix(in srgb, var(--surface-color) 90%, var(--bg-solid))
+  );
   box-shadow:
-    0 18px 42px rgba(24, 29, 38, 0.09),
-    inset 0 1px 0 color-mix(in srgb, var(--border-light) 72%, transparent);
+    0 10px 20px rgba(24, 29, 38, 0.05),
+    inset 0 1px 0 color-mix(in srgb, var(--border-light) 68%, transparent);
 }
 
 .upload-workbench__rail-main {
   display: grid;
-  gap: 10px;
+  gap: 6px;
 }
 
 .upload-workbench__rail-actions {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 8px;
 }
 
 .upload-workbench__eyebrow {
-  font-size: 12px;
+  margin: 0;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--accent-color) 42%, var(--text-secondary));
+  color: color-mix(in srgb, var(--accent-color) 36%, var(--text-secondary));
 }
 
 .upload-workbench__heading h1 {
@@ -207,45 +212,59 @@ const handleVideoLoaded = async (payload: {
 }
 
 .upload-workbench__heading p {
-  margin: 8px 0 0;
+  margin: 4px 0 0;
   color: var(--text-secondary);
 }
 
-.upload-workbench__deck {
+.upload-workbench__main {
   display: grid;
-  gap: 16px;
+  gap: 14px;
   padding: 18px;
-  border-radius: 30px;
+  border-radius: 24px;
   border: 1px solid color-mix(in srgb, var(--surface-border) 80%, transparent);
   background: linear-gradient(
     180deg,
-    color-mix(in srgb, var(--card-bg) 92%, var(--background)),
-    color-mix(in srgb, var(--surface-color) 86%, transparent)
+    color-mix(in srgb, var(--card-bg) 96%, var(--background)),
+    color-mix(in srgb, var(--bg-solid) 95%, var(--surface-color))
   );
   box-shadow:
-    0 24px 64px rgba(24, 29, 38, 0.11),
-    inset 0 1px 0 color-mix(in srgb, var(--border-light) 64%, transparent);
+    0 16px 32px rgba(24, 29, 38, 0.08),
+    inset 0 1px 0 color-mix(in srgb, var(--border-light) 60%, transparent);
 }
 
 .upload-workbench__mode-strip {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 10px;
   padding: 6px;
-  border-radius: 18px;
-  border: 1px solid color-mix(in srgb, var(--surface-border) 72%, transparent);
-  background: color-mix(in srgb, var(--surface-color) 82%, transparent);
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--surface-border) 74%, transparent);
+  background: color-mix(in srgb, var(--surface-color) 84%, var(--bg-solid));
+}
+
+.upload-workbench__mode-label {
+  margin: 0;
+  padding: 0 4px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
 
 .upload-workbench__surface {
   min-height: 420px;
-  border-radius: 24px;
+  border-radius: 20px;
   border: 1px solid color-mix(in srgb, var(--surface-border) 78%, transparent);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--bg-solid) 86%, var(--surface-color)), color-mix(in srgb, var(--bg-solid) 92%, var(--background)));
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--bg-solid) 97%, var(--surface-color)),
+    color-mix(in srgb, var(--bg-solid) 94%, var(--background))
+  );
   box-shadow:
-    0 14px 32px rgba(24, 29, 38, 0.08),
+    0 10px 20px rgba(24, 29, 38, 0.06),
     inset 0 1px 0 color-mix(in srgb, var(--border-light) 54%, transparent);
-  padding: 18px;
+  padding: 16px;
 }
 
 .upload-workbench__status-rail {
@@ -253,29 +272,22 @@ const handleVideoLoaded = async (payload: {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 12px 14px;
-  border-radius: 18px;
-  border: 1px solid color-mix(in srgb, var(--surface-border) 76%, transparent);
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--surface-color) 90%, var(--background)),
-    color-mix(in srgb, var(--bg-solid) 90%, var(--surface-color))
-  );
-  box-shadow:
-    0 12px 24px rgba(24, 29, 38, 0.06),
-    inset 0 1px 0 color-mix(in srgb, var(--border-light) 56%, transparent);
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--surface-border) 74%, transparent);
+  background: color-mix(in srgb, var(--surface-color) 88%, var(--bg-solid));
 }
 
 .upload-workbench__status {
   margin: 0;
   color: var(--text-secondary);
-  line-height: 1.55;
+  line-height: 1.5;
 }
 
 .upload-workbench__action-buttons {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 10px;
 }
 
 .upload-workbench__error {

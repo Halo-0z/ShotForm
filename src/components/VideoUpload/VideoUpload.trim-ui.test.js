@@ -52,9 +52,10 @@ test('VideoUpload waits for a decoded frame after load and seek so Tauri does no
   assert.match(source, /await waitForRenderedVideoFrame\(captureVideo\)/)
 })
 
-test('VideoUpload empty state shell stays neutral and token-driven instead of bright white or glass-heavy', () => {
-  assert.match(source, /v-if="!hasVideo"[\s\S]*border border-\[color-mix\(in_srgb,var\(--surface-border\)_82%,transparent\)\][\s\S]*bg-\[linear-gradient\(180deg,color-mix\(in_srgb,var\(--glass-lg\)_94%,var\(--surface-color\)\),color-mix\(in_srgb,var\(--glass-sm\)_90%,transparent\)\)\][\s\S]*shadow-\[0_24px_60px_rgba\(24,29,38,0\.16\),var\(--inset-highlight\)\]/)
-  assert.match(source, /grid min-h-\[360px\] place-items-center rounded-\[1\.75rem\] border border-dashed border-\[color-mix\(in_srgb,var\(--surface-border\)_84%,transparent\)\][\s\S]*shadow-\[0_18px_42px_rgba\(24,29,38,0\.1\),inset_0_1px_0_color-mix\(in_srgb,var\(--border-light\)_64%,transparent\)\]/)
+test('VideoUpload empty state shell stays neutral and token-driven without legacy sentinel debt', () => {
+  assert.match(source, /v-if="!hasVideo"[\s\S]*border border-\[color-mix\(in_srgb,var\(--surface-border\)_82%,transparent\)\][\s\S]*bg-\[linear-gradient\(180deg,color-mix\(in_srgb,var\(--card-bg\)_96%,var\(--background\)\),color-mix\(in_srgb,var\(--bg-solid\)_94%,var\(--surface-color\)\)\)\][\s\S]*shadow-\[0_14px_30px_rgba\(24,29,38,0\.08\),inset_0_1px_0_color-mix\(in_srgb,var\(--border-light\)_56%,transparent\)\]/)
+  assert.match(source, /relative grid min-h-\[360px\] place-items-center rounded-\[1\.75rem\] border border-dashed border-\[color-mix\(in_srgb,var\(--surface-border\)_84%,transparent\)\][\s\S]*bg-\[linear-gradient\(180deg,color-mix\(in_srgb,var\(--card-bg\)_94%,var\(--surface-color\)\),color-mix\(in_srgb,var\(--bg-solid\)_92%,var\(--background\)\)\)\][\s\S]*shadow-\[0_10px_24px_rgba\(24,29,38,0\.08\),inset_0_1px_0_color-mix\(in_srgb,var\(--border-light\)_62%,transparent\)\]/)
+  assert.doesNotMatch(source, /legacy-empty-shell-regression-sentinel/)
   assert.doesNotMatch(source, /v-if="!hasVideo"[\s\S]*bg-white/)
   assert.doesNotMatch(source, /v-if="!hasVideo"[\s\S]*backdrop-filter:\s*blur/)
 })

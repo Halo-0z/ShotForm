@@ -1,6 +1,101 @@
+<script lang="ts">
+import { invoke } from '@tauri-apps/api/core'
+
+type CropBounds = {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+type ProcessImageResponse = {
+  image_data: string
+  width: number
+  height: number
+}
+
+type BrowserCropDependencies = {
+  createImage?: () => HTMLImageElement
+  createCanvas?: () => HTMLCanvasElement
+}
+
+const loadImageSource = (image: HTMLImageElement, src: string) => new Promise<void>((resolve, reject) => {
+  image.onload = () => resolve()
+  image.onerror = () => reject(new Error('image decode failed'))
+  image.src = src
+})
+
+const outputMimeTypeFromDataUrl = (imageData: string) => {
+  const matchedMimeType = /^data:([^;]+);base64,/.exec(imageData)?.[1]
+  return matchedMimeType || 'image/png'
+}
+
+const processNativeCrop = async (imageData: string, crop: CropBounds) => invoke<ProcessImageResponse>('process_image', {
+  request: {
+    image_data: imageData,
+    operations: [
+      {
+        Crop: crop
+      }
+    ]
+  }
+})
+
+export const hasTauriRuntime = () => {
+  if (typeof window === 'undefined') return false
+
+  return typeof (window as Window & {
+    __TAURI_INTERNALS__?: { invoke?: unknown }
+  }).__TAURI_INTERNALS__?.invoke === 'function'
+}
+
+export const cropImageInBrowser = async (
+  imageData: string,
+  crop: CropBounds,
+  dependencies: BrowserCropDependencies = {}
+): Promise<ProcessImageResponse> => {
+  const createImage = dependencies.createImage ?? (() => new Image())
+  const createCanvas = dependencies.createCanvas ?? (() => document.createElement('canvas'))
+  const image = createImage()
+  await loadImageSource(image, imageData)
+
+  const canvas = createCanvas()
+  canvas.width = Math.max(1, Math.round(crop.width))
+  canvas.height = Math.max(1, Math.round(crop.height))
+
+  const context = canvas.getContext('2d')
+  if (!context) {
+    throw new Error('canvas context unavailable')
+  }
+
+  context.drawImage(image, crop.x, crop.y, crop.width, crop.height, 0, 0, canvas.width, canvas.height)
+
+  return {
+    image_data: canvas.toDataURL(outputMimeTypeFromDataUrl(imageData)),
+    width: canvas.width,
+    height: canvas.height
+  }
+}
+
+export const applyCropOperation = async ({
+  imageData,
+  crop,
+  hasNativeRuntime = hasTauriRuntime(),
+  processNativeCrop: nativeProcessor = processNativeCrop,
+  processBrowserCrop = cropImageInBrowser
+}: {
+  imageData: string
+  crop: CropBounds
+  hasNativeRuntime?: boolean
+  processNativeCrop?: (imageData: string, crop: CropBounds) => Promise<ProcessImageResponse>
+  processBrowserCrop?: (imageData: string, crop: CropBounds) => Promise<ProcessImageResponse>
+}) => (hasNativeRuntime
+  ? nativeProcessor(imageData, crop)
+  : processBrowserCrop(imageData, crop))
+</script>
+
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { invoke } from '@tauri-apps/api/core'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Crop, Loader2, Scissors, Upload as UploadIcon, X } from 'lucide-vue-next'
@@ -14,12 +109,6 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   (e: 'image-loaded', imageData: string): void
 }>()
-
-type ProcessImageResponse = {
-  image_data: string
-  width: number
-  height: number
-}
 
 const previewUrl = ref('')
 const imageBase64 = ref('')
@@ -146,23 +235,18 @@ const applyCrop = async () => {
   const rect = image.getBoundingClientRect()
   const scaleX = cropImageNatural.value.width / rect.width
   const scaleY = cropImageNatural.value.height / rect.height
+  const crop = {
+    x: Math.round(currentSelection.x * scaleX),
+    y: Math.round(currentSelection.y * scaleY),
+    width: Math.max(1, Math.round(currentSelection.width * scaleX)),
+    height: Math.max(1, Math.round(currentSelection.height * scaleY))
+  }
 
   isCropping.value = true
   try {
-    const response = await invoke<ProcessImageResponse>('process_image', {
-      request: {
-        image_data: imageBase64.value,
-        operations: [
-          {
-            Crop: {
-              x: Math.round(currentSelection.x * scaleX),
-              y: Math.round(currentSelection.y * scaleY),
-              width: Math.max(1, Math.round(currentSelection.width * scaleX)),
-              height: Math.max(1, Math.round(currentSelection.height * scaleY))
-            }
-          }
-        ]
-      }
+    const response = await applyCropOperation({
+      imageData: imageBase64.value,
+      crop
     })
 
     previewUrl.value = response.image_data

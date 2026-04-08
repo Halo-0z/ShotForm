@@ -1,4 +1,36 @@
-﻿<script setup lang="ts">
+<script lang="ts">
+type VideoLoadedPayload = {
+  filePath: string
+  previewUrl: string
+  trimStartMs: number
+  trimEndMs: number
+  durationMs: number
+}
+
+export const hasTauriRuntime = () => {
+  if (typeof window === 'undefined') return false
+
+  return typeof (window as Window & {
+    __TAURI_INTERNALS__?: { invoke?: unknown }
+  }).__TAURI_INTERNALS__?.invoke === 'function'
+}
+
+export const hasLoadedVideoSelection = ({ previewUrl }: { previewUrl: string; filePath?: string }) => Boolean(previewUrl)
+
+export const canConfirmVideoSelection = ({
+  previewUrl,
+  durationMs,
+  isBusy
+}: {
+  previewUrl: string
+  durationMs: number
+  isBusy: boolean
+}) => Boolean(previewUrl) && durationMs > 0 && !isBusy
+
+export const buildVideoLoadedPayload = (payload: VideoLoadedPayload): VideoLoadedPayload => payload
+</script>
+
+<script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch, type ComponentPublicInstance } from 'vue'
 import { open } from '@tauri-apps/plugin-dialog'
 import { readFile } from '@tauri-apps/plugin-fs'
@@ -41,16 +73,11 @@ const videoEventTimeoutMs = 5000
 let timelineGenerationId = 0
 let timelineResizeObserver: ResizeObserver | null = null
 
-const hasTauriRuntime = () => {
-  if (typeof window === 'undefined') return false
-
-  return typeof (window as Window & {
-    __TAURI_INTERNALS__?: { invoke?: unknown }
-  }).__TAURI_INTERNALS__?.invoke === 'function'
-}
-
 const isBusy = computed(() => props.loading || loadingVideo.value)
-const hasVideo = computed(() => !!videoPath.value && !!previewUrl.value)
+const hasVideo = computed(() => hasLoadedVideoSelection({
+  previewUrl: previewUrl.value,
+  filePath: videoPath.value
+}))
 const clipDurationMs = computed(() => Math.max(0, trimEndMs.value - trimStartMs.value))
 const sliderMaxMs = computed(() => Math.max(minClipMs, durationMs.value))
 const trimStartPercent = computed(() => (sliderMaxMs.value <= 0 ? 0 : (trimStartMs.value / sliderMaxMs.value) * 100))
@@ -443,16 +470,20 @@ const onVideoPause = () => {
 }
 
 const confirmVideo = () => {
-  if (!videoPath.value || !previewUrl.value || durationMs.value <= 0 || isBusy.value) return
+  if (!canConfirmVideoSelection({
+    previewUrl: previewUrl.value,
+    durationMs: durationMs.value,
+    isBusy: isBusy.value
+  })) return
 
   stopClipPreview()
-  emit('video-loaded', {
+  emit('video-loaded', buildVideoLoadedPayload({
     filePath: videoPath.value,
     previewUrl: previewUrl.value,
     trimStartMs: trimStartMs.value,
     trimEndMs: trimEndMs.value,
     durationMs: durationMs.value
-  })
+  }))
 }
 
 watch(timelineRailWidth, (nextWidth, previousWidth) => {
@@ -503,14 +534,6 @@ onUnmounted(() => {
       v-if="!hasVideo"
       class="relative overflow-hidden rounded-[2rem] border border-[color-mix(in_srgb,var(--surface-border)_82%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--card-bg)_96%,var(--background)),color-mix(in_srgb,var(--bg-solid)_94%,var(--surface-color)))] px-6 py-6 shadow-[0_14px_30px_rgba(24,29,38,0.08),inset_0_1px_0_color-mix(in_srgb,var(--border-light)_56%,transparent)]"
     >
-      <!--
-        legacy-empty-shell-regression-sentinel:
-        border border-[color-mix(in_srgb,var(--surface-border)_82%,transparent)]
-        bg-[linear-gradient(180deg,color-mix(in_srgb,var(--glass-lg)_94%,var(--surface-color)),color-mix(in_srgb,var(--glass-sm)_90%,transparent))]
-        shadow-[0_24px_60px_rgba(24,29,38,0.16),var(--inset-highlight)]
-        grid min-h-[360px] place-items-center rounded-[1.75rem] border border-dashed border-[color-mix(in_srgb,var(--surface-border)_84%,transparent)]
-        shadow-[0_18px_42px_rgba(24,29,38,0.1),inset_0_1px_0_color-mix(in_srgb,var(--border-light)_64%,transparent)]
-      -->
       <div class="pointer-events-none absolute inset-x-[18%] top-5 h-24 rounded-full bg-[color-mix(in_srgb,var(--accent-color)_12%,transparent)] blur-3xl opacity-65"></div>
       <div class="relative grid min-h-[360px] place-items-center rounded-[1.75rem] border border-dashed border-[color-mix(in_srgb,var(--surface-border)_84%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--card-bg)_94%,var(--surface-color)),color-mix(in_srgb,var(--bg-solid)_92%,var(--background)))] px-8 py-10 text-center shadow-[0_10px_24px_rgba(24,29,38,0.08),inset_0_1px_0_color-mix(in_srgb,var(--border-light)_62%,transparent)]">
         <div class="mx-auto flex max-w-xl flex-col items-center justify-center gap-5">

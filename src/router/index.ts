@@ -9,6 +9,12 @@ const routes: RouteRecordRaw[] = [
     meta: { title: '首页', immersiveChrome: true }
   },
   {
+    path: '/upload',
+    name: 'Upload',
+    component: () => import('@/views/Upload.vue'),
+    meta: { title: '上传分析', immersiveChrome: true, workbenchPage: true }
+  },
+  {
     path: '/analysis',
     name: 'Analysis',
     component: () => import('@/views/Analysis.vue'),

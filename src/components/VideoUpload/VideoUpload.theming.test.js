@@ -16,3 +16,11 @@ test('VideoUpload upload panels no longer depend on bright glass treatment', () 
   assert.doesNotMatch(source, /rgba\(255,255,255,0\.94\)/)
   assert.doesNotMatch(source, /rgba\(248,249,255,0\.68\)/)
 })
+
+test('VideoUpload loaded workspace no longer relies on a decorative glass Card shell', () => {
+  assert.match(source, /v-else[\s\S]*border border-\[color-mix\(in_srgb,var\(--surface-border\)/)
+  assert.match(source, /v-else[\s\S]*var\(--card-bg\)/)
+  assert.match(source, /v-else[\s\S]*var\(--bg-solid\)/)
+  assert.doesNotMatch(source, /<Card class="overflow-hidden">/)
+  assert.doesNotMatch(source, /<CardContent/)
+})

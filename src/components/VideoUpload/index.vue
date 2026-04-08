@@ -4,7 +4,6 @@ import { open } from '@tauri-apps/plugin-dialog'
 import { readFile } from '@tauri-apps/plugin-fs'
 import { basename } from '@tauri-apps/api/path'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 import { Film, Loader2, Pause, Play, Scissors, Upload, X } from 'lucide-vue-next'
 
 const props = withDefaults(defineProps<{
@@ -537,8 +536,8 @@ onUnmounted(() => {
     </div>
 
     <div v-else :class="uploadWorkspaceClass">
-      <Card class="overflow-hidden">
-        <CardContent :class="cardContentClass">
+      <div class="overflow-hidden rounded-[2rem] border border-[color-mix(in_srgb,var(--surface-border)_82%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--card-bg)_96%,var(--background)),color-mix(in_srgb,var(--bg-solid)_94%,var(--surface-color)))] shadow-[0_12px_28px_rgba(24,29,38,0.08),inset_0_1px_0_color-mix(in_srgb,var(--border-light)_56%,transparent)]">
+        <div :class="cardContentClass">
           <div :class="workspaceGridClass">
             <div class="relative overflow-hidden rounded-2xl border border-[var(--surface-border)] bg-[color-mix(in_srgb,var(--card-bg)_92%,var(--bg-solid))]">
               <video
@@ -733,8 +732,8 @@ onUnmounted(() => {
               </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   </div>
 </template>

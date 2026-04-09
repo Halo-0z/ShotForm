@@ -92,6 +92,28 @@ export const applyCropOperation = async ({
 }) => (hasNativeRuntime
   ? nativeProcessor(imageData, crop)
   : processBrowserCrop(imageData, crop))
+
+export const getImageAnalysisCtaState = ({
+  hasImageSelection,
+  isBusy,
+  desktopAnalysisAvailable
+}: {
+  hasImageSelection: boolean
+  isBusy: boolean
+  desktopAnalysisAvailable: boolean
+}) => {
+  if (!desktopAnalysisAvailable) {
+    return {
+      disabled: true,
+      label: '\u8bf7\u5728\u684c\u9762\u7aef\u5f00\u59cb\u5206\u6790'
+    }
+  }
+
+  return {
+    disabled: !hasImageSelection || isBusy,
+    label: '\u5f00\u59cb\u5206\u6790'
+  }
+}
 </script>
 
 <script setup lang="ts">
@@ -101,8 +123,10 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Crop, Loader2, Scissors, Upload as UploadIcon, X } from 'lucide-vue-next'
 
 const props = withDefaults(defineProps<{
+  desktopAnalysisAvailable?: boolean
   loading?: boolean
 }>(), {
+  desktopAnalysisAvailable: true,
   loading: false
 })
 
@@ -120,6 +144,11 @@ const selection = ref<{ x: number; y: number; width: number; height: number } | 
 const dragStart = ref<{ x: number; y: number } | null>(null)
 const isCropping = ref(false)
 const isLoading = computed(() => props.loading)
+const analysisCtaState = computed(() => getImageAnalysisCtaState({
+  hasImageSelection: Boolean(imageBase64.value),
+  isBusy: isLoading.value,
+  desktopAnalysisAvailable: props.desktopAnalysisAvailable
+}))
 
 const processFile = (file: File) => {
   const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg']
@@ -164,7 +193,7 @@ const handleDragLeave = () => {
 }
 
 const confirmUpload = () => {
-  if (!imageBase64.value || isLoading.value) return
+  if (analysisCtaState.value.disabled || !imageBase64.value || isLoading.value) return
   emit('image-loaded', imageBase64.value)
 }
 
@@ -341,10 +370,15 @@ const clearPreview = () => {
             </p>
 
             <div class="mt-5 flex flex-wrap gap-3">
-              <Button :disabled="isLoading || !imageBase64" @click="confirmUpload" size="lg">
+              <Button
+                data-analysis-cta="image"
+                :disabled="analysisCtaState.disabled"
+                @click="confirmUpload"
+                size="lg"
+              >
                 <Loader2 v-if="isLoading" class="mr-2 h-4 w-4 animate-spin" />
                 <UploadIcon v-else class="mr-2 h-4 w-4" />
-                {{ isLoading ? '分析中...' : '开始分析' }}
+                {{ isLoading ? '分析中...' : analysisCtaState.label }}
               </Button>
               <Button variant="outline" @click="openCropDialog" size="lg">
                 <Crop class="mr-2 h-4 w-4" />

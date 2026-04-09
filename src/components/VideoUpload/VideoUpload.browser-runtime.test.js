@@ -25,7 +25,8 @@ test('VideoUpload treats browser blob previews as a loaded selection even withou
   const {
     hasLoadedVideoSelection,
     canConfirmVideoSelection,
-    buildVideoLoadedPayload
+    buildVideoLoadedPayload,
+    getVideoAnalysisCtaState
   } = await loadComponentModule()
 
   assert.equal(hasLoadedVideoSelection({ previewUrl: 'blob:browser-preview', filePath: '' }), true)
@@ -48,6 +49,34 @@ test('VideoUpload treats browser blob previews as a loaded selection even withou
       trimStartMs: 120,
       trimEndMs: 2040,
       durationMs: 2400
+    }
+  )
+
+  assert.deepEqual(
+    getVideoAnalysisCtaState({
+      previewUrl: 'blob:browser-preview',
+      durationMs: 2400,
+      isBusy: false,
+      desktopAnalysisAvailable: false,
+      loading: false
+    }),
+    {
+      disabled: true,
+      label: '\u8bf7\u5728\u684c\u9762\u7aef\u5f00\u59cb\u5206\u6790'
+    }
+  )
+
+  assert.deepEqual(
+    getVideoAnalysisCtaState({
+      previewUrl: 'blob:browser-preview',
+      durationMs: 2400,
+      isBusy: false,
+      desktopAnalysisAvailable: true,
+      loading: false
+    }),
+    {
+      disabled: false,
+      label: '\u5f00\u59cb\u89c6\u9891\u5206\u6790'
     }
   )
 })

@@ -48,7 +48,10 @@ test('VideoUpload compact mode keeps neutral workbench layout classes and action
   assert.match(source, /const uploadWorkspaceClass = computed\(\(\) => props\.compact \? 'space-y-3 animate-slide-up' : 'space-y-4 animate-slide-up'\)/)
   assert.match(source, /const actionRowClass = computed\(\(\) => props\.compact \? 'mt-auto flex flex-wrap items-center gap-2 border-t border-\[color-mix\(in_srgb,var\(--surface-border\)_80%,transparent\)\] pt-3'/)
   assert.match(source, /<Button\s+v-if="props\.compact"[\s\S]*@click="toggleClipPreview"/)
-  assert.match(source, /<Button :disabled="isBusy \|\| durationMs <= 0" size="lg" @click="confirmVideo">/)
+  assert.match(source, /const analysisCtaState = computed\(\(\) => getVideoAnalysisCtaState/)
+  assert.match(source, /data-analysis-cta="video"/)
+  assert.match(source, /:disabled="analysisCtaState\.disabled"/)
+  assert.match(source, /@click=\"confirmVideo\"/)
 })
 
 test('VideoUpload empty state avoids stale sentinels and keeps upload CTA variant contract', () => {

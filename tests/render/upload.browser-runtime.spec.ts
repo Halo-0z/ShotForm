@@ -14,8 +14,10 @@ const gotoUpload = async (page: Page) => {
 }
 
 test.describe('upload browser runtime behavior', () => {
-  test('browser video selection enters loaded workspace and exposes trim + preview controls', async ({ page }) => {
+  test('browser video selection exposes trim + preview controls while analysis is visibly desktop-only before click', async ({ page }) => {
     await gotoUpload(page)
+
+    await expect(page.locator('[data-browser-preview-note]')).toBeVisible()
 
     const browserVideoInput = page.locator('input[type="file"][accept*="video/mp4"]')
     await expect(browserVideoInput).toHaveCount(1)
@@ -31,10 +33,13 @@ test.describe('upload browser runtime behavior', () => {
     await expect(page.locator('input.clip-range-input-end[type="range"]')).toBeVisible()
     await expect(page.locator('.clip-range-filmstrip')).toBeVisible()
     await expect(page.locator('button:has(svg.lucide-play), button:has(svg.lucide-pause)')).toBeVisible()
-    await expect(page.locator('button:has(svg.lucide-upload)')).toBeVisible()
+    const desktopOnlyVideoCta = page.locator('[data-analysis-cta="video"]')
+    await expect(desktopOnlyVideoCta).toBeVisible()
+    await expect(desktopOnlyVideoCta).toBeDisabled()
+    await expect(desktopOnlyVideoCta).toContainText('桌面端')
   })
 
-  test('browser image crop works via fallback without Tauri-only failure path', async ({ page }) => {
+  test('browser image crop stays usable while final analysis is visibly desktop-only before click', async ({ page }) => {
     const dialogs: string[] = []
     page.on('dialog', async (dialog) => {
       dialogs.push(dialog.message())
@@ -53,6 +58,10 @@ test.describe('upload browser runtime behavior', () => {
     const previewImage = page.locator('img[alt="Preview"]')
     await expect(previewImage).toBeVisible()
     const beforeCropSrc = await previewImage.getAttribute('src')
+    const desktopOnlyImageCta = page.locator('[data-analysis-cta="image"]')
+    await expect(desktopOnlyImageCta).toBeVisible()
+    await expect(desktopOnlyImageCta).toBeDisabled()
+    await expect(desktopOnlyImageCta).toContainText('桌面端')
 
     const openCropButton = page.locator('button:has(svg.lucide-crop)')
     await openCropButton.click()
@@ -73,8 +82,8 @@ test.describe('upload browser runtime behavior', () => {
     await page.mouse.move(endX, endY)
     await page.mouse.up()
 
-    const applyCropButton = page.locator('[role="dialog"] .flex.gap-3 button').last()
-    await applyCropButton.click()
+    const applyCropButton = page.getByRole('button', { name: /应用裁剪/ })
+    await applyCropButton.click({ force: true })
 
     await expect(cropImage).toBeHidden()
     await expect(previewImage).toBeVisible()

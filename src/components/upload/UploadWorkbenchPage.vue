@@ -15,10 +15,6 @@ const uploadMode = ref<'image' | 'video'>('video')
 const uploadResetKey = ref(0)
 const handoffError = ref('')
 
-const workbenchKey = computed(() => `${uploadMode.value}-${uploadResetKey.value}`)
-const isBusy = computed(() => analysisStore.isLoading)
-const browserModeMessage = '当前是浏览器预览模式：可上传与裁剪素材，但姿态分析需在桌面端运行。'
-
 const hasTauriRuntime = () => {
   if (typeof window === 'undefined') return false
 
@@ -26,6 +22,11 @@ const hasTauriRuntime = () => {
     __TAURI_INTERNALS__?: { invoke?: unknown }
   }).__TAURI_INTERNALS__?.invoke === 'function'
 }
+
+const workbenchKey = computed(() => `${uploadMode.value}-${uploadResetKey.value}`)
+const isBusy = computed(() => analysisStore.isLoading)
+const isBrowserPreviewMode = computed(() => !hasTauriRuntime())
+const browserModeMessage = '当前为浏览器预览模式：可上传、裁剪、剪辑并预览素材，最终分析需在桌面端完成。'
 
 const goHome = () => {
   navigateWithFogTransition(router, '/')
@@ -90,7 +91,7 @@ const handleVideoLoaded = async (payload: {
         <p class="upload-workbench__eyebrow">Upload Workbench</p>
         <div class="upload-workbench__heading">
           <h1>上传素材</h1>
-          <p>选择图片或视频，确认后直接进入分析。</p>
+          <p>选择图片或视频，整理好素材后再进入最终分析。</p>
         </div>
       </div>
 
@@ -127,10 +128,21 @@ const handleVideoLoaded = async (payload: {
         </Button>
       </div>
 
+      <div
+        v-if="isBrowserPreviewMode"
+        class="upload-workbench__browser-note"
+        data-browser-preview-note
+        role="note"
+      >
+        <p class="upload-workbench__browser-note-title">浏览器预览模式</p>
+        <p class="upload-workbench__browser-note-copy">{{ browserModeMessage }}</p>
+      </div>
+
       <div class="upload-workbench__surface">
         <ImageUpload
           v-if="uploadMode === 'image'"
           :key="workbenchKey"
+          :desktop-analysis-available="!isBrowserPreviewMode"
           :loading="isBusy"
           @image-loaded="handleImageLoaded"
         />
@@ -138,6 +150,7 @@ const handleVideoLoaded = async (payload: {
           v-else
           :key="workbenchKey"
           compact
+          :desktop-analysis-available="!isBrowserPreviewMode"
           :loading="isBusy"
           @video-loaded="handleVideoLoaded"
         />
@@ -250,6 +263,34 @@ const handleVideoLoaded = async (payload: {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--text-muted);
+}
+
+.upload-workbench__browser-note {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--accent-color) 22%, var(--surface-border));
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--accent-color) 8%, var(--card-bg)),
+    color-mix(in srgb, var(--surface-color) 88%, var(--bg-solid))
+  );
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.upload-workbench__browser-note-title,
+.upload-workbench__browser-note-copy {
+  margin: 0;
+}
+
+.upload-workbench__browser-note-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-primary);
 }
 
 .upload-workbench__surface {

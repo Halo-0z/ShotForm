@@ -81,3 +81,31 @@ test('ImageUpload browser crop fallback draws the selected source area onto a sa
   assert.equal(result.width, 180)
   assert.equal(result.height, 120)
 })
+
+test('ImageUpload exposes a desktop-only analysis CTA state when browser preview mode is active', async () => {
+  const { getImageAnalysisCtaState } = await loadComponentModule()
+
+  assert.deepEqual(
+    getImageAnalysisCtaState({
+      hasImageSelection: true,
+      isBusy: false,
+      desktopAnalysisAvailable: false
+    }),
+    {
+      disabled: true,
+      label: '\u8bf7\u5728\u684c\u9762\u7aef\u5f00\u59cb\u5206\u6790'
+    }
+  )
+
+  assert.deepEqual(
+    getImageAnalysisCtaState({
+      hasImageSelection: true,
+      isBusy: false,
+      desktopAnalysisAvailable: true
+    }),
+    {
+      disabled: false,
+      label: '开始分析'
+    }
+  )
+})

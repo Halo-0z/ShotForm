@@ -28,6 +28,39 @@ export const canConfirmVideoSelection = ({
 }) => Boolean(previewUrl) && durationMs > 0 && !isBusy
 
 export const buildVideoLoadedPayload = (payload: VideoLoadedPayload): VideoLoadedPayload => payload
+
+export const getVideoAnalysisCtaState = ({
+  previewUrl,
+  durationMs,
+  isBusy,
+  desktopAnalysisAvailable,
+  loading
+}: {
+  previewUrl: string
+  durationMs: number
+  isBusy: boolean
+  desktopAnalysisAvailable: boolean
+  loading: boolean
+}) => {
+  if (loading) {
+    return {
+      disabled: true,
+      label: '分析中...'
+    }
+  }
+
+  if (!desktopAnalysisAvailable) {
+    return {
+      disabled: true,
+      label: '请在桌面端开始分析'
+    }
+  }
+
+  return {
+    disabled: !canConfirmVideoSelection({ previewUrl, durationMs, isBusy }),
+    label: '开始视频分析'
+  }
+}
 </script>
 
 <script setup lang="ts">
@@ -39,9 +72,11 @@ import { Button } from '@/components/ui/button'
 import { Film, Loader2, Pause, Play, Scissors, Upload, X } from 'lucide-vue-next'
 
 const props = withDefaults(defineProps<{
+  desktopAnalysisAvailable?: boolean
   loading?: boolean
   compact?: boolean
 }>(), {
+  desktopAnalysisAvailable: true,
   loading: false,
   compact: false
 })
@@ -119,6 +154,13 @@ const compactHelperText = computed(() => props.compact
   ? '不修改原视频，只分析当前选中的动作区间。'
   : '这一步不会修改原视频，只是限定分析区间。我们会从你选中的片段里抽关键帧，做逐帧骨骼点和投篮分型判断。')
 const actionRowClass = computed(() => props.compact ? 'mt-auto flex flex-wrap items-center gap-2 border-t border-[color-mix(in_srgb,var(--surface-border)_80%,transparent)] pt-3' : 'flex flex-wrap gap-3')
+const analysisCtaState = computed(() => getVideoAnalysisCtaState({
+  previewUrl: previewUrl.value,
+  durationMs: durationMs.value,
+  isBusy: isBusy.value,
+  desktopAnalysisAvailable: props.desktopAnalysisAvailable,
+  loading: props.loading
+}))
 
 const formatTime = (milliseconds: number) => {
   const totalSeconds = Math.max(0, Math.round(milliseconds / 1000))
@@ -470,11 +512,7 @@ const onVideoPause = () => {
 }
 
 const confirmVideo = () => {
-  if (!canConfirmVideoSelection({
-    previewUrl: previewUrl.value,
-    durationMs: durationMs.value,
-    isBusy: isBusy.value
-  })) return
+  if (analysisCtaState.value.disabled) return
 
   stopClipPreview()
   emit('video-loaded', buildVideoLoadedPayload({
@@ -739,10 +777,15 @@ onUnmounted(() => {
                   <Play v-else class="mr-2 h-4 w-4" />
                   {{ props.compact ? '预览片段' : '预览裁剪片段' }}
                 </Button>
-                <Button :disabled="isBusy || durationMs <= 0" size="lg" @click="confirmVideo">
+                <Button
+                  data-analysis-cta="video"
+                  :disabled="analysisCtaState.disabled"
+                  size="lg"
+                  @click="confirmVideo"
+                >
                   <Loader2 v-if="props.loading" class="mr-2 h-4 w-4 animate-spin" />
                   <Upload v-else class="mr-2 h-4 w-4" />
-                  {{ props.loading ? '分析中...' : '开始视频分析' }}
+                  {{ analysisCtaState.label }}
                 </Button>
                 <Button variant="outline" size="lg" @click="pickVideo" :disabled="isBusy">
                   <Film class="mr-2 h-4 w-4" />

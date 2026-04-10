@@ -44,6 +44,14 @@ test.describe('upload browser runtime behavior', () => {
     await expect(desktopOnlyVideoCta).toBeVisible()
     await expect(desktopOnlyVideoCta).toBeDisabled()
     await expect(desktopOnlyVideoCta).toContainText('桌面端')
+
+    const trimStartHandle = page.locator('input.clip-range-input-start[type="range"]')
+    await trimStartHandle.evaluate((element: HTMLInputElement) => {
+      element.value = '120'
+      element.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    await expect(desktopOnlyVideoCta).toBeDisabled()
+    await expect(desktopOnlyVideoCta).toContainText('桌面端')
   })
 
   test('browser image crop stays usable while final analysis is visibly desktop-only before click', async ({ page }) => {
@@ -101,6 +109,8 @@ test.describe('upload browser runtime behavior', () => {
     const afterCropSrc = await previewImage.getAttribute('src')
     expect(afterCropSrc).toBeTruthy()
     expect(afterCropSrc).not.toBe(beforeCropSrc)
+    await expect(desktopOnlyImageCta).toBeDisabled()
+    await expect(desktopOnlyImageCta).toContainText('桌面端')
 
     expect(dialogs).toEqual([])
   })

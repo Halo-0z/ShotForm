@@ -62,8 +62,8 @@ const currentPreviewImage = computed(() => {
   return analysisStore.currentAnnotatedImage
 })
 
-const currentPreviewLabel = computed(() => {
   return previewMode.value === 'annotated' && hasAnnotatedImage.value ? '标注结果' : '原始图片'
+  return previewMode.value === 'annotated' && hasAnnotatedImage.value ? '閺嶅洦鏁炵紒鎾寸亯' : '閸樼喎顫愰崶鍓у'
 })
 
 const getShotTypeBadgeVariant = (type: string): 'excellent' | 'good' | 'average' | 'poor' | 'secondary' => {
@@ -153,8 +153,8 @@ const heroReasons = computed(() => {
 
 const stageCaption = computed(() => {
   return hasVideoAnalysis.value
-    ? '当前主舞台展示视频关键帧的骨骼标注与角度曲线。'
-    : '当前主舞台展示静态姿势的骨骼标注与角度曲线。'
+    ? '主舞台展示视频关键帧的骨骼标注，角度曲线与时间轴证据在下方工作区继续查看。'
+    : '主舞台展示当前姿势的标注结果，详细角度证据在下方工作区继续查看。'
 })
 
 const confidenceLabel = computed(() => {
@@ -232,7 +232,7 @@ const resetZoom = () => {
 }
 
 const shotConfidenceHint =
-  '关键点可靠度用于衡量骨骼识别是否稳定，分型确定度则表示这一次判断对投篮分型的把握程度。'
+  '当前展示的是投篮分型确定度，用来表示这一次判断对出手类型的把握程度。'
 </script>
 
 <template>
@@ -343,7 +343,7 @@ const shotConfidenceHint =
                       :variant="previewMode === 'original' ? 'default' : 'outline'"
                       @click="setPreviewMode('original')"
                     >
-                原图
+                      原图
                     </Button>
                     <Button size="sm" variant="outline" @click="openPreviewDialog">
                       <Expand class="mr-1 h-4 w-4" />
@@ -470,8 +470,8 @@ const shotConfidenceHint =
                 先回到上传页选择图片或视频，完成分析后这里会直接进入结论工作台。
               </CardDescription>
             </CardHeader>
-            <CardContent>
               <Button @click="goBack">返回上传页</Button>
+              <Button @click="goBack">鏉╂柨娲栨稉濠佺炊妞?/Button>
             </CardContent>
           </Card>
       </section>
@@ -482,9 +482,9 @@ const shotConfidenceHint =
         <DialogHeader class="border-b border-[var(--surface-border)] px-6 pb-4 pt-6">
           <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <DialogTitle>姿势细节查看</DialogTitle>
-              <DialogDescription>切换原图和标注图，并放大查看关键点与骨骼连线。</DialogDescription>
-            </div>
+              <DialogTitle>婵灝濞嶇紒鍡氬Ν閺屻儳婀?/DialogTitle>
+                  <DialogTitle>姿势细节查看</DialogTitle>
+                  <DialogDescription>切换原图和标注图，并放大查看关键点与骨骼连线。</DialogDescription>
 
             <div class="flex flex-wrap gap-2 pr-10">
               <Button
@@ -493,7 +493,7 @@ const shotConfidenceHint =
                 :disabled="!hasAnnotatedImage"
                 @click="setPreviewMode('annotated')"
               >
-                标注图
+                    标注图
               </Button>
               <Button
                 size="sm"
@@ -504,18 +504,18 @@ const shotConfidenceHint =
               </Button>
               <Button size="sm" variant="outline" :disabled="previewZoom <= 1" @click="zoomOut">
                 <ZoomOut class="mr-1 h-4 w-4" />
-                缩小
-              </Button>
+                缂傗晛鐨?
+                    缩小
               <Button size="sm" variant="outline" :disabled="previewZoom >= 3" @click="zoomIn">
                 <ZoomIn class="mr-1 h-4 w-4" />
-                放大
+                閺€鎯с亣
               </Button>
-              <Button size="sm" variant="outline" @click="resetZoom">
+                    放大
                 <Search class="mr-1 h-4 w-4" />
-                还原
+                鏉╂ê甯?
               </Button>
             </div>
-          </div>
+                还原
         </DialogHeader>
 
         <div class="analysis-page__preview-stage flex h-[82vh] items-start justify-center overflow-auto p-6">

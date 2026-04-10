@@ -9,9 +9,15 @@ import type { VideoAnalysisFrame } from '@/types'
 const props = withDefaults(defineProps<{
   frames: VideoAnalysisFrame[]
   selectedFrameIndex?: number
+  variant?: 'default' | 'hero'
 }>(), {
-  selectedFrameIndex: 0
+  selectedFrameIndex: 0,
+  variant: 'default'
 })
+
+const emit = defineEmits<{
+  'update:selectedFrameIndex': [index: number]
+}>()
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const currentFrameIndex = ref(0)
@@ -37,6 +43,7 @@ const rightJointIds = new Set([12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32])
 const currentFrame = computed(() => props.frames[currentFrameIndex.value] ?? null)
 const hasFrames = computed(() => props.frames.length > 0)
 const canAnimate = computed(() => props.frames.length > 1)
+const isHeroVariant = computed(() => props.variant === 'hero')
 
 const formatTime = (milliseconds: number) => {
   const totalSeconds = Math.max(0, Math.round(milliseconds / 1000))
@@ -95,6 +102,10 @@ const syncTheme = () => {
   isDark.value = document.documentElement.classList.contains('dark')
 }
 
+const handleWindowResize = () => {
+  void drawFrame()
+}
+
 const drawFrame = async () => {
   const frame = currentFrame.value
   const canvas = canvasRef.value
@@ -116,13 +127,22 @@ const drawFrame = async () => {
   const baseWidth = frameImage?.naturalWidth || poseData.width || 960
   const baseHeight = frameImage?.naturalHeight || poseData.height || 720
   const aspectRatio = baseWidth / Math.max(baseHeight, 1)
-  const displayWidth = Math.min(baseWidth, 960)
-  const displayHeight = Math.max(240, Math.round(displayWidth / Math.max(aspectRatio, 0.1)))
-  const dpr = window.devicePixelRatio || 1
+  const maxDisplayWidth = isHeroVariant.value ? 760 : 960
+  const maxDisplayHeight = isHeroVariant.value
+    ? Math.min(460, Math.max(280, Math.round(window.innerHeight * 0.42)))
+    : 720
+  let displayWidth = Math.min(baseWidth, maxDisplayWidth)
+  let displayHeight = Math.max(240, Math.round(displayWidth / Math.max(aspectRatio, 0.1)))
 
+  if (displayHeight > maxDisplayHeight) {
+    displayHeight = maxDisplayHeight
+    displayWidth = Math.max(240, Math.round(displayHeight * Math.max(aspectRatio, 0.1)))
+  }
+
+  const dpr = window.devicePixelRatio || 1
   canvas.width = Math.round(displayWidth * dpr)
   canvas.height = Math.round(displayHeight * dpr)
-  canvas.style.width = '100%'
+  canvas.style.width = isHeroVariant.value ? `min(100%, ${displayWidth}px)` : '100%'
   canvas.style.height = 'auto'
 
   context.setTransform(dpr, 0, 0, dpr, 0, 0)
@@ -230,7 +250,7 @@ const togglePlayback = () => {
 }
 
 const restartPlayback = () => {
-  currentFrameIndex.value = clampFrameIndex(props.selectedFrameIndex)
+  currentFrameIndex.value = clampFrameIndex(props.selectedFrameIndex ?? 0)
   if (canAnimate.value) {
     isPlaying.value = true
   }
@@ -248,9 +268,16 @@ watch(
 )
 
 watch(
+  () => props.variant,
+  async () => {
+    await drawFrame()
+  }
+)
+
+watch(
   () => props.frames,
   async () => {
-    currentFrameIndex.value = clampFrameIndex(props.selectedFrameIndex)
+    currentFrameIndex.value = clampFrameIndex(props.selectedFrameIndex ?? 0)
     await preloadImages()
     isPlaying.value = props.frames.length > 1
     await drawFrame()
@@ -259,7 +286,10 @@ watch(
   { deep: true, immediate: true }
 )
 
-watch(currentFrameIndex, async () => {
+watch(currentFrameIndex, async (index) => {
+  if (index !== (props.selectedFrameIndex ?? 0)) {
+    emit('update:selectedFrameIndex', index)
+  }
   await drawFrame()
   schedulePlayback()
 })
@@ -284,6 +314,7 @@ onMounted(() => {
     attributes: true,
     attributeFilter: ['class']
   })
+  window.addEventListener('resize', handleWindowResize)
   void drawFrame()
   schedulePlayback()
 })
@@ -291,12 +322,17 @@ onMounted(() => {
 onBeforeUnmount(() => {
   observer?.disconnect()
   clearPlaybackTimer()
+  window.removeEventListener('resize', handleWindowResize)
 })
 </script>
 
 <template>
-  <Card v-if="hasFrames" class="playback-card" :class="{ 'dark-mode': isDark }">
-    <CardHeader class="playback-header">
+  <Card
+    v-if="hasFrames"
+    class="playback-card"
+    :class="{ 'dark-mode': isDark, 'playback-card--hero': isHeroVariant }"
+  >
+    <CardHeader v-if="!isHeroVariant" class="playback-header">
       <div class="playback-title-row">
         <CardTitle class="playback-title">动态骨骼点回放</CardTitle>
         <Badge variant="secondary">关键帧串联预览</Badge>
@@ -305,12 +341,13 @@ onBeforeUnmount(() => {
         用关键帧把整段动作的骨骼变化串起来，方便看举球到出手的连贯性。
       </p>
     </CardHeader>
-    <CardContent class="playback-body">
-      <div class="playback-canvas-wrap">
+
+    <CardContent class="playback-body" :class="{ 'playback-body--hero': isHeroVariant }">
+      <div class="playback-canvas-wrap" :class="{ 'playback-canvas-wrap--hero': isHeroVariant }">
         <canvas ref="canvasRef" class="playback-canvas"></canvas>
       </div>
 
-      <div class="playback-toolbar">
+      <div class="playback-toolbar" :class="{ 'playback-toolbar--hero': isHeroVariant }">
         <div class="playback-main-controls">
           <Button variant="outline" size="sm" :disabled="!canAnimate" @click="togglePlayback">
             <Pause v-if="isPlaying" class="mr-2 h-4 w-4" />
@@ -336,7 +373,7 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <div class="playback-status">
+      <div v-if="!isHeroVariant" class="playback-status">
         <span>当前时间点 {{ formatTime(currentFrame?.timestampMs ?? 0) }}</span>
         <span>已分析 {{ frames.length }} 个关键帧</span>
       </div>
@@ -375,6 +412,22 @@ onBeforeUnmount(() => {
     0 22px 46px rgba(5, 4, 16, 0.34),
     inset 0 1px 0 rgba(255, 255, 255, 0.06),
     inset 0 -1px 0 rgba(0, 0, 0, 0.28);
+}
+
+.playback-card--hero {
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--glass-lg) 92%, var(--background)), color-mix(in srgb, var(--glass-md) 94%, var(--background)));
+  box-shadow: var(--shadow-md);
+}
+
+.playback-card--hero.dark-mode {
+  background:
+    linear-gradient(180deg, rgba(17, 21, 30, 0.98), rgba(10, 14, 22, 0.96)),
+    radial-gradient(circle at top, color-mix(in srgb, var(--accent-color) 8%, transparent), transparent 58%);
+  box-shadow:
+    0 18px 34px rgba(5, 8, 16, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .playback-header {
@@ -416,6 +469,11 @@ onBeforeUnmount(() => {
   gap: 16px;
 }
 
+.playback-body--hero {
+  gap: 12px;
+  padding-top: 18px;
+}
+
 .playback-canvas-wrap {
   overflow: hidden;
   border-radius: 24px;
@@ -424,6 +482,18 @@ onBeforeUnmount(() => {
   box-shadow:
     0 20px 40px rgba(8, 17, 31, 0.12),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.playback-canvas-wrap--hero {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  border-radius: 20px;
+  background: radial-gradient(circle at top, rgba(56, 189, 248, 0.06), transparent 42%), #08111f;
+  box-shadow:
+    0 14px 28px rgba(8, 17, 31, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .playback-canvas {
@@ -439,6 +509,10 @@ onBeforeUnmount(() => {
   gap: 12px;
   flex-wrap: wrap;
   padding-top: 2px;
+}
+
+.playback-toolbar--hero {
+  padding-top: 0;
 }
 
 .playback-main-controls {

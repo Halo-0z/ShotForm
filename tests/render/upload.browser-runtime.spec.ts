@@ -17,7 +17,11 @@ test.describe('upload browser runtime behavior', () => {
   test('browser video selection exposes trim + preview controls while analysis is visibly desktop-only before click', async ({ page }) => {
     await gotoUpload(page)
 
-    await expect(page.locator('[data-browser-preview-note]')).toBeVisible()
+    const browserNote = page.locator('[data-browser-preview-note]')
+    await expect(browserNote).toBeVisible()
+    await expect(browserNote).toContainText('桌面端')
+    await expect(browserNote).toContainText('预览')
+    await expect(browserNote).toContainText('裁剪')
 
     const browserVideoInput = page.locator('input[type="file"][accept*="video/mp4"]')
     await expect(browserVideoInput).toHaveCount(1)
@@ -32,7 +36,10 @@ test.describe('upload browser runtime behavior', () => {
     await expect(page.locator('input.clip-range-input-start[type="range"]')).toBeVisible()
     await expect(page.locator('input.clip-range-input-end[type="range"]')).toBeVisible()
     await expect(page.locator('.clip-range-filmstrip')).toBeVisible()
-    await expect(page.locator('button:has(svg.lucide-play), button:has(svg.lucide-pause)')).toBeVisible()
+    const previewButton = page.locator('button:has(svg.lucide-play), button:has(svg.lucide-pause)').last()
+    await expect(previewButton).toBeVisible()
+    await previewButton.click()
+    await expect(page.locator('button:has(svg.lucide-pause)').last()).toBeVisible()
     const desktopOnlyVideoCta = page.locator('[data-analysis-cta="video"]')
     await expect(desktopOnlyVideoCta).toBeVisible()
     await expect(desktopOnlyVideoCta).toBeDisabled()
@@ -83,7 +90,10 @@ test.describe('upload browser runtime behavior', () => {
     await page.mouse.up()
 
     const applyCropButton = page.getByRole('button', { name: /应用裁剪/ })
-    await applyCropButton.click({ force: true })
+    await expect(applyCropButton).toBeEnabled()
+    await page.waitForTimeout(50)
+    await applyCropButton.focus()
+    await page.keyboard.press('Enter')
 
     await expect(cropImage).toBeHidden()
     await expect(previewImage).toBeVisible()

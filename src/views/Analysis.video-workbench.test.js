@@ -24,6 +24,7 @@ test('analysis page keeps the detailed evidence workbench below the hero for key
 
 test('autoplaying hero playback no longer drags the evidence workbench with it', () => {
   assert.doesNotMatch(source, /@update:selected-frame-index=/)
+  assert.match(source, /variant="hero"/)
 })
 
 test('video analysis summary stays anchored to the overall video verdict instead of the autoplaying frame analysis', () => {

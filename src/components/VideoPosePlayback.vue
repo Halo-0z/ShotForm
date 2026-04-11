@@ -44,6 +44,7 @@ const currentFrame = computed(() => props.frames[currentFrameIndex.value] ?? nul
 const hasFrames = computed(() => props.frames.length > 0)
 const canAnimate = computed(() => props.frames.length > 1)
 const isHeroVariant = computed(() => props.variant === 'hero')
+const canAutoplay = computed(() => canAnimate.value && !isHeroVariant.value)
 
 const formatTime = (milliseconds: number) => {
   const totalSeconds = Math.max(0, Math.round(milliseconds / 1000))
@@ -222,7 +223,7 @@ const drawFrame = async () => {
 const schedulePlayback = () => {
   clearPlaybackTimer()
 
-  if (!isPlaying.value || props.frames.length <= 1) {
+  if (!isPlaying.value || !canAutoplay.value) {
     return
   }
 
@@ -251,7 +252,7 @@ const togglePlayback = () => {
 
 const restartPlayback = () => {
   currentFrameIndex.value = clampFrameIndex(props.selectedFrameIndex ?? 0)
-  if (canAnimate.value) {
+  if (canAutoplay.value) {
     isPlaying.value = true
   }
 }
@@ -270,7 +271,9 @@ watch(
 watch(
   () => props.variant,
   async () => {
+    isPlaying.value = canAutoplay.value
     await drawFrame()
+    schedulePlayback()
   }
 )
 
@@ -279,7 +282,7 @@ watch(
   async () => {
     currentFrameIndex.value = clampFrameIndex(props.selectedFrameIndex ?? 0)
     await preloadImages()
-    isPlaying.value = props.frames.length > 1
+    isPlaying.value = canAutoplay.value
     await drawFrame()
     schedulePlayback()
   },

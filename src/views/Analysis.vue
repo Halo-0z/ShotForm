@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
@@ -343,7 +343,7 @@ const shotConfidenceHint =
                       :variant="previewMode === 'original' ? 'default' : 'outline'"
                       @click="setPreviewMode('original')"
                     >
-                      鍘熷浘
+                      原图
                     </Button>
                     <Button size="sm" variant="outline" @click="openPreviewDialog">
                       <Expand class="mr-1 h-4 w-4" />
@@ -500,7 +500,7 @@ const shotConfidenceHint =
                 :variant="previewMode === 'original' ? 'default' : 'outline'"
                 @click="setPreviewMode('original')"
               >
-                鍘熷浘
+                原图
               </Button>
               <Button size="sm" variant="outline" :disabled="previewZoom <= 1" @click="zoomOut">
                 <ZoomOut class="mr-1 h-4 w-4" />

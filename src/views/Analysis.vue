@@ -144,8 +144,12 @@ const diagnosisBullets = computed(() => {
 })
 
 const heroReasons = computed(() => {
-  if (currentVideoAnalysis.value?.overallReasons?.length) {
-    return currentVideoAnalysis.value.overallReasons.slice(0, 3)
+  if (currentVideoAnalysis.value) {
+    if (currentVideoAnalysis.value.overallReasons?.length) {
+      return currentVideoAnalysis.value.overallReasons.slice(0, 3)
+    }
+
+    return []
   }
 
   return diagnosisBullets.value

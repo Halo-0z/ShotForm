@@ -30,7 +30,8 @@ test('autoplaying hero playback no longer drags the evidence workbench with it',
 test('video analysis summary stays anchored to the overall video verdict instead of the autoplaying frame analysis', () => {
   assert.match(source, /currentVideoAnalysis\.value\.overallShotType/)
   assert.match(source, /currentVideoAnalysis\.value\.overallShotTypeConfidence/)
-  assert.match(source, /currentVideoAnalysis\.value\?\.overallReasons/)
+  assert.match(source, /currentVideoAnalysis\.value\.overallReasons\?\.length/)
   assert.match(source, /return `当前判断：\$\{getShotTypeName\(currentVideoAnalysis\.value\.overallShotType\)\}`/)
+  assert.match(source, /if \(currentVideoAnalysis\.value\) \{[\s\S]*return currentVideoAnalysis\.value\.overallReasons\.slice\(0, 3\)[\s\S]*return \[\]/)
 })
 

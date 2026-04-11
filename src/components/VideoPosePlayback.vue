@@ -28,6 +28,7 @@ const isDark = ref(false)
 const imageCache = new Map<string, HTMLImageElement>()
 let playbackTimer: number | null = null
 let observer: MutationObserver | null = null
+let drawRequestId = 0
 
 const connections: Array<[number, number]> = [
   [11, 12], [11, 13], [13, 15], [15, 17], [15, 19], [15, 21],
@@ -111,6 +112,8 @@ const drawFrame = async () => {
   const frame = currentFrame.value
   const canvas = canvasRef.value
   if (!frame || !canvas) return
+  const requestId = ++drawRequestId
+  const frameIndex = currentFrameIndex.value
 
   const poseData = frame.analysis.poseData
   const context = canvas.getContext('2d')
@@ -124,6 +127,8 @@ const drawFrame = async () => {
       frameImage = null
     }
   }
+
+  if (requestId !== drawRequestId) return
 
   const baseWidth = frameImage?.naturalWidth || poseData.width || 960
   const baseHeight = frameImage?.naturalHeight || poseData.height || 720
@@ -214,7 +219,7 @@ const drawFrame = async () => {
   context.fillRect(16, 16, 176, 54)
   context.fillStyle = '#f8fafc'
   context.font = '600 15px HarmonyOS Sans SC, sans-serif'
-  context.fillText(`关键帧 ${currentFrameIndex.value + 1}/${props.frames.length}`, 28, 38)
+  context.fillText(`关键帧 ${frameIndex + 1}/${props.frames.length}`, 28, 38)
   context.font = '400 13px HarmonyOS Sans SC, sans-serif'
   context.fillStyle = 'rgba(226, 232, 240, 0.92)'
   context.fillText(`时间点 ${formatTime(frame.timestampMs)}`, 28, 58)

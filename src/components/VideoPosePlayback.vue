@@ -287,7 +287,7 @@ watch(
 )
 
 watch(currentFrameIndex, async (index) => {
-  if (index !== (props.selectedFrameIndex ?? 0)) {
+  if (!isHeroVariant.value && index !== (props.selectedFrameIndex ?? 0)) {
     emit('update:selectedFrameIndex', index)
   }
   await drawFrame()
@@ -347,7 +347,7 @@ onBeforeUnmount(() => {
         <canvas ref="canvasRef" class="playback-canvas"></canvas>
       </div>
 
-      <div class="playback-toolbar" :class="{ 'playback-toolbar--hero': isHeroVariant }">
+      <div v-if="!isHeroVariant" class="playback-toolbar" :class="{ 'playback-toolbar--hero': isHeroVariant }">
         <div class="playback-main-controls">
           <Button variant="outline" size="sm" :disabled="!canAnimate" @click="togglePlayback">
             <Pause v-if="isPlaying" class="mr-2 h-4 w-4" />
@@ -379,7 +379,7 @@ onBeforeUnmount(() => {
       </div>
 
       <input
-        v-if="frames.length > 1"
+        v-if="frames.length > 1 && !isHeroVariant"
         v-model.number="currentFrameIndex"
         class="playback-range"
         type="range"

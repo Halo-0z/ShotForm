@@ -193,10 +193,6 @@ const selectVideoFrame = (index: number) => {
   analysisStore.selectVideoFrame(index)
 }
 
-const syncHeroFrameToEvidence = (index: number) => {
-  void index
-}
-
 const formatTime = (milliseconds: number) => {
   const totalSeconds = Math.max(0, Math.round(milliseconds / 1000))
   const minutes = Math.floor(totalSeconds / 60)
@@ -359,7 +355,6 @@ const shotConfidenceHint =
                 variant="hero"
                 :frames="currentVideoAnalysis.frames"
                 :selected-frame-index="analysisStore.currentVideoFrameIndex"
-                @update:selected-frame-index="syncHeroFrameToEvidence"
               />
 
               <template v-else>

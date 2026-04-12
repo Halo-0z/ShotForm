@@ -33,5 +33,7 @@ test('video analysis summary stays anchored to the overall video verdict instead
   assert.match(source, /currentVideoAnalysis\.value\.overallReasons\?\.length/)
   assert.match(source, /return `当前判断：\$\{getShotTypeName\(currentVideoAnalysis\.value\.overallShotType\)\}`/)
   assert.match(source, /if \(currentVideoAnalysis\.value\) \{[\s\S]*return currentVideoAnalysis\.value\.overallReasons\.slice\(0, 3\)[\s\S]*return \[\]/)
+  assert.match(source, /const insightsScopeNote = computed\(\(\) => \{/)
+  assert.match(source, /以下建议与球星对比基于当前选中的关键帧，整体判断以上方结论为准。/)
 })
 

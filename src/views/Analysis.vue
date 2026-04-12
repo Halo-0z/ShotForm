@@ -193,6 +193,14 @@ const currentShotConfidenceValue = computed(() => {
   return stableShotConfidence.value * 100
 })
 
+const insightsScopeNote = computed(() => {
+  if (currentVideoAnalysis.value) {
+    return '以下建议与球星对比基于当前选中的关键帧，整体判断以上方结论为准。'
+  }
+
+  return '以下建议与球星对比基于当前分析结果。'
+})
+
 const selectVideoFrame = (index: number) => {
   analysisStore.selectVideoFrame(index)
 }
@@ -438,6 +446,7 @@ const shotConfidenceHint =
         </section>
 
         <section class="analysis-page__insights">
+          <p class="analysis-page__insights-note">{{ insightsScopeNote }}</p>
           <Tabs v-model="insightsTab" class="w-full">
             <TabsList class="analysis-page__tabs-list grid w-full grid-cols-2">
               <TabsTrigger value="suggestion">

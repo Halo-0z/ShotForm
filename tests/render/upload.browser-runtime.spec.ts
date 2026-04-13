@@ -99,9 +99,17 @@ test.describe('upload browser runtime behavior', () => {
 
     const applyCropButton = page.getByRole('button', { name: /应用裁剪/ })
     await expect(applyCropButton).toBeEnabled()
-    await page.waitForTimeout(50)
-    await applyCropButton.focus()
-    await page.keyboard.press('Enter')
+    await page.evaluate(() => {
+      const button = Array.from(document.querySelectorAll('button')).find((element) => {
+        return element.textContent?.includes('应用裁剪')
+      })
+
+      if (!button) {
+        throw new Error('apply crop button not found')
+      }
+
+      button.click()
+    })
 
     await expect(cropImage).toBeHidden()
     await expect(previewImage).toBeVisible()

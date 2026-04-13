@@ -47,7 +47,7 @@
 
     <div v-if="!loading && summary" class="summary-card">
       <p class="summary-label">整体动作总结</p>
-      <p class="summary-text">{{ summary }}</p>
+      <p class="summary-text" data-allow-copy="true">{{ summary }}</p>
     </div>
 
     <div v-if="!loading && suggestions.length > 0" class="suggestions">
@@ -61,7 +61,7 @@
           <el-icon :size="24" :color="getPriorityColor(suggestion.priority)">
             <component :is="getPriorityIcon(suggestion.priority)" />
           </el-icon>
-          <span class="body-part">{{ suggestion.bodyPart }}</span>
+          <span class="body-part" data-allow-copy="true">{{ suggestion.bodyPart }}</span>
           <el-tag :type="getPriorityTag(suggestion.priority)" size="small">
             {{ getPriorityLabel(suggestion.priority) }}
           </el-tag>
@@ -69,11 +69,13 @@
         <div class="suggestion-content">
           <p class="issue">
             <el-icon><Warning /></el-icon>
-            问题：{{ suggestion.issue }}
+            <span>问题：</span>
+            <span class="issue-text" data-allow-copy="true">{{ suggestion.issue }}</span>
           </p>
           <p class="advice">
             <el-icon><CircleCheck /></el-icon>
-            建议：{{ suggestion.suggestion }}
+            <span>建议：</span>
+            <span class="advice-text" data-allow-copy="true">{{ suggestion.suggestion }}</span>
           </p>
         </div>
       </el-card>

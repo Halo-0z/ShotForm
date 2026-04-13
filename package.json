@@ -6,9 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
+    "test": "node --test \"src/**/*.test.js\"",
+    "test:render": "playwright test --config=playwright.upload.config.ts",
     "ci": "python scripts/run_ci.py",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "node scripts/tauri-wrapper.mjs"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.1",
@@ -31,6 +33,7 @@
     "vue-router": "^4.5.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.54.2",
     "@tauri-apps/cli": "^2.2.0",
     "@vitejs/plugin-vue": "^5.2.1",
     "autoprefixer": "^10.4.27",

@@ -17,7 +17,7 @@ test('upload route presents one clear primary task region for the workbench', ()
   assert.match(source, /<div class="upload-page__content">[\s\S]*<UploadWorkbenchPage \/>/)
   assert.match(
     workbenchSource,
-    /<section class="upload-workbench__main">[\s\S]*upload-workbench__mode-strip[\s\S]*upload-workbench__surface[\s\S]*upload-workbench__status-rail/
+    /<section class="upload-workbench__main(?: upload-workbench__deck)?">[\s\S]*upload-workbench__mode-strip[\s\S]*upload-workbench__surface[\s\S]*upload-workbench__status-rail/
   )
 })
 

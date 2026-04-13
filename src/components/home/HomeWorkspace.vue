@@ -36,6 +36,7 @@ import {
 const analysisStore = useAnalysisStore()
 const emit = defineEmits<{
   uploadWorkspaceLockChange: [locked: boolean]
+  scrollSnapSuppressedChange: [suppressed: boolean]
 }>()
 const isGeneratingAiReview = ref(false)
 
@@ -48,6 +49,7 @@ const videoPreviewUrl = ref('')
 const hasAnalysis = computed(() => !!analysisStore.currentAnalysis)
 const visualizedImage = computed(() => analysisStore.currentAnnotatedImage || analysisStore.currentImage)
 const isUploadWorkspaceLocked = computed(() => showUpload.value && activeModule.value === 'upload')
+const shouldSuppressScrollSnap = computed(() => activeModule.value !== 'upload')
 const currentVideoAnalysis = computed(() => analysisStore.currentVideoAnalysis)
 const currentVideoFrame = computed(() => {
   const analysis = currentVideoAnalysis.value
@@ -95,6 +97,14 @@ watch(
   isUploadWorkspaceLocked,
   locked => {
     emit('uploadWorkspaceLockChange', locked)
+  },
+  { immediate: true }
+)
+
+watch(
+  shouldSuppressScrollSnap,
+  suppressed => {
+    emit('scrollSnapSuppressedChange', suppressed)
   },
   { immediate: true }
 )

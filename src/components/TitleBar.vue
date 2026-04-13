@@ -177,6 +177,7 @@ const handleOpenHistory = async () => {
   border-bottom: 1px solid var(--surface-border);
   backdrop-filter: var(--surface-blur);
   -webkit-backdrop-filter: var(--surface-blur);
+  -webkit-app-region: drag;
 }
 
 .titlebar.workbench {

@@ -31,6 +31,7 @@ def main() -> int:
     cargo = resolve_command('cargo.exe', 'cargo')
     python = sys.executable
 
+    run_step("Frontend tests", [npm, 'run', 'test'])
     run_step("Frontend build", [npm, 'run', 'build'])
     run_step("Rust tests", [cargo, 'test', '--manifest-path', 'src-tauri/Cargo.toml'])
     run_step(

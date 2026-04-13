@@ -17,3 +17,8 @@ src-tauri/target
 .worktrees/
 CLAUDE.md
 star/
+test-results/
+tmp-qa-hero/
+tmp_*.py
+tmp_*.png
+tmp_*.mp4

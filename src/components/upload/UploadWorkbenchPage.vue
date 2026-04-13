@@ -107,7 +107,7 @@ const handleVideoLoaded = async (payload: {
       </div>
     </header>
 
-    <section class="upload-workbench__main">
+    <section class="upload-workbench__main upload-workbench__deck">
       <div class="upload-workbench__mode-strip" aria-label="上传工具选择">
         <p class="upload-workbench__mode-label">输入类型</p>
         <Button
@@ -316,7 +316,14 @@ const handleVideoLoaded = async (payload: {
   padding: 10px 12px;
   border-radius: 14px;
   border: 1px solid color-mix(in srgb, var(--surface-border) 74%, transparent);
-  background: color-mix(in srgb, var(--surface-color) 88%, var(--bg-solid));
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface-color) 92%, var(--card-bg)),
+    color-mix(in srgb, var(--bg-solid) 96%, var(--surface-color))
+  );
+  box-shadow:
+    0 10px 20px rgba(24, 29, 38, 0.05),
+    inset 0 1px 0 color-mix(in srgb, var(--border-light) 56%, transparent);
 }
 
 .upload-workbench__status {

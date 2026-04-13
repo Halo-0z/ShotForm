@@ -13,7 +13,7 @@ test('upload workbench keeps rail, mode switch, main surface, and status in one 
   assert.match(source, /upload-workbench__action-buttons/)
   assert.match(
     source,
-    /<section class="upload-workbench__main">[\s\S]*upload-workbench__mode-strip[\s\S]*upload-workbench__surface[\s\S]*upload-workbench__status-rail/
+    /<section class="upload-workbench__main(?: upload-workbench__deck)?">[\s\S]*upload-workbench__mode-strip[\s\S]*upload-workbench__surface[\s\S]*upload-workbench__status-rail/
   )
 })
 
@@ -41,8 +41,12 @@ test('upload workbench guards Tauri-only analysis when opened in a plain browser
   assert.match(source, /const hasTauriRuntime = \(\) =>/)
   assert.match(source, /__TAURI_INTERNALS__/)
   assert.match(source, /const browserModeMessage =/)
+  assert.match(source, /const isBrowserPreviewMode = computed\(\(\) => !hasTauriRuntime\(\)\)/)
+  assert.match(source, /v-if="isBrowserPreviewMode"/)
+  assert.match(source, /data-browser-preview-note/)
   assert.match(source, /if \(!hasTauriRuntime\(\)\) \{/)
   assert.match(source, /handoffError\.value = browserModeMessage/)
+  assert.match(source, /:desktop-analysis-available="!isBrowserPreviewMode"/)
 })
 
 test('upload workbench mode switch gives the selected mode segmented-active semantics', () => {

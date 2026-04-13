@@ -87,3 +87,10 @@ test('focused upload mode keeps the hero visible but compresses its spacing', ()
   assert.match(focusedHeroBlock, /padding:/)
   assert.match(focusedHeroBlock, /min-height:/)
 })
+
+test('home workspace emits module-level snap suppression so the outer hero does not yank compare and suggestion views', () => {
+  assert.match(source, /scrollSnapSuppressedChange: \[suppressed: boolean\]/)
+  assert.match(source, /const shouldSuppressScrollSnap = computed\(\(\) => activeModule\.value !== 'upload'\)/)
+  assert.match(source, /watch\(\s*shouldSuppressScrollSnap,\s*suppressed => \{\s*emit\('scrollSnapSuppressedChange', suppressed\)/)
+  assert.match(source, /\{\s*immediate: true\s*\}/)
+})

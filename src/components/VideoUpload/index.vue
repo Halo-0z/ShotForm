@@ -42,17 +42,17 @@ export const getVideoAnalysisCtaState = ({
   desktopAnalysisAvailable: boolean
   loading: boolean
 }) => {
-  if (loading) {
-    return {
-      disabled: true,
-      label: '分析中...'
-    }
-  }
-
   if (!desktopAnalysisAvailable) {
     return {
       disabled: true,
       label: '请在桌面端开始分析'
+    }
+  }
+
+  if (loading) {
+    return {
+      disabled: true,
+      label: '分析中...'
     }
   }
 

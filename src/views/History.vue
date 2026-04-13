@@ -2,9 +2,9 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ArrowLeft, Trash2, Eye, Clock } from 'lucide-vue-next'
+import { PAGE_COVER_ART } from '@/lib/page-cover-art'
 import { useAnalysisStore } from '@/stores/analysis'
 import type { AnalysisHistory, ShotType } from '@/types'
 import { SHOT_TYPE_NAMES } from '@/types'
@@ -64,33 +64,48 @@ const getShotTypeBadgeVariant = (type: ShotType): 'excellent' | 'good' | 'averag
         </div>
       </div>
 
-      <img src="/hero/the-shot.png" alt="" class="history-hero-art" />
+      <img :src="PAGE_COVER_ART.history" alt="" class="history-hero-art" />
     </section>
 
     <div class="history-content">
-      <div v-if="historyList.length > 0" class="history-grid">
-        <Card v-for="record in historyList" :key="record.id" class="history-card">
-          <CardContent class="p-4">
-            <div class="flex gap-4">
-              <div class="w-24 h-20 rounded-lg overflow-hidden bg-[var(--glass-sm)] flex-shrink-0">
-                <img :src="record.annotatedImagePath" class="w-full h-full object-cover" alt="历史记录" />
+      <section v-if="historyList.length > 0" class="history-archive">
+        <header class="history-archive__toolbar">
+          <div>
+            <p class="history-archive__eyebrow">Session Archive</p>
+            <h2 class="history-archive__title">继续查看以往分析</h2>
+          </div>
+          <p class="history-archive__hint">按时间回看，优先恢复最近一次训练判断。</p>
+        </header>
+
+        <div class="history-archive__list">
+          <article v-for="record in historyList" :key="record.id" class="history-session-row">
+            <div class="history-session-row__time">
+              <p class="history-session-row__label">训练时间</p>
+              <div class="history-session-row__timestamp">
+                <Clock class="w-3.5 h-3.5" />
+                {{ formatDate(record.createdAt) }}
               </div>
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2 mb-2">
+            </div>
+
+            <div class="history-session-row__main">
+              <div class="history-session-row__preview">
+                <img :src="record.annotatedImagePath" class="history-session-row__preview-image" alt="历史记录" />
+              </div>
+              <div class="history-session-row__meta">
+                <div class="history-session-row__badges">
                   <Badge :variant="getShotTypeBadgeVariant(record.analysis.shotType)">
                     {{ getShotTypeName(record.analysis.shotType) }}
                   </Badge>
+                  <span class="history-session-row__result">分析结果已保存</span>
                 </div>
-                <div class="flex items-center gap-1.5 text-sm text-[var(--text-secondary)]">
-                  <Clock class="w-3.5 h-3.5" />
-                  {{ formatDate(record.createdAt) }}
-                </div>
+                <p class="history-session-row__summary">可以继续查看详情或恢复分析流程。</p>
               </div>
             </div>
-            <div class="flex gap-2 mt-4">
-              <Button variant="outline" size="sm" class="flex-1" @click="viewDetail(record)">
-                <Eye class="w-4 h-4 mr-1.5" />
-                查看详情
+
+            <div class="history-session-row__actions">
+              <Button variant="outline" size="sm" class="history-session-row__resume" @click="viewDetail(record)">
+                <Eye class="w-4 h-4" />
+                继续分析
               </Button>
               <Button
                 variant="outline"
@@ -101,16 +116,17 @@ const getShotTypeBadgeVariant = (type: ShotType): 'excellent' | 'good' | 'averag
                 <Trash2 class="w-4 h-4" />
               </Button>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          </article>
+        </div>
+      </section>
 
-      <Card v-else class="empty-card">
-        <CardContent class="flex flex-col items-center justify-center py-16">
-          <Clock class="w-12 h-12 text-[var(--text-muted)] mb-4" />
-          <p class="text-[var(--text-muted)]">暂无历史记录</p>
-        </CardContent>
-      </Card>
+      <section v-else class="history-empty-state">
+        <Clock class="w-12 h-12 text-[var(--text-muted)] mb-4" />
+        <h2 class="history-empty-state__title">还没有投篮档案记录</h2>
+        <p class="history-empty-state__copy">
+          完成第一次分析后，这里会按时间记录每次训练结果，并提供继续分析入口。
+        </p>
+      </section>
     </div>
   </div>
 </template>
@@ -131,14 +147,13 @@ const getShotTypeBadgeVariant = (type: ShotType): 'excellent' | 'good' | 'averag
   padding: 20px 24px;
   min-height: 180px;
   border-radius: 28px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--surface-border);
   background:
-    radial-gradient(circle at 78% 22%, rgba(255, 255, 255, 0.08), transparent 20%),
-    radial-gradient(circle at 30% 24%, rgba(111, 133, 214, 0.12), transparent 26%),
-    linear-gradient(180deg, rgba(14, 17, 27, 0.96), rgba(9, 11, 18, 0.99));
-  box-shadow:
-    0 24px 54px rgba(0, 0, 0, 0.24),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    radial-gradient(circle at 78% 22%, color-mix(in srgb, var(--accent-color) 11%, transparent), transparent 20%),
+    radial-gradient(circle at 30% 24%, color-mix(in srgb, var(--primary-color) 12%, transparent), transparent 26%),
+    linear-gradient(180deg, color-mix(in srgb, var(--glass-lg) 92%, var(--background)), color-mix(in srgb, var(--glass-md) 94%, var(--background)));
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(18px);
 }
 
 .page-header {
@@ -165,13 +180,13 @@ const getShotTypeBadgeVariant = (type: ShotType): 'excellent' | 'good' | 'averag
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: color-mix(in srgb, rgba(255, 255, 255, 0.78) 70%, var(--text-secondary));
+  color: color-mix(in srgb, var(--accent-color) 54%, var(--text-secondary));
 }
 
 .history-back-button {
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--glass-xs);
+  border: 1px solid var(--surface-border);
 }
 
 .page-title {
@@ -198,22 +213,167 @@ const getShotTypeBadgeVariant = (type: ShotType): 'excellent' | 'good' | 'averag
   overflow: auto;
 }
 
-.history-grid {
+.history-archive {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: var(--spacing-lg);
+  gap: 14px;
 }
 
-.history-card {
-  transition: all var(--transition-normal);
+.history-archive__toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 2px 4px 6px;
 }
 
-.history-card:hover {
-  transform: translateY(-2px);
+.history-archive__eyebrow {
+  margin: 0 0 6px;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--accent-color) 42%, var(--text-secondary));
 }
 
-.empty-card {
+.history-archive__title {
+  margin: 0;
+  font-size: clamp(1.06rem, 1rem + 0.4vw, 1.24rem);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.history-archive__hint {
+  margin: 4px 0 0;
+  max-width: 360px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.history-archive__list {
+  display: grid;
+  gap: 12px;
+}
+
+.history-session-row {
+  display: grid;
+  grid-template-columns: 168px minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  padding: 16px 18px;
+  border-radius: 22px;
+  border: 1px solid var(--surface-border);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--glass-sm) 92%, var(--background)), color-mix(in srgb, var(--glass-xs) 96%, var(--background)));
+  box-shadow: var(--shadow-sm);
+}
+
+.history-session-row__time {
+  display: grid;
+  gap: 8px;
+}
+
+.history-session-row__label {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.history-session-row__timestamp {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.history-session-row__main {
+  display: grid;
+  grid-template-columns: 86px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+}
+
+.history-session-row__preview {
+  width: 86px;
+  height: 64px;
+  border-radius: 14px;
+  border: 1px solid var(--surface-border);
+  background: var(--glass-xs);
+  overflow: hidden;
+}
+
+.history-session-row__preview-image {
+  width: 100%;
   height: 100%;
+  object-fit: cover;
+}
+
+.history-session-row__meta {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.history-session-row__badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.history-session-row__result {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.history-session-row__summary {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.history-session-row__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.history-session-row__resume {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.history-empty-state {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border-radius: 24px;
+  border: 1px solid var(--surface-border);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--glass-md) 94%, var(--background)), color-mix(in srgb, var(--glass-xs) 96%, var(--background)));
+  text-align: center;
+  padding: 28px;
+}
+
+.history-empty-state__title {
+  margin: 0;
+  font-size: 1.08rem;
+  color: var(--text-primary);
+}
+
+.history-empty-state__copy {
+  margin: 0;
+  max-width: 460px;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text-secondary);
 }
 
 @media (max-width: 720px) {
@@ -229,6 +389,33 @@ const getShotTypeBadgeVariant = (type: ShotType): 'excellent' | 'good' | 'averag
   .history-hero-art {
     width: 156px;
     right: -2px;
+  }
+
+  .history-archive__toolbar {
+    flex-direction: column;
+  }
+
+  .history-archive__hint {
+    max-width: none;
+  }
+
+  .history-session-row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .history-session-row__main {
+    grid-template-columns: 76px minmax(0, 1fr);
+  }
+
+  .history-session-row__preview {
+    width: 76px;
+    height: 56px;
+  }
+
+  .history-session-row__actions {
+    width: 100%;
+    justify-content: flex-end;
   }
 }
 </style>

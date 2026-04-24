@@ -6,6 +6,7 @@ import { History, Monitor, Moon, Pin, Sun } from 'lucide-vue-next'
 import { navigateWithFogTransition } from '@/composables/useFogRouteTransition'
 import { useResolvedThemeState } from '@/composables/useResolvedThemeState'
 import { useTheme } from '@/composables/useTheme'
+import { hasTauriRuntime } from '@/lib/tauri-runtime'
 
 const props = withDefaults(
   defineProps<{
@@ -25,14 +26,6 @@ const { isLightTheme } = useResolvedThemeState()
 const isMaximized = ref(false)
 const isPinned = ref(false)
 let unlisten: (() => void) | null = null
-
-const hasTauriRuntime = () => {
-  if (typeof window === 'undefined') {
-    return false
-  }
-
-  return Boolean((window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__)
-}
 
 const getAppWindow = () => {
   if (!hasTauriRuntime()) {

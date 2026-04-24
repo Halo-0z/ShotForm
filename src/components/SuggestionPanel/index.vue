@@ -51,54 +51,62 @@
     </div>
 
     <div v-if="!loading && suggestions.length > 0" class="suggestions">
-      <el-card
+      <div
         v-for="(suggestion, index) in suggestions"
         :key="`${suggestion.bodyPart}-${index}`"
         class="suggestion-card"
         :class="`priority-${suggestion.priority}`"
       >
         <div class="suggestion-header">
-          <el-icon :size="24" :color="getPriorityColor(suggestion.priority)">
-            <component :is="getPriorityIcon(suggestion.priority)" />
-          </el-icon>
+          <component
+            :is="getPriorityIcon(suggestion.priority)"
+            :size="24"
+            :color="getPriorityColor(suggestion.priority)"
+          />
           <span class="body-part" data-allow-copy="true">{{ suggestion.bodyPart }}</span>
-          <el-tag :type="getPriorityTag(suggestion.priority)" size="small">
+          <Badge :variant="getPriorityBadgeVariant(suggestion.priority)">
             {{ getPriorityLabel(suggestion.priority) }}
-          </el-tag>
+          </Badge>
         </div>
         <div class="suggestion-content">
           <p class="issue">
-            <el-icon><Warning /></el-icon>
+            <AlertTriangle :size="16" />
             <span>问题：</span>
             <span class="issue-text" data-allow-copy="true">{{ suggestion.issue }}</span>
           </p>
           <p class="advice">
-            <el-icon><CircleCheck /></el-icon>
+            <CircleCheck :size="16" />
             <span>建议：</span>
             <span class="advice-text" data-allow-copy="true">{{ suggestion.suggestion }}</span>
           </p>
         </div>
-      </el-card>
+      </div>
     </div>
 
-    <el-empty
+    <div
       v-else-if="!loading && !analysis"
-      description="请先完成姿势分析"
-    />
-    <el-result
+      class="empty-state"
+    >
+      <Inbox :size="48" />
+      <p>请先完成姿势分析</p>
+    </div>
+    <div
       v-else-if="!loading && !suggestions.length"
-      icon="success"
-      title="暂无明显纠正项"
-      sub-title="当前姿态没有命中明显异常角度，建议继续结合视频节奏与连续帧观察。"
-    />
+      class="success-state"
+    >
+      <CheckCircle2 :size="48" />
+      <p class="success-state-title">暂无明显纠正项</p>
+      <p class="success-state-sub">当前姿态没有命中明显异常角度，建议继续结合视频节奏与连续帧观察。</p>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
-import { CircleCheck, InfoFilled, Warning, WarningFilled } from '@element-plus/icons-vue'
+import { AlertTriangle, CircleCheck, CircleAlert, Info, Inbox, CheckCircle2 } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import type {
   AiCoachingResponse,
   CorrectionSuggestion,
@@ -173,21 +181,21 @@ const getPriorityColor = (priority: string) => {
 }
 
 const getPriorityIcon = (priority: string) => {
-  const icons = {
-    high: WarningFilled,
-    medium: Warning,
-    low: InfoFilled
+  const icons: Record<string, typeof CircleAlert> = {
+    high: CircleAlert,
+    medium: AlertTriangle,
+    low: Info
   }
-  return icons[priority as keyof typeof icons] || InfoFilled
+  return icons[priority] || Info
 }
 
-const getPriorityTag = (priority: string) => {
-  const tags: Record<string, 'danger' | 'warning' | 'info'> = {
-    high: 'danger',
-    medium: 'warning',
-    low: 'info'
+const getPriorityBadgeVariant = (priority: string) => {
+  const variants: Record<string, 'destructive' | 'secondary' | 'outline'> = {
+    high: 'destructive',
+    medium: 'secondary',
+    low: 'outline'
   }
-  return tags[priority] || 'info'
+  return variants[priority] || 'outline'
 }
 
 const getPriorityLabel = (priority: string) => {
@@ -581,5 +589,48 @@ onBeforeUnmount(clearRetryCooldown)
 
 .advice {
   color: var(--color-success);
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 220px;
+  color: var(--text-secondary);
+  gap: 12px;
+}
+
+.empty-state p {
+  margin: 0;
+  font-size: 14px;
+}
+
+.success-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 220px;
+  color: var(--color-success);
+  gap: 8px;
+}
+
+.success-state p {
+  margin: 0;
+}
+
+.success-state-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.success-state-sub {
+  font-size: 13px;
+  color: var(--text-secondary);
+  max-width: 320px;
+  text-align: center;
+  line-height: 1.6;
 }
 </style>

@@ -1,5 +1,6 @@
 <script lang="ts">
 import { invoke } from '@tauri-apps/api/core'
+import { hasTauriRuntime } from '@/lib/tauri-runtime'
 
 type CropBounds = {
   x: number
@@ -40,14 +41,6 @@ const processNativeCrop = async (imageData: string, crop: CropBounds) => invoke<
     ]
   }
 })
-
-export const hasTauriRuntime = () => {
-  if (typeof window === 'undefined') return false
-
-  return typeof (window as Window & {
-    __TAURI_INTERNALS__?: { invoke?: unknown }
-  }).__TAURI_INTERNALS__?.invoke === 'function'
-}
 
 export const cropImageInBrowser = async (
   imageData: string,

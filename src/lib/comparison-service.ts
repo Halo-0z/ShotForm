@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import type { ComparisonWorkbenchSnapshot, PlayerTemplateProfile, ShotAnalysis } from '@/types'
+import { hasTauriRuntime } from '@/lib/tauri-runtime'
 
 export interface ComparisonIdentity {
   source: 'image' | 'video-frame'
@@ -53,14 +54,6 @@ export const buildAnalysisProfileKey = (profile?: PlayerTemplateProfile | null) 
     profile.representativeTimestampMs ?? 'na',
     phaseSignature
   ].join('::')
-}
-
-const hasTauriRuntime = () => {
-  if (typeof window === 'undefined') {
-    return false
-  }
-
-  return Boolean((window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__)
 }
 
 export const createTauriComparisonService = (): ComparisonService => ({

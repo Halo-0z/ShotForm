@@ -8,6 +8,7 @@ import { PAGE_COVER_ART } from '@/lib/page-cover-art'
 import { useAnalysisStore } from '@/stores/analysis'
 import type { AnalysisHistory, ShotType } from '@/types'
 import { SHOT_TYPE_NAMES } from '@/types'
+import { getShotTypeBadgeVariant } from '@/lib/analysis-utils'
 
 const router = useRouter()
 const analysisStore = useAnalysisStore()
@@ -37,16 +38,6 @@ const deleteHistory = async (id: number) => {
     await analysisStore.deleteHistory(id)
     historyList.value = historyList.value.filter(h => h.id !== id)
   }
-}
-
-const getShotTypeBadgeVariant = (type: ShotType): 'excellent' | 'good' | 'average' | 'poor' | 'secondary' => {
-  const variants: Record<ShotType, 'excellent' | 'good' | 'average' | 'poor' | 'secondary'> = {
-    one_motion: 'excellent',
-    one_point_five_motion: 'good',
-    two_motion: 'average',
-    unknown: 'secondary'
-  }
-  return variants[type] || 'good'
 }
 </script>
 

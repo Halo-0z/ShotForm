@@ -118,7 +118,7 @@ const { isLightTheme } = useResolvedThemeState()
   border-radius: 999px;
   color: var(--hero-cta-color);
   font-size: 1.03rem;
-  font-weight: 650;
+  font-weight: 600;
   letter-spacing: 0.03em;
   cursor: pointer;
   transition:

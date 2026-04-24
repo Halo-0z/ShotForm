@@ -250,7 +250,11 @@ const getDisplayedConfidence = (analysis: ShotAnalysis | null) => {
 const getShotTypeGuidanceText = (analysis: ShotAnalysis | null) => {
   if (!analysis) return ''
   const review = getActiveReview(analysis)
-  return getShotTypeGuidance(review?.shotType ?? analysis.shotType, getDisplayedConfidence(analysis))
+  return getShotTypeGuidance(
+    review?.shotType ?? analysis.shotType,
+    getDisplayedConfidence(analysis),
+    currentVideoAnalysis.value ? 'video' : 'image'
+  )
 }
 
 const getConfidenceLabel = (analysis: ShotAnalysis | null) => {
@@ -754,11 +758,11 @@ const handleAiReview = async () => {
 
 <style scoped>
 .home-page {
-  --primary-color: #8d98ff;
-  --primary-hover: #aab2ff;
-  --primary-active: #7887f3;
-  --accent-color: #7fe0ff;
-  --accent-hover: #58c8f0;
+  --primary-color: var(--primary-color, #5D7396);
+  --primary-hover: var(--primary-hover, #495F80);
+  --primary-active: var(--primary-active, #3D526F);
+  --accent-color: var(--accent-color, #C9823D);
+  --accent-hover: var(--accent-hover, #A76730);
 
   --surface-color: rgba(12, 15, 24, 0.72);
   --surface-border: rgba(255, 255, 255, 0.12);
@@ -774,7 +778,7 @@ const handleAiReview = async () => {
   --text-muted: rgba(177, 186, 204, 0.58);
   --text-inverse: #06070d;
 
-  --border-color: rgba(141, 152, 255, 0.22);
+  --border-color: rgba(93, 115, 150, 0.22);
   --border-light: rgba(255, 255, 255, 0.14);
   --divider-color: rgba(255, 255, 255, 0.08);
 
@@ -1967,27 +1971,7 @@ const handleAiReview = async () => {
   }
 }
 
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
 
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
 
 @media (max-width: 1100px) {
   .analysis-hero-shell {

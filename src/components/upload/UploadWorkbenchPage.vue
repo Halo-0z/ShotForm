@@ -7,6 +7,7 @@ import VideoUpload from '@/components/VideoUpload/index.vue'
 import { Button } from '@/components/ui/button'
 import { navigateWithFogTransition } from '@/composables/useFogRouteTransition'
 import { useAnalysisStore } from '@/stores/analysis'
+import { hasTauriRuntime } from '@/lib/tauri-runtime'
 
 const router = useRouter()
 const analysisStore = useAnalysisStore()
@@ -14,14 +15,6 @@ const analysisStore = useAnalysisStore()
 const uploadMode = ref<'image' | 'video'>('video')
 const uploadResetKey = ref(0)
 const handoffError = ref('')
-
-const hasTauriRuntime = () => {
-  if (typeof window === 'undefined') return false
-
-  return typeof (window as Window & {
-    __TAURI_INTERNALS__?: { invoke?: unknown }
-  }).__TAURI_INTERNALS__?.invoke === 'function'
-}
 
 const workbenchKey = computed(() => `${uploadMode.value}-${uploadResetKey.value}`)
 const isBusy = computed(() => analysisStore.isLoading)

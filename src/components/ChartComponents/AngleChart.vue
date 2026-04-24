@@ -4,8 +4,13 @@
 
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, watch } from 'vue'
-import * as echarts from 'echarts'
+import * as echarts from 'echarts/core'
+import { BarChart, LineChart } from 'echarts/charts'
+import { TooltipComponent, GridComponent } from 'echarts/components'
+import { CanvasRenderer } from 'echarts/renderers'
 import { getAngleDisplayName, type JointAngle } from '@/types'
+
+echarts.use([BarChart, LineChart, TooltipComponent, GridComponent, CanvasRenderer])
 
 const props = defineProps<{
   angles: JointAngle[]
@@ -14,6 +19,7 @@ const props = defineProps<{
 const chartRef = ref<HTMLDivElement | null>(null)
 let chartInstance: echarts.ECharts | null = null
 let observer: MutationObserver | null = null
+let resizeObserver: ResizeObserver | null = null
 
 const getStatusLabel = (status: JointAngle['status']) => {
   const labels: Record<JointAngle['status'], string> = {
@@ -37,7 +43,7 @@ const updateChart = () => {
 
   const isDark = document.documentElement.classList.contains('dark')
 
-  const option: echarts.EChartsOption = {
+  const option: echarts.EChartsCoreOption = {
     tooltip: {
       trigger: 'axis',
       axisPointer: {
@@ -183,6 +189,13 @@ watch(() => props.angles, updateChart, { deep: true })
 onMounted(() => {
   initChart()
 
+  resizeObserver = new ResizeObserver(() => {
+    chartInstance?.resize()
+  })
+  if (chartRef.value) {
+    resizeObserver.observe(chartRef.value)
+  }
+
   observer = new MutationObserver(() => {
     handleThemeChange()
   })
@@ -194,6 +207,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  resizeObserver?.disconnect()
   observer?.disconnect()
   if (chartInstance) {
     chartInstance.dispose()

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Pause, Play, RotateCcw } from 'lucide-vue-next'
 import type { VideoAnalysisFrame } from '@/types'
+import { formatTime } from '@/lib/analysis-utils'
 
 const props = withDefaults(defineProps<{
   frames: VideoAnalysisFrame[]
@@ -46,13 +47,6 @@ const hasFrames = computed(() => props.frames.length > 0)
 const canAnimate = computed(() => props.frames.length > 1)
 const isHeroVariant = computed(() => props.variant === 'hero')
 const canAutoplay = computed(() => canAnimate.value)
-
-const formatTime = (milliseconds: number) => {
-  const totalSeconds = Math.max(0, Math.round(milliseconds / 1000))
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = totalSeconds % 60
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`
-}
 
 const clampFrameIndex = (index: number) => {
   if (!props.frames.length) return 0

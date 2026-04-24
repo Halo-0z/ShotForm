@@ -13,7 +13,6 @@
     "tauri": "node scripts/tauri-wrapper.mjs"
   },
   "dependencies": {
-    "@element-plus/icons-vue": "^2.3.1",
     "@tailwindcss/postcss": "^4.2.2",
     "@tauri-apps/api": "^2.2.0",
     "@tauri-apps/plugin-dialog": "^2.2.0",
@@ -23,7 +22,6 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "echarts": "^5.5.1",
-    "element-plus": "^2.9.1",
     "lucide-vue-next": "^0.577.0",
     "pinia": "^2.3.0",
     "reka-ui": "^2.9.2",

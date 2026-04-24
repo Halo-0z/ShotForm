@@ -5,16 +5,9 @@ import type {
   ComparisonWorkbenchSnapshot,
   ShotAnalysis
 } from '@/types'
+import { hasTauriRuntime } from '@/lib/tauri-runtime'
 
 export type ComparisonPreviewMode = 'loading' | 'ready' | 'empty' | 'error'
-
-const hasTauriRuntime = () => {
-  if (typeof window === 'undefined') {
-    return false
-  }
-
-  return Boolean((window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__)
-}
 
 export const getComparisonPreviewMode = (): ComparisonPreviewMode | null => {
   if (typeof window === 'undefined' || hasTauriRuntime()) {

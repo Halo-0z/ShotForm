@@ -38,7 +38,7 @@ test('upload workbench analyzes loaded media and hands off to the analysis route
 })
 
 test('upload workbench guards Tauri-only analysis when opened in a plain browser runtime', () => {
-  assert.match(source, /const hasTauriRuntime = \(\) =>/)
+  assert.match(source, /import.*hasTauriRuntime.*from.*@\/lib\/tauri-runtime/)
   assert.match(source, /__TAURI_INTERNALS__/)
   assert.match(source, /const browserModeMessage =/)
   assert.match(source, /const isBrowserPreviewMode = computed\(\(\) => !hasTauriRuntime\(\)\)/)

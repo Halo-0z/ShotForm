@@ -3,8 +3,13 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
-import * as echarts from 'echarts'
+import { onMounted, onUnmounted, ref, watch } from 'vue'
+import * as echarts from 'echarts/core'
+import { RadarChart } from 'echarts/charts'
+import { TooltipComponent, LegendComponent } from 'echarts/components'
+import { CanvasRenderer } from 'echarts/renderers'
+
+echarts.use([RadarChart, TooltipComponent, LegendComponent, CanvasRenderer])
 
 export interface RadarIndicator {
   name: string
@@ -20,18 +25,24 @@ const props = defineProps<{
 
 const chartRef = ref<HTMLDivElement | null>(null)
 let chartInstance: echarts.ECharts | null = null
+let resizeObserver: ResizeObserver | null = null
 
 const initChart = () => {
   if (!chartRef.value) return
 
   chartInstance = echarts.init(chartRef.value)
   updateChart()
+
+  resizeObserver = new ResizeObserver(() => {
+    chartInstance?.resize()
+  })
+  resizeObserver.observe(chartRef.value)
 }
 
 const updateChart = () => {
   if (!chartInstance) return
 
-  const option: echarts.EChartsOption = {
+  const option: echarts.EChartsCoreOption = {
     tooltip: {
       trigger: 'item'
     },
@@ -86,6 +97,14 @@ watch(() => [props.userData, props.playerData, props.playerName, props.indicator
 
 onMounted(() => {
   initChart()
+})
+
+onUnmounted(() => {
+  resizeObserver?.disconnect()
+  if (chartInstance) {
+    chartInstance.dispose()
+    chartInstance = null
+  }
 })
 </script>
 

@@ -344,7 +344,7 @@ const formatSignedDegrees = (value: number) => `${value > 0 ? '+' : ''}${value.t
 
 .difference-table__name {
   color: var(--text-primary);
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .difference-pill {

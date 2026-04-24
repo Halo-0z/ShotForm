@@ -1,18 +1,12 @@
 <script lang="ts">
+import { hasTauriRuntime } from '@/lib/tauri-runtime'
+
 type VideoLoadedPayload = {
   filePath: string
   previewUrl: string
   trimStartMs: number
   trimEndMs: number
   durationMs: number
-}
-
-export const hasTauriRuntime = () => {
-  if (typeof window === 'undefined') return false
-
-  return typeof (window as Window & {
-    __TAURI_INTERNALS__?: { invoke?: unknown }
-  }).__TAURI_INTERNALS__?.invoke === 'function'
 }
 
 export const hasLoadedVideoSelection = ({ previewUrl }: { previewUrl: string; filePath?: string }) => Boolean(previewUrl)

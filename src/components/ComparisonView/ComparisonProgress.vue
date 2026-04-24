@@ -97,7 +97,7 @@ const stageLabel = computed(() => {
 .comparison-progress__stage {
   margin: 0;
   color: var(--text-primary);
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .comparison-progress__meter {

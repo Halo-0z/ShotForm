@@ -4,7 +4,8 @@ import { useRouter } from 'vue-router'
 import { ArrowLeft, GitCompareArrows } from 'lucide-vue-next'
 import ComparisonView from '@/components/ComparisonView/index.vue'
 import { Button } from '@/components/ui/button'
-import { buildAnalysisProfileKey, type ComparisonIdentity } from '@/lib/comparison-service'
+import { type ComparisonIdentity } from '@/lib/comparison-service'
+import { buildCompareIdentity } from '@/lib/analysis-utils'
 import { PAGE_COVER_ART } from '@/lib/page-cover-art'
 import { getComparisonPreviewAnalysis } from '@/lib/comparison-preview'
 import { useAnalysisStore } from '@/stores/analysis'
@@ -15,38 +16,18 @@ const analysisStore = useAnalysisStore()
 const previewAnalysis = computed(() => getComparisonPreviewAnalysis())
 const analysis = computed(() => analysisStore.currentAnalysis ?? previewAnalysis.value)
 
-const buildAnalysisCompareKey = () => {
-  if (!analysis.value) {
-    return ''
-  }
-
-  const angleSignature = analysis.value.angles
-    .map(angle => `${angle.name}:${angle.value.toFixed(2)}`)
-    .join('|')
-
-  return `${analysis.value.timestamp}|${analysis.value.shotType}|${angleSignature}`
-}
-
 const compareIdentity = computed<ComparisonIdentity | null>(() => {
   if (!analysis.value) {
     return null
   }
 
-  const isVideo = Boolean(analysisStore.currentVideoAnalysis?.frames.length)
-  const videoPath = analysisStore.currentVideoPath || analysisStore.currentVideoAnalysis?.videoPath || ''
-  const analysisProfile = analysisStore.currentVideoAnalysis?.templateProfile ?? null
-
-  return {
-    source: isVideo ? 'video-frame' : 'image',
-    sessionId: isVideo
-      ? `video:${videoPath || 'current'}`
-      : `compare:${analysisStore.currentHistoryId ?? analysis.value.timestamp}`,
-    videoPath: isVideo ? videoPath : undefined,
-    frameIndex: isVideo ? analysisStore.currentVideoFrameIndex : null,
-    historyId: analysisStore.currentHistoryId,
-    analysisKey: buildAnalysisCompareKey(),
-    profileKey: buildAnalysisProfileKey(analysisProfile)
-  }
+  return buildCompareIdentity({
+    analysis: analysis.value,
+    videoAnalysis: analysisStore.currentVideoAnalysis,
+    videoPath: analysisStore.currentVideoPath || analysisStore.currentVideoAnalysis?.videoPath || '',
+    videoFrameIndex: analysisStore.currentVideoFrameIndex,
+    historyId: analysisStore.currentHistoryId
+  })
 })
 
 const compareAnalysisProfile = computed(() => {

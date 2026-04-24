@@ -16,5 +16,19 @@ export default defineConfig({
     watch: {
       ignored: ['**/src-tauri/**']
     }
+  },
+  build: {
+    target: 'esnext',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          echarts: ['echarts'],
+          'ui-vendor': ['reka-ui', 'class-variance-authority', 'clsx', 'tailwind-merge']
+        }
+      }
+    }
+  },
+  esbuild: {
+    drop: ['console', 'debugger']
   }
 })

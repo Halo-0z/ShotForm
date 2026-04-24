@@ -284,9 +284,25 @@ def detect_from_file(file_path: str) -> dict:
         return _error_result(str(exc))
 
 
+def _write_result(result: dict, output_file: str | None) -> None:
+    payload = json.dumps(result, ensure_ascii=False)
+    if output_file:
+        Path(output_file).write_text(payload, encoding="utf-8")
+        return
+
+    print(payload)
+
+
 if __name__ == "__main__":
     result = _error_result("No input provided")
     args = sys.argv[1:]
+    output_file = None
+
+    if "--output-file" in args:
+        output_index = args.index("--output-file")
+        if output_index + 1 < len(args):
+            output_file = args[output_index + 1]
+            del args[output_index : output_index + 2]
 
     if len(args) >= 2:
         if args[0] == "--file":
@@ -296,4 +312,4 @@ if __name__ == "__main__":
             image_base64 = input_path.read_text(encoding="utf-8").strip()
             result = detect_from_base64(image_base64)
 
-    print(json.dumps(result, ensure_ascii=False))
+    _write_result(result, output_file)

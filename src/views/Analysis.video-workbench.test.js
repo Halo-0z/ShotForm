@@ -37,3 +37,9 @@ test('video analysis summary stays anchored to the overall video verdict instead
   assert.match(source, /以下建议与球星对比基于当前选中的关键帧，整体判断以上方结论为准。/)
 })
 
+test('analysis page only mounts the embedded compare workbench when the compare tab is active', () => {
+  assert.match(source, /<TabsContent value="compare" class="mt-6">[\s\S]*<ComparisonView/)
+  assert.match(source, /v-if="insightsTab === 'compare'"/)
+  assert.match(source, /:active="insightsTab === 'compare'"/)
+})
+

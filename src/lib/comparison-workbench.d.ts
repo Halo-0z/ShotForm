@@ -6,6 +6,30 @@ export declare const withTimeout: <T>(
   errorMessage: string
 ) => Promise<T>
 
+export declare const calculateAngleDifferences: (
+  analysis: ShotAnalysis,
+  player: PlayerTemplate
+) => ComparisonResult['angleDifferences']
+
+export declare const calculateWeightedSimilarity: (
+  differences: ComparisonResult['angleDifferences']
+) => number
+
+export declare const comparePlayerLocally: (options: {
+  analysis: ShotAnalysis
+  player: PlayerTemplate
+}) => ComparisonResult
+
+export declare const buildLocalWorkbench: (
+  analysis: ShotAnalysis,
+  players: PlayerTemplate[],
+  getAngleDisplayName?: (name: string) => string
+) => {
+  comparisons: ComparisonResult[]
+  summaries: ComparisonSummary[]
+  selectedComparison: ComparisonResult | null
+}
+
 export declare const sortDifferencesByGap: (
   differences: ComparisonResult['angleDifferences']
 ) => ComparisonResult['angleDifferences']

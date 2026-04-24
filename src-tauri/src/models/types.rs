@@ -1,4 +1,6 @@
+use crate::analysis::temporal::TemporalFeatures;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Keypoint {
@@ -92,6 +94,10 @@ pub struct VideoShotAnalysis {
     pub overall_shot_type: ShotType,
     pub overall_shot_type_confidence: f32,
     pub overall_reasons: Vec<String>,
+    #[serde(default)]
+    pub template_profile: Option<PlayerTemplateProfile>,
+    #[serde(default)]
+    pub temporal_features: Option<TemporalFeatures>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -149,7 +155,7 @@ pub struct AiAnalysisPayload {
     pub flags: AiPayloadFlags,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct PlayerTemplate {
     pub id: i64,
@@ -158,6 +164,51 @@ pub struct PlayerTemplate {
     pub description: String,
     pub pose_data: PoseData,
     pub angles: Vec<JointAngle>,
+    #[serde(default)]
+    pub template_profile: Option<PlayerTemplateProfile>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlayerTemplateMetadataUpdate {
+    pub id: i64,
+    pub name: String,
+    pub team: String,
+    pub description: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct PlayerTemplateProfile {
+    pub version: u32,
+    pub source_kind: String,
+    pub overall_shot_type: String,
+    #[serde(default)]
+    pub representative_frame_index: Option<usize>,
+    #[serde(default)]
+    pub representative_timestamp_ms: Option<u64>,
+    pub samples_used: usize,
+    pub coverage: f32,
+    #[serde(default)]
+    pub phase_profiles: BTreeMap<String, PhaseAngleProfile>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct PhaseAngleProfile {
+    pub phase: String,
+    pub sample_count: usize,
+    pub coverage: f32,
+    #[serde(default)]
+    pub angles: Vec<CanonicalAngleProfile>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct CanonicalAngleProfile {
+    pub name: String,
+    pub value: f32,
+    pub confidence: f32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -169,12 +220,22 @@ pub struct AngleDifference {
     pub difference: f32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ComparisonMode {
+    VideoLevel,
+    #[default]
+    SingleFrameFallback,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ComparisonResult {
     pub player: PlayerTemplate,
     pub similarity: f32,
     pub angle_differences: Vec<AngleDifference>,
+    #[serde(default)]
+    pub comparison_mode: ComparisonMode,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -186,6 +247,8 @@ pub struct ComparisonSummary {
     pub match_reason: String,
     #[serde(default)]
     pub shot_type_alignment: Option<String>,
+    #[serde(default)]
+    pub comparison_mode: ComparisonMode,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -194,6 +257,37 @@ pub struct ComparisonWorkbenchResult {
     pub summaries: Vec<ComparisonSummary>,
     #[serde(default)]
     pub selected_comparison: Option<ComparisonResult>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ComparisonLearningGap {
+    pub title: String,
+    pub detail: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ComparisonLearningBridge {
+    pub intro: String,
+    pub gaps: Vec<ComparisonLearningGap>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ComparisonDetailPayload {
+    pub result: ComparisonResult,
+    pub learning_bridge: ComparisonLearningBridge,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ComparisonWorkbenchSnapshot {
+    pub analysis_key: String,
+    pub summaries: Vec<ComparisonSummary>,
+    pub details_by_player_id: BTreeMap<i64, ComparisonDetailPayload>,
+    pub selected_player_id: Option<i64>,
+    pub selected_detail: Option<ComparisonDetailPayload>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -220,7 +314,7 @@ pub struct AnalysisHistory {
     pub image_path: String,
     pub annotated_image_path: String,
     pub analysis: ShotAnalysis,
-    pub comparison: Option<ComparisonResult>,
+    pub comparison: Option<ComparisonWorkbenchSnapshot>,
     pub suggestions: Vec<CorrectionSuggestion>,
     #[serde(default)]
     pub ai_coaching_summary: Option<String>,

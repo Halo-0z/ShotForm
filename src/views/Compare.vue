@@ -4,13 +4,54 @@ import { useRouter } from 'vue-router'
 import { ArrowLeft, GitCompareArrows } from 'lucide-vue-next'
 import ComparisonView from '@/components/ComparisonView/index.vue'
 import { Button } from '@/components/ui/button'
+import { buildAnalysisProfileKey, type ComparisonIdentity } from '@/lib/comparison-service'
 import { PAGE_COVER_ART } from '@/lib/page-cover-art'
+import { getComparisonPreviewAnalysis } from '@/lib/comparison-preview'
 import { useAnalysisStore } from '@/stores/analysis'
 
 const router = useRouter()
 const analysisStore = useAnalysisStore()
 
-const analysis = computed(() => analysisStore.currentAnalysis)
+const previewAnalysis = computed(() => getComparisonPreviewAnalysis())
+const analysis = computed(() => analysisStore.currentAnalysis ?? previewAnalysis.value)
+
+const buildAnalysisCompareKey = () => {
+  if (!analysis.value) {
+    return ''
+  }
+
+  const angleSignature = analysis.value.angles
+    .map(angle => `${angle.name}:${angle.value.toFixed(2)}`)
+    .join('|')
+
+  return `${analysis.value.timestamp}|${analysis.value.shotType}|${angleSignature}`
+}
+
+const compareIdentity = computed<ComparisonIdentity | null>(() => {
+  if (!analysis.value) {
+    return null
+  }
+
+  const isVideo = Boolean(analysisStore.currentVideoAnalysis?.frames.length)
+  const videoPath = analysisStore.currentVideoPath || analysisStore.currentVideoAnalysis?.videoPath || ''
+  const analysisProfile = analysisStore.currentVideoAnalysis?.templateProfile ?? null
+
+  return {
+    source: isVideo ? 'video-frame' : 'image',
+    sessionId: isVideo
+      ? `video:${videoPath || 'current'}`
+      : `compare:${analysisStore.currentHistoryId ?? analysis.value.timestamp}`,
+    videoPath: isVideo ? videoPath : undefined,
+    frameIndex: isVideo ? analysisStore.currentVideoFrameIndex : null,
+    historyId: analysisStore.currentHistoryId,
+    analysisKey: buildAnalysisCompareKey(),
+    profileKey: buildAnalysisProfileKey(analysisProfile)
+  }
+})
+
+const compareAnalysisProfile = computed(() => {
+  return analysisStore.currentVideoAnalysis?.templateProfile ?? null
+})
 
 const goBack = () => {
   router.push('/analysis')
@@ -18,6 +59,10 @@ const goBack = () => {
 
 const goToUpload = () => {
   router.push('/upload')
+}
+
+const goToTemplates = () => {
+  router.push('/templates')
 }
 </script>
 
@@ -33,17 +78,29 @@ const goToUpload = () => {
         </Button>
 
         <div class="compare-page__heading">
-          <p class="compare-page__eyebrow">Compare</p>
+          <p class="compare-page__eyebrow">球星对比</p>
           <h1 class="compare-page__title">球星对比</h1>
         </div>
 
-        <p class="compare-page__summary">
-          当前对比基于本次分析结果与选中模板的关键角度差异。
-        </p>
+        <div class="compare-page__side">
+          <p class="compare-page__summary">
+            当前对比基于本次分析结果与选中模板的关键角度差异。
+          </p>
+          <Button variant="outline" class="compare-page__templates" @click="goToTemplates">
+            管理球星模板
+          </Button>
+        </div>
       </header>
 
       <section class="compare-page__workbench">
-        <ComparisonView v-if="analysis" :analysis="analysis" />
+        <ComparisonView
+          v-if="analysis"
+          :analysis="analysis"
+          :analysis-profile="compareAnalysisProfile"
+          :identity="compareIdentity"
+          surface-id="compare-route"
+          :active="true"
+        />
 
         <div v-else class="compare-page__empty">
           <div class="compare-page__empty-icon">
@@ -55,9 +112,14 @@ const goToUpload = () => {
               对比页会基于当前分析结果展示最接近的模板、关键角度差异和针对性的学习路径。
             </p>
           </div>
-          <Button class="compare-page__empty-action" @click="goToUpload">
-            前往上传工作台
-          </Button>
+          <div class="compare-page__empty-actions">
+            <Button class="compare-page__empty-action" @click="goToUpload">
+              前往上传工作台
+            </Button>
+            <Button variant="outline" class="compare-page__empty-action" @click="goToTemplates">
+              先管理球星模板
+            </Button>
+          </div>
         </div>
       </section>
     </div>
@@ -144,12 +206,22 @@ const goToUpload = () => {
   color: var(--text-primary);
 }
 
+.compare-page__side {
+  display: grid;
+  justify-items: start;
+  gap: 14px;
+  padding-top: 6px;
+}
+
 .compare-page__summary {
   margin: 0;
-  padding-top: 6px;
   font-size: 14px;
   line-height: 1.7;
   color: var(--text-secondary);
+}
+
+.compare-page__templates {
+  min-width: 148px;
 }
 
 .compare-page__workbench {
@@ -203,6 +275,12 @@ const goToUpload = () => {
   color: var(--text-secondary);
 }
 
+.compare-page__empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
 .compare-page__empty-action {
   margin-top: 2px;
 }
@@ -221,7 +299,7 @@ const goToUpload = () => {
     grid-template-columns: auto 1fr;
   }
 
-  .compare-page__summary {
+  .compare-page__side {
     grid-column: 1 / -1;
     padding-top: 0;
     max-width: 42rem;
@@ -241,6 +319,10 @@ const goToUpload = () => {
   .compare-page__empty {
     min-height: 360px;
     justify-items: stretch;
+  }
+
+  .compare-page__empty-actions {
+    flex-direction: column;
   }
 }
 </style>

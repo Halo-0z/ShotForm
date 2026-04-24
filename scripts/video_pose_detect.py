@@ -151,16 +151,26 @@ def analyze_video(file_path: str, start_ms: int, end_ms: int, max_frames: int) -
         capture.release()
 
 
+def _write_result(result: dict, output_file: str | None) -> None:
+    payload = json.dumps(result, ensure_ascii=False)
+    if output_file:
+        Path(output_file).write_text(payload, encoding='utf-8')
+        return
+
+    print(payload)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument('--video', required=True)
     parser.add_argument('--start-ms', type=int, default=0)
     parser.add_argument('--end-ms', type=int, default=0)
     parser.add_argument('--max-frames', type=int, default=16)
+    parser.add_argument('--output-file')
     args = parser.parse_args()
 
     result = analyze_video(args.video, args.start_ms, args.end_ms, args.max_frames)
-    print(json.dumps(result, ensure_ascii=False))
+    _write_result(result, args.output_file)
 
 
 if __name__ == '__main__':

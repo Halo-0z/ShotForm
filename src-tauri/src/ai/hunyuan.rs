@@ -71,7 +71,8 @@ async fn send_chat_completion(
         let response = match response {
             Ok(response) => response,
             Err(error) => {
-                last_error = format!("\u{8c03}\u{7528}\u{6df7}\u{5143} API \u{5931}\u{8d25}: {error}");
+                last_error =
+                    format!("\u{8c03}\u{7528}\u{6df7}\u{5143} API \u{5931}\u{8d25}: {error}");
                 continue;
             }
         };
@@ -89,10 +90,9 @@ async fn send_chat_completion(
             }
             continue;
         }
-        let response_body: ChatCompletionsResponse = response
-            .json()
-            .await
-            .map_err(|error| format!("\u{89e3}\u{6790}\u{6df7}\u{5143}\u{54cd}\u{5e94}\u{5931}\u{8d25}: {error}"))?;
+        let response_body: ChatCompletionsResponse = response.json().await.map_err(|error| {
+            format!("\u{89e3}\u{6790}\u{6df7}\u{5143}\u{54cd}\u{5e94}\u{5931}\u{8d25}: {error}")
+        })?;
         if let Some(content) = response_body
             .choices
             .into_iter()
@@ -210,8 +210,10 @@ fn build_coaching_user_prompt(payload: &AiAnalysisPayload) -> String {
 fn parse_shot_review_response(content: &str) -> Result<AiShotReview, String> {
     let json = extract_json_block(content);
     let mut response: AiShotReview = serde_json::from_str(&json).map_err(|error| {
-        format!("混元返回的主分析 JSON 格式不正确: {error}
-原始内容: {content}")
+        format!(
+            "混元返回的主分析 JSON 格式不正确: {error}
+原始内容: {content}"
+        )
     })?;
     response.source = "ai".to_string();
     response.phase = normalize_phase(&response.phase).to_string();
@@ -247,9 +249,12 @@ fn parse_shot_review_response(content: &str) -> Result<AiShotReview, String> {
 }
 fn parse_coaching_response(content: &str) -> Result<AiCoachingResponse, String> {
     let json = extract_json_block(content);
-    let mut response: AiCoachingResponse = serde_json::from_str(&json)
-        .map_err(|error| format!("混元返回的 JSON 格式不正确: {error}
-原始内容: {content}"))?;
+    let mut response: AiCoachingResponse = serde_json::from_str(&json).map_err(|error| {
+        format!(
+            "混元返回的 JSON 格式不正确: {error}
+原始内容: {content}"
+        )
+    })?;
     response.summary = response.summary.trim().to_string();
     if response.summary.is_empty() {
         response.summary = build_summary_from_suggestions(&response.suggestions);

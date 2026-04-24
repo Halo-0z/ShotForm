@@ -8,7 +8,8 @@ test('compare page is structured as a workbench rather than a hero banner page',
   assert.match(source, /class="compare-page__header"/)
   assert.match(source, /class="compare-page__summary"/)
   assert.match(source, /class="compare-page__workbench"/)
-  assert.match(source, /ComparisonView v-if="analysis"/)
+  assert.match(source, /<ComparisonView[\s\S]*v-if="analysis"/)
+  assert.match(source, /:analysis-profile="compareAnalysisProfile"/)
   assert.doesNotMatch(source, /compare-hero-banner/)
 })
 

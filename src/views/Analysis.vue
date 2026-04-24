@@ -22,8 +22,10 @@ import AngleChart from '@/components/ChartComponents/AngleChart.vue'
 import ComparisonView from '@/components/ComparisonView/index.vue'
 import SuggestionPanel from '@/components/SuggestionPanel/index.vue'
 import VideoPosePlayback from '@/components/VideoPosePlayback.vue'
+import PoseSkeletonStage from '@/components/PoseSkeletonStage.vue'
 import { PAGE_COVER_ART } from '@/lib/page-cover-art'
 import { useAnalysisStore } from '@/stores/analysis'
+import { buildAnalysisProfileKey, type ComparisonIdentity } from '@/lib/comparison-service'
 import {
   getShotTypeGuidance,
   getShotTypeName,
@@ -45,6 +47,46 @@ const hasAnalysis = computed(() => !!analysisStore.currentAnalysis)
 const hasAnnotatedImage = computed(() => !!analysisStore.currentAnnotatedImage)
 const hasVideoAnalysis = computed(() => !!analysisStore.currentVideoAnalysis)
 const currentVideoAnalysis = computed(() => analysisStore.currentVideoAnalysis)
+
+const buildAnalysisCompareKey = () => {
+  const analysis = analysisStore.currentAnalysis
+  if (!analysis) {
+    return ''
+  }
+
+  const angleSignature = analysis.angles
+    .map(angle => `${angle.name}:${angle.value.toFixed(2)}`)
+    .join('|')
+
+  return `${analysis.timestamp}|${analysis.shotType}|${angleSignature}`
+}
+
+const compareIdentity = computed<ComparisonIdentity | null>(() => {
+  if (!analysisStore.currentAnalysis) {
+    return null
+  }
+
+  const analysisKey = buildAnalysisCompareKey()
+  const videoPath = analysisStore.currentVideoPath || analysisStore.currentVideoAnalysis?.videoPath || ''
+  const isVideo = Boolean(analysisStore.currentVideoAnalysis?.frames.length)
+  const analysisProfile = analysisStore.currentVideoAnalysis?.templateProfile ?? null
+
+  return {
+    source: isVideo ? 'video-frame' : 'image',
+    sessionId: isVideo
+      ? `video:${videoPath || 'current'}`
+      : `image:${analysisStore.currentHistoryId ?? analysisStore.currentAnalysis.timestamp}`,
+    videoPath: isVideo ? videoPath : undefined,
+    frameIndex: isVideo ? analysisStore.currentVideoFrameIndex : null,
+    historyId: analysisStore.currentHistoryId,
+    analysisKey,
+    profileKey: buildAnalysisProfileKey(analysisProfile)
+  }
+})
+
+const compareAnalysisProfile = computed(() => {
+  return analysisStore.currentVideoAnalysis?.templateProfile ?? null
+})
 
 watch(hasAnnotatedImage, (available) => {
   previewMode.value = available ? 'annotated' : 'original'
@@ -338,24 +380,9 @@ const shotConfidenceHint =
 
                 <div class="flex flex-wrap gap-2">
                   <template v-if="!currentVideoAnalysis">
-                    <Button
-                      size="sm"
-                      :variant="previewMode === 'annotated' ? 'default' : 'outline'"
-                      :disabled="!hasAnnotatedImage"
-                      @click="setPreviewMode('annotated')"
-                    >
-                      标注图
-                    </Button>
-                    <Button
-                      size="sm"
-                      :variant="previewMode === 'original' ? 'default' : 'outline'"
-                      @click="setPreviewMode('original')"
-                    >
-                      原图
-                    </Button>
                     <Button size="sm" variant="outline" @click="openPreviewDialog">
                       <Expand class="mr-1 h-4 w-4" />
-                      放大查看
+                      查看原图 / 标注图
                     </Button>
                   </template>
                 </div>
@@ -370,22 +397,21 @@ const shotConfidenceHint =
               />
 
               <template v-else>
-                <button
-                  type="button"
-                  class="analysis-page__stage-preview"
-                  @click="openPreviewDialog"
-                >
-                  <img
-                    v-if="currentPreviewImage"
-                    :src="currentPreviewImage"
-                    class="analysis-page__stage-image"
-                    :alt="currentPreviewLabel"
-                  />
-                </button>
+                <PoseSkeletonStage
+                  v-if="analysisStore.currentAnalysis?.poseData"
+                  :pose-data="analysisStore.currentAnalysis.poseData"
+                  :image-src="analysisStore.currentImage || undefined"
+                />
 
                 <div class="analysis-page__stage-footer">
-                  <span>当前显示：{{ currentPreviewLabel }}</span>
-                  <span>点击画面可以进入细节放大模式</span>
+                  <span>动态骨骼点渲染</span>
+                  <button
+                    type="button"
+                    class="analysis-page__stage-footer-link"
+                    @click="openPreviewDialog"
+                  >
+                    点击查看原图 / 标注图
+                  </button>
                 </div>
               </template>
             </div>
@@ -464,7 +490,14 @@ const shotConfidenceHint =
             </TabsContent>
 
             <TabsContent value="compare" class="mt-6">
-              <ComparisonView :analysis="analysisStore.currentAnalysis!" />
+              <ComparisonView
+                v-if="insightsTab === 'compare'"
+                :analysis="analysisStore.currentAnalysis!"
+                :analysis-profile="compareAnalysisProfile"
+                :identity="compareIdentity"
+                surface-id="analysis-tab"
+                :active="insightsTab === 'compare'"
+              />
             </TabsContent>
           </Tabs>
         </section>
@@ -846,10 +879,22 @@ const shotConfidenceHint =
 
 .analysis-page__stage-footer {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
   font-size: 12px;
   color: var(--text-secondary);
+}
+
+.analysis-page__stage-footer-link {
+  border: 0;
+  background: transparent;
+  color: var(--primary-color);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .analysis-page__workbench-card {

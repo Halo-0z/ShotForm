@@ -117,12 +117,30 @@ impl ShotTypeClassifier {
             "\u{63a8}\u{65ad}\u{6295}\u{7bee}\u{624b}: {}",
             self.arm_side_label(metrics.shooting_side, metrics.side_confidence)
         ));
-        reasons.push(format!("\u{5f53}\u{524d}\u{52a8}\u{4f5c}\u{9636}\u{6bb5}: {}", self.phase_label(phase)));
-        reasons.push(format!("\u{6295}\u{7bee}\u{8098}\u{89d2}: {:.1}\u{b0}", metrics.elbow_angle));
-        reasons.push(format!("\u{540c}\u{4fa7}\u{819d}\u{89d2}: {:.1}\u{b0}", metrics.knee_angle));
-        reasons.push(format!("\u{6295}\u{7bee}\u{80a9}\u{89d2}: {:.1}\u{b0}", metrics.shoulder_angle));
-        reasons.push(format!("\u{51fa}\u{624b}\u{89d2}: {:.1}\u{b0}", metrics.release_angle));
-        reasons.push(format!("\u{624b}\u{8155}\u{9ad8}\u{4e8e}\u{80a9}\u{90e8}: {:.2}", metrics.set_point_height));
+        reasons.push(format!(
+            "\u{5f53}\u{524d}\u{52a8}\u{4f5c}\u{9636}\u{6bb5}: {}",
+            self.phase_label(phase)
+        ));
+        reasons.push(format!(
+            "\u{6295}\u{7bee}\u{8098}\u{89d2}: {:.1}\u{b0}",
+            metrics.elbow_angle
+        ));
+        reasons.push(format!(
+            "\u{540c}\u{4fa7}\u{819d}\u{89d2}: {:.1}\u{b0}",
+            metrics.knee_angle
+        ));
+        reasons.push(format!(
+            "\u{6295}\u{7bee}\u{80a9}\u{89d2}: {:.1}\u{b0}",
+            metrics.shoulder_angle
+        ));
+        reasons.push(format!(
+            "\u{51fa}\u{624b}\u{89d2}: {:.1}\u{b0}",
+            metrics.release_angle
+        ));
+        reasons.push(format!(
+            "\u{624b}\u{8155}\u{9ad8}\u{4e8e}\u{80a9}\u{90e8}: {:.2}",
+            metrics.set_point_height
+        ));
 
         if metrics.side_confidence < 0.12 {
             reasons.push("\u{5de6}\u{53f3}\u{624b}\u{5173}\u{952e}\u{70b9}\u{8868}\u{73b0}\u{63a5}\u{8fd1}\u{ff0c}\u{6295}\u{7bee}\u{624b}\u{4ecd}\u{7136}\u{662f}\u{6700}\u{4f73}\u{731c}\u{6d4b}\u{3002}".to_string());
@@ -904,5 +922,3 @@ mod tests {
         }
     }
 }
-
-

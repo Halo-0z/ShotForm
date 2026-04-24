@@ -25,6 +25,7 @@ import HomeModuleGem from '@/components/HomeModuleGem.vue'
 import HomeWorkspaceHeroArt from '@/components/home/HomeWorkspaceHeroArt.vue'
 import { useAnalysisStore } from '@/stores/analysis'
 import { getAiReviewState } from '@/lib/ai-analysis-flow.js'
+import { buildAnalysisProfileKey, type ComparisonIdentity } from '@/lib/comparison-service'
 import {
   getShotTypeGuidance,
   getShotTypeName,
@@ -59,6 +60,40 @@ const currentVideoFrame = computed(() => {
     ?? analysis.frames[analysis.bestFrameIndex]
     ?? analysis.frames[0]
 })
+const buildAnalysisCompareKey = () => {
+  const analysis = analysisStore.currentAnalysis
+  if (!analysis) {
+    return ''
+  }
+
+  const angleSignature = analysis.angles
+    .map(angle => `${angle.name}:${angle.value.toFixed(2)}`)
+    .join('|')
+
+  return `${analysis.timestamp}|${analysis.shotType}|${angleSignature}`
+}
+const compareIdentity = computed<ComparisonIdentity | null>(() => {
+  if (!analysisStore.currentAnalysis) {
+    return null
+  }
+
+  const isVideo = Boolean(currentVideoAnalysis.value?.frames.length)
+  const videoPath = analysisStore.currentVideoPath || currentVideoAnalysis.value?.videoPath || ''
+  const analysisProfile = currentVideoAnalysis.value?.templateProfile ?? null
+
+  return {
+    source: isVideo ? 'video-frame' : 'image',
+    sessionId: isVideo
+      ? `video:${videoPath || 'current'}`
+      : `home:${analysisStore.currentHistoryId ?? analysisStore.currentAnalysis.timestamp}`,
+    videoPath: isVideo ? videoPath : undefined,
+    frameIndex: isVideo ? analysisStore.currentVideoFrameIndex : null,
+    historyId: analysisStore.currentHistoryId,
+    analysisKey: buildAnalysisCompareKey(),
+    profileKey: buildAnalysisProfileKey(analysisProfile)
+  }
+})
+const compareAnalysisProfile = computed(() => currentVideoAnalysis.value?.templateProfile ?? null)
 const isAnalysisWorkspace = computed(() => activeModule.value === 'analysis' && (analysisStore.isLoading || hasAnalysis.value))
 const headerSubtitle = computed(() => {
   if (!isAnalysisWorkspace.value) {
@@ -693,7 +728,14 @@ const handleAiReview = async () => {
         </section>
 
         <section v-show="activeModule === 'compare'" class="compare-section">
-          <ComparisonView v-if="analysisStore.currentAnalysis" :analysis="analysisStore.currentAnalysis" />
+          <ComparisonView
+            v-if="analysisStore.currentAnalysis"
+            :analysis="analysisStore.currentAnalysis"
+            :analysis-profile="compareAnalysisProfile"
+            :identity="compareIdentity"
+            surface-id="home-workspace"
+            :active="activeModule === 'compare'"
+          />
           <div v-else class="section-empty">
             <p>请先完成一次分析</p>
           </div>

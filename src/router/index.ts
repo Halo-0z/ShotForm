@@ -27,6 +27,12 @@ const routes: RouteRecordRaw[] = [
     meta: { title: '球星对比' }
   },
   {
+    path: '/templates',
+    name: 'Templates',
+    component: () => import('@/views/Templates.vue'),
+    meta: { title: '球星模板管理' }
+  },
+  {
     path: '/history',
     name: 'History',
     component: () => import('@/views/History.vue'),

@@ -110,6 +110,14 @@ export interface VideoAnalysisFrame {
   analysis: ShotAnalysis
 }
 
+export interface TemporalFeatures {
+  setPointRatio: number
+  kneeElbowLeadRatio: number
+  plateauSharpness: number
+  phaseSequenceValid: boolean
+  confidence: number
+}
+
 export interface VideoShotAnalysis {
   videoPath: string
   durationMs: number
@@ -123,6 +131,8 @@ export interface VideoShotAnalysis {
   overallShotType: ShotType
   overallShotTypeConfidence: number
   overallReasons: string[]
+  templateProfile?: PlayerTemplateProfile | null
+  temporalFeatures?: TemporalFeatures | null
 }
 
 export interface AiShotReview {
@@ -177,35 +187,85 @@ export interface PlayerTemplate {
   description: string
   poseData: PoseData
   angles: JointAngle[]
+  templateProfile?: PlayerTemplateProfile | null
+}
+
+export interface PlayerTemplateProfile {
+  version: number
+  sourceKind: string
+  overallShotType: string
+  representativeFrameIndex?: number | null
+  representativeTimestampMs?: number | null
+  samplesUsed: number
+  coverage: number
+  phaseProfiles: Record<string, PhaseAngleProfile>
+}
+
+export interface PhaseAngleProfile {
+  phase: string
+  sampleCount: number
+  coverage: number
+  angles: CanonicalAngleProfile[]
+}
+
+export interface CanonicalAngleProfile {
+  name: string
+  value: number
+  confidence: number
+}
+
+export type ComparisonMode = 'video_level' | 'single_frame_fallback'
+
+export interface AngleDifference {
+  name: string
+  userValue: number
+  playerValue: number
+  difference: number
 }
 
 export interface ComparisonResult {
   player: PlayerTemplate
   similarity: number
-  angleDifferences: Array<{
-    name: string
-    userValue: number
-    playerValue: number
-    difference: number
-  }>
+  angleDifferences: AngleDifference[]
+  comparisonMode: ComparisonMode
 }
 
 export interface ComparisonSummary {
   player: PlayerTemplate
   similarity: number
-  topDifferences: Array<{
-    name: string
-    userValue: number
-    playerValue: number
-    difference: number
-  }>
+  topDifferences: AngleDifference[]
   matchReason: string
   shotTypeAlignment?: string | null
+  comparisonMode: ComparisonMode
 }
 
 export interface ComparisonWorkbenchResult {
   summaries: ComparisonSummary[]
   selectedComparison?: ComparisonResult | null
+}
+
+export interface ComparisonLearningGap {
+  title: string
+  detail: string
+}
+
+export interface ComparisonLearningBridge {
+  intro: string
+  gaps: ComparisonLearningGap[]
+}
+
+export interface ComparisonDetailPayload {
+  result: ComparisonResult
+  learningBridge: ComparisonLearningBridge
+}
+
+export interface ComparisonWorkbenchSnapshot {
+  analysisKey: string
+  summaries: ComparisonSummary[]
+  detailsByPlayerId: Record<number, ComparisonDetailPayload>
+  selectedPlayerId?: number | null
+  selectedDetail?: ComparisonDetailPayload | null
+  historyId?: number | null
 }
 
 export interface CorrectionSuggestion {
@@ -228,7 +288,7 @@ export interface AnalysisHistory {
   imagePath: string
   annotatedImagePath: string
   analysis: ShotAnalysis
-  comparison?: ComparisonResult | null
+  comparison: ComparisonWorkbenchSnapshot | null
   suggestions: CorrectionSuggestion[]
   aiCoachingSummary?: string | null
   aiCoachingSuggestions?: CorrectionSuggestion[] | null

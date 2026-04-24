@@ -6,21 +6,20 @@
 import { onMounted, ref, watch } from 'vue'
 import * as echarts from 'echarts'
 
+export interface RadarIndicator {
+  name: string
+  max: number
+}
+
 const props = defineProps<{
   userData: number[]
   playerData: number[]
   playerName: string
+  indicators: RadarIndicator[]
 }>()
 
 const chartRef = ref<HTMLDivElement | null>(null)
 let chartInstance: echarts.ECharts | null = null
-
-const indicators = [
-  { name: '肘角', max: 180 },
-  { name: '膝角', max: 180 },
-  { name: '肩角', max: 180 },
-  { name: '躯干倾斜', max: 90 }
-]
 
 const initChart = () => {
   if (!chartRef.value) return
@@ -41,7 +40,7 @@ const updateChart = () => {
       bottom: 0
     },
     radar: {
-      indicator: indicators,
+      indicator: props.indicators,
       center: ['50%', '45%'],
       radius: '60%'
     },
@@ -83,7 +82,7 @@ const updateChart = () => {
   chartInstance.setOption(option)
 }
 
-watch(() => [props.userData, props.playerData, props.playerName], updateChart, { deep: true })
+watch(() => [props.userData, props.playerData, props.playerName, props.indicators], updateChart, { deep: true })
 
 onMounted(() => {
   initChart()

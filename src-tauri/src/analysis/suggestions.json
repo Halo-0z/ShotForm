@@ -1,0 +1,73 @@
+{
+  "rules": [
+    {
+      "angle_names": ["left_elbow_angle", "right_elbow_angle", "shooting_elbow_angle"],
+      "body_part": "手肘",
+      "too_small": {
+        "issue_template": "肘角偏小（{value}°），出手点可能偏低。",
+        "suggestion": "建议在投篮准备阶段把肘部收住，保持更稳定的举球路径，让出手点更集中。",
+        "priority_threshold": 20.0
+      },
+      "too_large": {
+        "issue_template": "肘角偏大（{value}°），手臂可能过早伸展。",
+        "suggestion": "尝试减少提前伸臂，先把下肢和躯干的力量送上来，再在最高点附近自然伸肘。",
+        "priority_threshold": 20.0
+      }
+    },
+    {
+      "angle_names": ["left_knee_angle", "right_knee_angle"],
+      "body_part": "下肢",
+      "too_small": {
+        "issue_template": "膝角偏小（{value}°），下蹲较深，容易拖慢出手节奏。",
+        "suggestion": "起跳前不需要蹲得过深，保持膝盖有弹性但不过度下沉，让发力更直接。",
+        "priority": "medium"
+      },
+      "too_large": {
+        "issue_template": "膝角偏大（{value}°），屈膝不足，下肢参与偏少。",
+        "suggestion": "可以适当增加屈膝，让地面反作用力更顺畅地传到上肢。",
+        "priority": "medium"
+      }
+    },
+    {
+      "angle_names": ["left_shoulder_angle", "right_shoulder_angle", "release_angle"],
+      "body_part": "肩部",
+      "too_small": {
+        "issue_template": "肩部或出手角度偏小（{value}°），出手点可能偏低。",
+        "suggestion": "把举球和出手轨迹再抬高一些，减少平推球的感觉，让球从更高的位置离手。",
+        "priority": "high"
+      },
+      "too_large": {
+        "issue_template": "肩部或出手角度偏大（{value}°），动作可能有些上抬过多。",
+        "suggestion": "控制肩部抬升幅度，保证投篮路径稳定，不要为了抬高弧线破坏出手一致性。",
+        "priority": "medium"
+      }
+    },
+    {
+      "angle_names": ["left_hip_angle", "right_hip_angle"],
+      "body_part": "躯干",
+      "too_small": {
+        "issue_template": "髋角偏小（{value}°），身体前倾较多。",
+        "suggestion": "收住髋部折叠，保持胸口和骨盆更稳定，避免靠大幅前倾去找力量。",
+        "priority": "high"
+      }
+    },
+    {
+      "angle_names": ["trunk_tilt"],
+      "body_part": "躯干",
+      "too_large": {
+        "issue_template": "躯干倾斜偏大（{value}°），会影响出手稳定性。",
+        "suggestion": "尽量让头、胸、髋保持在一条更稳定的发力线上，减少明显前倾或侧倾。",
+        "priority": "medium"
+      }
+    },
+    {
+      "angle_names": ["shoulder_tilt"],
+      "body_part": "肩部",
+      "too_large": {
+        "issue_template": "肩线倾斜偏大（{value}°），左右发力可能不够均衡。",
+        "suggestion": "尽量保持双肩更平一些，减少侧倒和歪肩，让出手方向更稳定。",
+        "priority": "medium"
+      }
+    }
+  ]
+}

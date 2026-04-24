@@ -5,6 +5,8 @@ import { readFileSync } from 'node:fs'
 const homeWorkspace = readFileSync(new URL('./home/HomeWorkspace.vue', import.meta.url), 'utf8')
 const suggestionPanel = readFileSync(new URL('./SuggestionPanel/index.vue', import.meta.url), 'utf8')
 const comparisonView = readFileSync(new URL('./ComparisonView/index.vue', import.meta.url), 'utf8')
+const comparisonRankingList = readFileSync(new URL('./ComparisonView/ComparisonRankingList.vue', import.meta.url), 'utf8')
+const comparisonDetailPane = readFileSync(new URL('./ComparisonView/ComparisonDetailPane.vue', import.meta.url), 'utf8')
 const analysisView = readFileSync(new URL('../views/Analysis.vue', import.meta.url), 'utf8')
 
 test('HomeWorkspace marks generated analysis text and numeric results as copyable', () => {
@@ -25,14 +27,16 @@ test('SuggestionPanel only whitelists generated coaching content', () => {
 })
 
 test('ComparisonView exposes comparison outputs through copyable result nodes', () => {
-  assert.match(comparisonView, /class="score-value" data-allow-copy="true"/)
-  assert.match(comparisonView, /class="score-player" data-allow-copy="true"/)
-  assert.match(comparisonView, /data-allow-copy="true">\s*\{\{ row\.userValue\.toFixed\(1\) \}\}°/)
-  assert.match(comparisonView, /data-allow-copy="true">\s*\{\{ row\.playerValue\.toFixed\(1\) \}\}°/)
-  assert.match(comparisonView, /data-allow-copy="true">\s*\{\{ row\.difference > 0 \? '\+' : '' \}\}\{\{ row\.difference\.toFixed\(1\) \}\}°/)
-  assert.match(comparisonView, /class="comparison-ranking-card__name" data-allow-copy="true"/)
-  assert.match(comparisonView, /class="comparison-ranking-card__reason" data-allow-copy="true"/)
-  assert.match(comparisonView, /class="learning-bridge__gap" data-allow-copy="true"/)
+  assert.match(comparisonView, /<ComparisonDetailPane/)
+  assert.match(comparisonView, /<ComparisonRankingList/)
+  assert.match(comparisonDetailPane, /class="score-value" data-allow-copy="true"/)
+  assert.match(comparisonDetailPane, /class="score-player" data-allow-copy="true" data-compare-detail-player/)
+  assert.match(comparisonDetailPane, /role="cell"[\s\S]*data-allow-copy="true"[\s\S]*\{\{ row\.userValue\.toFixed\(1\) \}\}°/)
+  assert.match(comparisonDetailPane, /role="cell" data-allow-copy="true">\{\{ row\.playerValue\.toFixed\(1\) \}\}°/)
+  assert.match(comparisonDetailPane, /class="difference-pill"[\s\S]*data-allow-copy="true"[\s\S]*\{\{ formatSignedDegrees\(row\.difference\) \}\}/)
+  assert.match(comparisonRankingList, /class="comparison-ranking-card__name" data-allow-copy="true"/)
+  assert.match(comparisonRankingList, /class="comparison-ranking-card__reason" data-allow-copy="true"/)
+  assert.match(comparisonDetailPane, /class="learning-bridge__gap" data-allow-copy="true"/)
 })
 
 test('Analysis view preserves copy access for analysis results on the dedicated route', () => {

@@ -1,11 +1,19 @@
-use std::{cmp::Ordering, collections::HashMap};
+use std::{
+    cmp::Ordering,
+    collections::{BTreeMap, HashMap},
+};
 
 use crate::models::{
-    AngleDifference, ComparisonResult, ComparisonSummary, JointAngle, Keypoint, PlayerTemplate,
-    PoseData, ShotAnalysis, ShotType,
+    AngleDifference, CanonicalAngleProfile, ComparisonDetailPayload, ComparisonLearningBridge,
+    ComparisonMode, ComparisonResult, ComparisonSummary, ComparisonWorkbenchSnapshot, JointAngle,
+    Keypoint, PhaseAngleProfile, PlayerTemplate, PlayerTemplateProfile, PoseData, ShotAnalysis,
+    ShotType,
 };
 
 pub struct PoseComparator;
+
+const PROFILE_PHASE_WEIGHTS: [(&str, f32); 3] =
+    [("setup", 0.24), ("release", 0.48), ("follow_through", 0.28)];
 
 impl PoseComparator {
     pub fn new() -> Self {
@@ -13,15 +21,41 @@ impl PoseComparator {
     }
 
     pub fn compare(&self, analysis: &ShotAnalysis, player: &PlayerTemplate) -> ComparisonResult {
+        self.compare_with_profile(analysis, None, player)
+    }
+
+    pub fn compare_with_profile(
+        &self,
+        analysis: &ShotAnalysis,
+        analysis_profile: Option<&PlayerTemplateProfile>,
+        player: &PlayerTemplate,
+    ) -> ComparisonResult {
         let dominant_side = self.detect_shooting_side(analysis);
+        if let (Some(user_profile), Some(player_profile)) =
+            (analysis_profile, player.template_profile.as_ref())
+        {
+            if let Some((similarity, angle_differences)) =
+                self.compare_video_profiles(user_profile, player_profile, dominant_side)
+            {
+                return ComparisonResult {
+                    player: player.clone(),
+                    similarity,
+                    angle_differences,
+                    comparison_mode: ComparisonMode::VideoLevel,
+                };
+            }
+        }
+
         let angle_differences =
             self.calculate_angle_differences(&analysis.angles, &player.angles, dominant_side);
-        let similarity = self.calculate_weighted_similarity(&angle_differences, &comparison_weights());
+        let similarity =
+            self.calculate_weighted_similarity(&angle_differences, &comparison_weights());
 
         ComparisonResult {
             player: player.clone(),
             similarity,
             angle_differences,
+            comparison_mode: ComparisonMode::SingleFrameFallback,
         }
     }
 
@@ -30,38 +64,20 @@ impl PoseComparator {
         analysis: &ShotAnalysis,
         players: &[PlayerTemplate],
     ) -> Vec<ComparisonSummary> {
-        let dominant_side = self.detect_shooting_side(analysis);
-        let weights = comparison_weights();
-        let mut summaries: Vec<_> = players
+        self.rank_players_with_profile(analysis, None, players)
+    }
+
+    pub fn rank_players_with_profile(
+        &self,
+        analysis: &ShotAnalysis,
+        analysis_profile: Option<&PlayerTemplateProfile>,
+        players: &[PlayerTemplate],
+    ) -> Vec<ComparisonSummary> {
+        let ranked_results = rank_comparison_results(self, analysis, analysis_profile, players);
+        ranked_results
             .iter()
-            .map(|player| {
-                let angle_differences =
-                    self.calculate_angle_differences(&analysis.angles, &player.angles, dominant_side);
-                let similarity = self.calculate_weighted_similarity(&angle_differences, &weights);
-                let top_differences = self.top_differences(&angle_differences, &weights);
-                let shot_type_alignment = self.shot_type_alignment(analysis, player);
-                let match_reason =
-                    self.build_match_reason(analysis, player, &angle_differences, &weights);
-
-                ComparisonSummary {
-                    player: player.clone(),
-                    similarity,
-                    top_differences,
-                    match_reason,
-                    shot_type_alignment,
-                }
-            })
-            .collect();
-
-        summaries.sort_by(|left, right| {
-            right
-                .similarity
-                .partial_cmp(&left.similarity)
-                .unwrap_or(Ordering::Equal)
-                .then_with(|| left.player.id.cmp(&right.player.id))
-        });
-
-        summaries
+            .map(|result| build_summary_from_result(analysis, result))
+            .collect()
     }
 
     fn calculate_angle_differences(
@@ -172,6 +188,127 @@ impl PoseComparator {
         (1.0 - rmse).max(0.0)
     }
 
+    fn compare_video_profiles(
+        &self,
+        user_profile: &PlayerTemplateProfile,
+        player_profile: &PlayerTemplateProfile,
+        dominant_side: ShootingSide,
+    ) -> Option<(f32, Vec<AngleDifference>)> {
+        let mut weighted_similarity = 0.0;
+        let mut matched_phase_weight = 0.0;
+        let mut rolled_up = BTreeMap::<String, (f32, f32, f32)>::new();
+        let weights = comparison_weights();
+
+        for (phase_name, phase_weight) in PROFILE_PHASE_WEIGHTS {
+            let Some(user_phase) = user_profile.phase_profiles.get(phase_name) else {
+                continue;
+            };
+            let Some(player_phase) = player_profile.phase_profiles.get(phase_name) else {
+                continue;
+            };
+
+            let phase_differences =
+                self.calculate_phase_angle_differences(user_phase, player_phase, dominant_side);
+            if phase_differences.is_empty() {
+                continue;
+            }
+
+            let effective_weight = phase_weight;
+            let phase_similarity = self.calculate_weighted_similarity(&phase_differences, &weights);
+
+            weighted_similarity += phase_similarity * effective_weight;
+            matched_phase_weight += effective_weight;
+
+            for difference in phase_differences {
+                let entry = rolled_up
+                    .entry(difference.name.clone())
+                    .or_insert((0.0, 0.0, 0.0));
+                entry.0 += difference.user_value * effective_weight;
+                entry.1 += difference.player_value * effective_weight;
+                entry.2 += effective_weight;
+            }
+        }
+
+        if matched_phase_weight == 0.0 || rolled_up.is_empty() {
+            return None;
+        }
+
+        let mut angle_differences = rolled_up
+            .into_iter()
+            .filter_map(|(name, (user_sum, player_sum, weight_sum))| {
+                if weight_sum <= 0.0 {
+                    return None;
+                }
+
+                let user_value = user_sum / weight_sum;
+                let player_value = player_sum / weight_sum;
+                Some(AngleDifference {
+                    name,
+                    user_value,
+                    player_value,
+                    difference: user_value - player_value,
+                })
+            })
+            .collect::<Vec<_>>();
+
+        angle_differences.sort_by(|left, right| left.name.cmp(&right.name));
+
+        let total_expected_weight = PROFILE_PHASE_WEIGHTS
+            .iter()
+            .map(|(_, weight)| *weight)
+            .sum::<f32>()
+            .max(0.0001);
+        let phase_completeness = (matched_phase_weight / total_expected_weight).clamp(0.0, 1.0);
+        let base_similarity = weighted_similarity / matched_phase_weight.max(0.0001);
+        let similarity = (base_similarity * phase_completeness).clamp(0.0, 1.0);
+
+        Some((similarity, angle_differences))
+    }
+
+    fn calculate_phase_angle_differences(
+        &self,
+        user_phase: &PhaseAngleProfile,
+        player_phase: &PhaseAngleProfile,
+        dominant_side: ShootingSide,
+    ) -> Vec<AngleDifference> {
+        let player_angles = self.profile_angle_map(&player_phase.angles, dominant_side);
+
+        user_phase
+            .angles
+            .iter()
+            .filter_map(|user_angle| {
+                let canonical_name = self
+                    .canonical_angle_name(&user_angle.name, dominant_side)
+                    .to_string();
+                player_angles
+                    .get(&canonical_name)
+                    .map(|player_angle| AngleDifference {
+                        name: canonical_name,
+                        user_value: user_angle.value,
+                        player_value: player_angle.value,
+                        difference: user_angle.value - player_angle.value,
+                    })
+            })
+            .collect()
+    }
+
+    fn profile_angle_map(
+        &self,
+        angles: &[CanonicalAngleProfile],
+        dominant_side: ShootingSide,
+    ) -> BTreeMap<String, CanonicalAngleProfile> {
+        angles
+            .iter()
+            .map(|angle| {
+                (
+                    self.canonical_angle_name(&angle.name, dominant_side)
+                        .to_string(),
+                    angle.clone(),
+                )
+            })
+            .collect()
+    }
+
     fn top_differences(
         &self,
         differences: &[AngleDifference],
@@ -204,11 +341,12 @@ impl PoseComparator {
     fn build_match_reason(
         &self,
         analysis: &ShotAnalysis,
-        player: &PlayerTemplate,
+        result: &ComparisonResult,
         differences: &[AngleDifference],
         weights: &[(String, f32)],
     ) -> String {
         let mut reasons = Vec::new();
+        let player = &result.player;
 
         if let Some(alignment) = self.shot_type_alignment(analysis, player) {
             reasons.push(alignment);
@@ -217,7 +355,7 @@ impl PoseComparator {
         let closest_signals = self.closest_alignment_names(differences, weights);
         if !closest_signals.is_empty() {
             reasons.push(format!(
-                "closest mechanical overlap at {}",
+                "最接近的动作重合点在{}",
                 self.join_labels(&closest_signals)
             ));
         }
@@ -225,19 +363,33 @@ impl PoseComparator {
         if let Some(balance_signal) = differences.iter().find(|difference| {
             matches!(
                 difference.name.as_str(),
-                "trunk_tilt" | "right_knee_angle" | "left_knee_angle" | "right_hip_angle" | "left_hip_angle"
+                "trunk_tilt"
+                    | "right_knee_angle"
+                    | "left_knee_angle"
+                    | "right_hip_angle"
+                    | "left_hip_angle"
             ) && difference.difference.abs() <= 10.0
         }) {
             reasons.push(format!(
-                "loading stays controlled through {}",
+                "{}的发力控制比较接近",
                 self.angle_label(&balance_signal.name)
             ));
         }
 
         if reasons.is_empty() {
-            format!("{} is the closest weighted mechanics match.", player.name)
+            if result.comparison_mode == ComparisonMode::VideoLevel {
+                format!("{} 在完整投篮节奏上最接近你。", player.name)
+            } else {
+                format!("{} 是当前加权动作特征最接近的模板。", player.name)
+            }
+        } else if result.comparison_mode == ComparisonMode::VideoLevel {
+            format!(
+                "{} 在整段投篮节奏上接近你，因为{}。",
+                player.name,
+                reasons.join("，")
+            )
         } else {
-            format!("{} ranks highly because {}.", player.name, reasons.join(", "))
+            format!("{} 排名靠前，因为{}。", player.name, reasons.join("，"))
         }
     }
 
@@ -285,12 +437,12 @@ impl PoseComparator {
         let player_shot_type = self.infer_player_shot_type(player)?;
         if player_shot_type == analysis.shot_type {
             Some(format!(
-                "shot type aligns with a {} profile",
+                "投篮类型与{}模板一致",
                 self.shot_type_label(&player_shot_type)
             ))
         } else {
             Some(format!(
-                "mechanics still translate across {} and {} shot shapes",
+                "{}和{}虽然投篮分型不同，但关键动作仍有可迁移的相似点",
                 self.shot_type_label(&analysis.shot_type),
                 self.shot_type_label(&player_shot_type)
             ))
@@ -313,25 +465,25 @@ impl PoseComparator {
 
     fn shot_type_label(&self, shot_type: &ShotType) -> &'static str {
         match shot_type {
-            ShotType::OneMotion => "one-motion",
-            ShotType::OnePointFiveMotion => "one-point-five-motion",
-            ShotType::TwoMotion => "two-motion",
-            ShotType::Unknown => "unknown",
+            ShotType::OneMotion => "一段式",
+            ShotType::OnePointFiveMotion => "一点五段式",
+            ShotType::TwoMotion => "二段式",
+            ShotType::Unknown => "未知",
         }
     }
 
     fn angle_label(&self, name: &str) -> String {
         match name {
             "left_elbow_angle" | "right_elbow_angle" | "shooting_elbow_angle" => {
-                "elbow angle".to_string()
+                "出手肘角".to_string()
             }
             "left_shoulder_angle" | "right_shoulder_angle" | "release_angle" => {
-                "shoulder and release line".to_string()
+                "肩部与出手线路".to_string()
             }
-            "left_knee_angle" | "right_knee_angle" => "knee load".to_string(),
-            "left_hip_angle" | "right_hip_angle" => "hip stack".to_string(),
-            "trunk_tilt" => "trunk tilt".to_string(),
-            "shoulder_tilt" => "shoulder tilt".to_string(),
+            "left_knee_angle" | "right_knee_angle" => "膝部蓄力".to_string(),
+            "left_hip_angle" | "right_hip_angle" => "髋部支撑".to_string(),
+            "trunk_tilt" => "躯干倾角".to_string(),
+            "shoulder_tilt" => "肩线倾角".to_string(),
             _ => name.replace('_', " "),
         }
     }
@@ -340,10 +492,10 @@ impl PoseComparator {
         match labels {
             [] => String::new(),
             [single] => single.clone(),
-            [first, second] => format!("{first} and {second}"),
+            [first, second] => format!("{first}和{second}"),
             _ => {
-                let mut joined = labels[..labels.len() - 1].join(", ");
-                joined.push_str(", and ");
+                let mut joined = labels[..labels.len() - 1].join("、");
+                joined.push_str("和");
                 joined.push_str(labels.last().unwrap());
                 joined
             }
@@ -433,6 +585,7 @@ pub fn get_default_player_templates() -> Vec<PlayerTemplate> {
                     confidence: 1.0,
                 },
             ],
+            template_profile: None,
         },
         PlayerTemplate {
             id: 2,
@@ -474,6 +627,7 @@ pub fn get_default_player_templates() -> Vec<PlayerTemplate> {
                     confidence: 1.0,
                 },
             ],
+            template_profile: None,
         },
         PlayerTemplate {
             id: 3,
@@ -515,6 +669,7 @@ pub fn get_default_player_templates() -> Vec<PlayerTemplate> {
                     confidence: 1.0,
                 },
             ],
+            template_profile: None,
         },
         PlayerTemplate {
             id: 4,
@@ -556,6 +711,7 @@ pub fn get_default_player_templates() -> Vec<PlayerTemplate> {
                     confidence: 1.0,
                 },
             ],
+            template_profile: None,
         },
     ]
 }
@@ -582,6 +738,41 @@ mod tests {
             normal_range: (0.0, 180.0),
             status: "normal".to_string(),
             confidence: 1.0,
+        }
+    }
+
+    fn profile_angle(name: &str, value: f32) -> CanonicalAngleProfile {
+        CanonicalAngleProfile {
+            name: name.to_string(),
+            value,
+            confidence: 1.0,
+        }
+    }
+
+    fn phase_profile(phase: &str, angles: Vec<CanonicalAngleProfile>) -> PhaseAngleProfile {
+        PhaseAngleProfile {
+            phase: phase.to_string(),
+            sample_count: angles.len().max(1),
+            coverage: if angles.is_empty() { 0.0 } else { 1.0 },
+            angles,
+        }
+    }
+
+    fn video_profile(phases: Vec<(&str, Vec<CanonicalAngleProfile>)>) -> PlayerTemplateProfile {
+        let phase_profiles = phases
+            .into_iter()
+            .map(|(phase, angles)| (phase.to_string(), phase_profile(phase, angles)))
+            .collect::<BTreeMap<_, _>>();
+
+        PlayerTemplateProfile {
+            version: 1,
+            source_kind: "video".to_string(),
+            overall_shot_type: "one_motion".to_string(),
+            representative_frame_index: Some(1),
+            representative_timestamp_ms: Some(120),
+            samples_used: phase_profiles.len(),
+            coverage: 1.0,
+            phase_profiles,
         }
     }
 
@@ -626,6 +817,7 @@ mod tests {
                 joint_angle("right_knee_angle", 144.0),
                 joint_angle("trunk_tilt", 4.0),
             ],
+            template_profile: None,
         }
     }
 
@@ -642,6 +834,7 @@ mod tests {
                 joint_angle("right_knee_angle", 170.0),
                 joint_angle("trunk_tilt", 16.0),
             ],
+            template_profile: None,
         }
     }
 
@@ -685,6 +878,7 @@ mod tests {
                 joint_angle("right_shoulder_angle", 55.0),
                 joint_angle("trunk_tilt", 5.0),
             ],
+            template_profile: None,
         };
 
         let result = comparator.compare(&analysis, &player);
@@ -709,6 +903,495 @@ mod tests {
         assert_eq!(ranked[0].player.name, "Closer");
         assert!(ranked[0].similarity > ranked[1].similarity);
         assert!(!ranked[0].match_reason.trim().is_empty());
+        assert!(ranked[0].match_reason.contains("排名靠前"));
+        assert!(!ranked[0].match_reason.contains("ranks highly"));
+        assert!(!ranked[0].match_reason.contains("mechanical overlap"));
         assert!(ranked[0].top_differences.len() <= 3);
+    }
+
+    #[test]
+    fn build_detail_payload_matches_learning_bridge_parity_baseline() {
+        let payload = build_detail_payload(ComparisonResult {
+            player: PlayerTemplate {
+                id: 30,
+                name: "Parity Player".to_string(),
+                team: "Parity".to_string(),
+                description: "template".to_string(),
+                pose_data: PoseData::default(),
+                angles: Vec::new(),
+                template_profile: None,
+            },
+            similarity: 0.92,
+            angle_differences: vec![
+                AngleDifference {
+                    name: "release_angle".to_string(),
+                    user_value: 74.0,
+                    player_value: 62.0,
+                    difference: 12.0,
+                },
+                AngleDifference {
+                    name: "right_knee_angle".to_string(),
+                    user_value: 132.0,
+                    player_value: 140.0,
+                    difference: -8.0,
+                },
+                AngleDifference {
+                    name: "trunk_tilt".to_string(),
+                    user_value: 13.0,
+                    player_value: 8.0,
+                    difference: 5.0,
+                },
+                AngleDifference {
+                    name: "right_elbow_angle".to_string(),
+                    user_value: 96.0,
+                    player_value: 94.0,
+                    difference: 2.0,
+                },
+            ],
+            comparison_mode: ComparisonMode::SingleFrameFallback,
+        });
+
+        assert_eq!(payload.result.player.id, 30);
+        assert_eq!(
+            payload.learning_bridge.intro,
+            "先从 Parity Player 身上最不像的一到两个关节开始修正，再回看建议区验证动作是否更接近模板。"
+        );
+        assert_eq!(payload.learning_bridge.gaps.len(), 3);
+        assert_eq!(payload.learning_bridge.gaps[0].title, "出手角偏大 12.0°");
+        assert_eq!(
+            payload.learning_bridge.gaps[0].detail,
+            "优先对齐出手肘部和抬手线路，让出手轨迹先稳定下来。"
+        );
+        assert_eq!(payload.learning_bridge.gaps[1].title, "右膝角偏小 8.0°");
+        assert_eq!(
+            payload.learning_bridge.gaps[1].detail,
+            "先调整下肢加载深度和蹬伸节奏，让力量链条更接近模板。"
+        );
+        assert_eq!(payload.learning_bridge.gaps[2].title, "躯干倾斜偏大 5.0°");
+        assert_eq!(
+            payload.learning_bridge.gaps[2].detail,
+            "先控制躯干和整体平衡，让发力链条保持在同一条线上。"
+        );
+    }
+
+    #[test]
+    fn build_workbench_snapshot_returns_default_selected_detail_for_top_ranked_player() {
+        let analysis = sample_analysis();
+        let snapshot = build_workbench_snapshot(
+            "analysis-1",
+            &analysis,
+            None,
+            &[farther_player(), closer_player()],
+        );
+
+        assert_eq!(snapshot.analysis_key, "analysis-1");
+        assert_eq!(snapshot.summaries.len(), 2);
+        assert_eq!(snapshot.summaries[0].player.id, 10);
+        assert_eq!(
+            snapshot.summaries[0]
+                .top_differences
+                .iter()
+                .map(|difference| difference.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["right_shoulder_angle", "right_elbow_angle", "trunk_tilt"]
+        );
+        assert_eq!(
+            snapshot.summaries[0].comparison_mode,
+            ComparisonMode::SingleFrameFallback
+        );
+        assert!(snapshot.summaries[0].match_reason.contains("Closer"));
+        assert_eq!(snapshot.selected_player_id, Some(10));
+        assert_eq!(snapshot.details_by_player_id.len(), 2);
+        assert!(snapshot.details_by_player_id.contains_key(&10));
+        assert!(snapshot.details_by_player_id.contains_key(&11));
+
+        let selected_detail = snapshot.selected_detail.expect("selected detail");
+        assert_eq!(selected_detail.result.player.id, 10);
+        assert_eq!(
+            snapshot
+                .details_by_player_id
+                .get(&10)
+                .expect("selected player detail")
+                .result
+                .player
+                .id,
+            10
+        );
+        assert_eq!(
+            snapshot
+                .details_by_player_id
+                .get(&11)
+                .expect("precomputed fallback detail")
+                .result
+                .player
+                .id,
+            11
+        );
+        assert_eq!(selected_detail.learning_bridge.gaps.len(), 3);
+    }
+
+    #[test]
+    fn build_workbench_snapshot_returns_empty_snapshot_when_templates_are_missing() {
+        let analysis = sample_analysis();
+
+        let snapshot = build_workbench_snapshot("analysis-empty", &analysis, None, &[]);
+
+        assert_eq!(snapshot.analysis_key, "analysis-empty");
+        assert!(snapshot.summaries.is_empty());
+        assert!(snapshot.details_by_player_id.is_empty());
+        assert_eq!(snapshot.selected_player_id, None);
+        assert!(snapshot.selected_detail.is_none());
+    }
+
+    #[test]
+    fn video_profile_match_outranks_partial_single_frame_overlap() {
+        let comparator = PoseComparator::new();
+        let analysis = sample_analysis();
+        let analysis_profile = video_profile(vec![
+            (
+                "setup",
+                vec![
+                    profile_angle("right_elbow_angle", 92.0),
+                    profile_angle("release_angle", 48.0),
+                    profile_angle("right_knee_angle", 146.0),
+                ],
+            ),
+            (
+                "release",
+                vec![
+                    profile_angle("right_elbow_angle", 88.0),
+                    profile_angle("release_angle", 56.0),
+                    profile_angle("right_shoulder_angle", 44.0),
+                ],
+            ),
+            (
+                "follow_through",
+                vec![
+                    profile_angle("right_elbow_angle", 162.0),
+                    profile_angle("release_angle", 68.0),
+                    profile_angle("trunk_tilt", 7.0),
+                ],
+            ),
+        ]);
+
+        let curry = PlayerTemplate {
+            id: 23,
+            name: "Curry".to_string(),
+            team: "Warriors".to_string(),
+            description: "one-motion sniper".to_string(),
+            pose_data: PoseData::default(),
+            angles: vec![
+                joint_angle("right_elbow_angle", 110.0),
+                joint_angle("right_shoulder_angle", 60.0),
+                joint_angle("right_knee_angle", 152.0),
+                joint_angle("trunk_tilt", 10.0),
+            ],
+            template_profile: Some(video_profile(vec![
+                (
+                    "setup",
+                    vec![
+                        profile_angle("right_elbow_angle", 91.0),
+                        profile_angle("release_angle", 47.0),
+                        profile_angle("right_knee_angle", 145.0),
+                    ],
+                ),
+                (
+                    "release",
+                    vec![
+                        profile_angle("right_elbow_angle", 89.0),
+                        profile_angle("release_angle", 55.0),
+                        profile_angle("right_shoulder_angle", 45.0),
+                    ],
+                ),
+                (
+                    "follow_through",
+                    vec![
+                        profile_angle("right_elbow_angle", 160.0),
+                        profile_angle("release_angle", 67.0),
+                        profile_angle("trunk_tilt", 8.0),
+                    ],
+                ),
+            ])),
+        };
+
+        let kobe = PlayerTemplate {
+            id: 24,
+            name: "Kobe".to_string(),
+            team: "Lakers".to_string(),
+            description: "two-motion scorer".to_string(),
+            pose_data: PoseData::default(),
+            angles: vec![
+                joint_angle("right_elbow_angle", 90.0),
+                joint_angle("right_shoulder_angle", 48.0),
+                joint_angle("right_knee_angle", 145.0),
+                joint_angle("trunk_tilt", 5.0),
+            ],
+            template_profile: Some(video_profile(vec![
+                (
+                    "setup",
+                    vec![
+                        profile_angle("right_elbow_angle", 102.0),
+                        profile_angle("release_angle", 41.0),
+                        profile_angle("right_knee_angle", 154.0),
+                    ],
+                ),
+                (
+                    "release",
+                    vec![
+                        profile_angle("right_elbow_angle", 110.0),
+                        profile_angle("release_angle", 70.0),
+                        profile_angle("right_shoulder_angle", 68.0),
+                    ],
+                ),
+                (
+                    "follow_through",
+                    vec![
+                        profile_angle("right_elbow_angle", 142.0),
+                        profile_angle("release_angle", 81.0),
+                        profile_angle("trunk_tilt", 13.0),
+                    ],
+                ),
+            ])),
+        };
+
+        let ranked = rank_comparison_results(
+            &comparator,
+            &analysis,
+            Some(&analysis_profile),
+            &[kobe, curry],
+        );
+
+        assert_eq!(ranked[0].player.name, "Curry");
+        assert_eq!(ranked[0].comparison_mode, ComparisonMode::VideoLevel);
+        assert_eq!(ranked[1].comparison_mode, ComparisonMode::VideoLevel);
+        assert!(ranked[0].similarity > ranked[1].similarity);
+        assert!(ranked[0].similarity > 0.9);
+    }
+
+    #[test]
+    fn identical_video_profiles_score_near_perfect_even_with_partial_angle_coverage() {
+        let comparator = PoseComparator::new();
+        let analysis = sample_analysis();
+        let mut profile = video_profile(vec![
+            (
+                "setup",
+                vec![
+                    profile_angle("right_elbow_angle", 92.0),
+                    profile_angle("release_angle", 48.0),
+                    profile_angle("right_knee_angle", 146.0),
+                ],
+            ),
+            (
+                "release",
+                vec![
+                    profile_angle("right_elbow_angle", 88.0),
+                    profile_angle("release_angle", 56.0),
+                    profile_angle("right_shoulder_angle", 44.0),
+                ],
+            ),
+            (
+                "follow_through",
+                vec![
+                    profile_angle("right_elbow_angle", 162.0),
+                    profile_angle("release_angle", 68.0),
+                    profile_angle("trunk_tilt", 7.0),
+                ],
+            ),
+        ]);
+        profile.coverage = 0.875;
+        for phase in profile.phase_profiles.values_mut() {
+            phase.coverage = 0.875;
+        }
+
+        let player = PlayerTemplate {
+            id: 30,
+            name: "Same Source".to_string(),
+            team: "Same Team".to_string(),
+            description: "same video profile".to_string(),
+            pose_data: PoseData::default(),
+            angles: Vec::new(),
+            template_profile: Some(profile.clone()),
+        };
+
+        let result = comparator.compare_with_profile(&analysis, Some(&profile), &player);
+
+        assert_eq!(result.comparison_mode, ComparisonMode::VideoLevel);
+        assert!(
+            result.similarity >= 0.98,
+            "identical video profiles should not be capped by coverage, got {}",
+            result.similarity
+        );
+    }
+}
+
+pub fn build_learning_bridge(result: &ComparisonResult) -> ComparisonLearningBridge {
+    let gaps = sort_differences_by_gap(&result.angle_differences)
+        .into_iter()
+        .take(3)
+        .map(|difference| {
+            let direction = if difference.difference > 0.0 {
+                "偏大"
+            } else {
+                "偏小"
+            };
+
+            crate::models::ComparisonLearningGap {
+                title: format!(
+                    "{}{} {:.1}°",
+                    angle_display_name(&difference.name),
+                    direction,
+                    difference.difference.abs()
+                ),
+                detail: gap_guidance(&difference.name).to_string(),
+            }
+        })
+        .collect();
+
+    ComparisonLearningBridge {
+        intro: format!(
+            "先从 {} 身上最不像的一到两个关节开始修正，再回看建议区验证动作是否更接近模板。",
+            result.player.name
+        ),
+        gaps,
+    }
+}
+
+pub fn build_detail_payload(result: ComparisonResult) -> ComparisonDetailPayload {
+    let learning_bridge = build_learning_bridge(&result);
+    ComparisonDetailPayload {
+        result,
+        learning_bridge,
+    }
+}
+
+pub fn build_workbench_snapshot(
+    analysis_key: impl Into<String>,
+    analysis: &ShotAnalysis,
+    analysis_profile: Option<&PlayerTemplateProfile>,
+    players: &[PlayerTemplate],
+) -> ComparisonWorkbenchSnapshot {
+    let comparator = PoseComparator::new();
+    let ranked_results = rank_comparison_results(&comparator, analysis, analysis_profile, players);
+    build_workbench_snapshot_from_ranked_results(analysis_key, analysis, ranked_results)
+}
+
+pub fn build_workbench_snapshot_from_ranked_results(
+    analysis_key: impl Into<String>,
+    analysis: &ShotAnalysis,
+    ranked_results: Vec<ComparisonResult>,
+) -> ComparisonWorkbenchSnapshot {
+    let analysis_key = analysis_key.into();
+    let summaries = ranked_results
+        .iter()
+        .map(|result| build_summary_from_result(analysis, result))
+        .collect::<Vec<_>>();
+    let Some(selected_result) = ranked_results.first().cloned() else {
+        return ComparisonWorkbenchSnapshot {
+            analysis_key,
+            summaries,
+            details_by_player_id: BTreeMap::new(),
+            selected_player_id: None,
+            selected_detail: None,
+        };
+    };
+
+    let selected_player_id = selected_result.player.id;
+    let details_by_player_id = ranked_results
+        .into_iter()
+        .map(|result| (result.player.id, build_detail_payload(result)))
+        .collect::<BTreeMap<_, _>>();
+    let selected_detail = details_by_player_id.get(&selected_player_id).cloned();
+
+    ComparisonWorkbenchSnapshot {
+        analysis_key,
+        summaries,
+        details_by_player_id,
+        selected_player_id: Some(selected_player_id),
+        selected_detail,
+    }
+}
+
+pub fn rank_comparison_results(
+    comparator: &PoseComparator,
+    analysis: &ShotAnalysis,
+    analysis_profile: Option<&PlayerTemplateProfile>,
+    players: &[PlayerTemplate],
+) -> Vec<ComparisonResult> {
+    let mut ranked_results = players
+        .iter()
+        .map(|player| comparator.compare_with_profile(analysis, analysis_profile, player))
+        .collect::<Vec<_>>();
+
+    ranked_results.sort_by(|left, right| {
+        right
+            .similarity
+            .partial_cmp(&left.similarity)
+            .unwrap_or(Ordering::Equal)
+            .then_with(|| left.player.id.cmp(&right.player.id))
+    });
+
+    ranked_results
+}
+
+fn build_summary_from_result(
+    analysis: &ShotAnalysis,
+    result: &ComparisonResult,
+) -> ComparisonSummary {
+    let comparator = PoseComparator::new();
+    let weights = comparison_weights();
+
+    ComparisonSummary {
+        player: result.player.clone(),
+        similarity: result.similarity,
+        top_differences: comparator.top_differences(&result.angle_differences, &weights),
+        match_reason: comparator.build_match_reason(
+            analysis,
+            result,
+            &result.angle_differences,
+            &weights,
+        ),
+        shot_type_alignment: comparator.shot_type_alignment(analysis, &result.player),
+        comparison_mode: result.comparison_mode,
+    }
+}
+
+fn sort_differences_by_gap(differences: &[AngleDifference]) -> Vec<AngleDifference> {
+    let mut sorted = differences.to_vec();
+    sorted.sort_by(|left, right| {
+        right
+            .difference
+            .abs()
+            .partial_cmp(&left.difference.abs())
+            .unwrap_or(Ordering::Equal)
+            .then_with(|| left.name.cmp(&right.name))
+    });
+    sorted
+}
+
+fn gap_guidance(name: &str) -> &'static str {
+    if name.contains("elbow") || name.contains("release") || name.contains("shoulder") {
+        "优先对齐出手肘部和抬手线路，让出手轨迹先稳定下来。"
+    } else if name.contains("knee") || name.contains("hip") {
+        "先调整下肢加载深度和蹬伸节奏，让力量链条更接近模板。"
+    } else {
+        "先控制躯干和整体平衡，让发力链条保持在同一条线上。"
+    }
+}
+
+fn angle_display_name(name: &str) -> String {
+    match name {
+        "left_elbow_angle" => "左肘角".to_string(),
+        "right_elbow_angle" => "右肘角".to_string(),
+        "left_shoulder_angle" => "左肩角".to_string(),
+        "right_shoulder_angle" => "右肩角".to_string(),
+        "left_knee_angle" => "左膝角".to_string(),
+        "right_knee_angle" => "右膝角".to_string(),
+        "left_hip_angle" => "左髋角".to_string(),
+        "right_hip_angle" => "右髋角".to_string(),
+        "shoulder_tilt" => "肩线倾斜".to_string(),
+        "trunk_tilt" => "躯干倾斜".to_string(),
+        "shooting_elbow_angle" => "投篮肘角".to_string(),
+        "release_angle" => "出手角".to_string(),
+        _ => name.to_string(),
     }
 }

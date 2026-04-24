@@ -86,3 +86,102 @@ test('buildFallbackSummaries keeps the largest angle gaps at the top of each sum
     ['release_angle', 'trunk_tilt', 'right_knee_angle']
   )
 })
+
+test('comparePlayerLocally computes a higher similarity for smaller angle gaps', async () => {
+  const { comparePlayerLocally } = await importComparisonWorkbench()
+
+  const analysis = {
+    shotType: 'one_motion',
+    poseData: {
+      keypoints: [
+        { id: 11, x: 0, y: 20, visibility: 1 },
+        { id: 15, x: 0, y: 5, visibility: 1 },
+        { id: 23, x: 0, y: 40, visibility: 1 },
+        { id: 12, x: 20, y: 20, visibility: 1 },
+        { id: 16, x: 20, y: 30, visibility: 1 },
+        { id: 24, x: 20, y: 40, visibility: 1 }
+      ]
+    },
+    angles: [
+      { name: 'left_elbow_angle', value: 90 },
+      { name: 'release_angle', value: 70 },
+      { name: 'trunk_tilt', value: 8 }
+    ]
+  }
+
+  const nearPlayer = {
+    id: 1,
+    name: 'Near',
+    team: 'A',
+    description: '',
+    poseData: { keypoints: [], width: 0, height: 0 },
+    angles: [
+      { name: 'right_elbow_angle', value: 89 },
+      { name: 'release_angle', value: 69 },
+      { name: 'trunk_tilt', value: 7 }
+    ]
+  }
+
+  const farPlayer = {
+    ...nearPlayer,
+    id: 2,
+    name: 'Far',
+    angles: [
+      { name: 'right_elbow_angle', value: 120 },
+      { name: 'release_angle', value: 30 },
+      { name: 'trunk_tilt', value: 25 }
+    ]
+  }
+
+  const nearResult = comparePlayerLocally({ analysis, player: nearPlayer })
+  const farResult = comparePlayerLocally({ analysis, player: farPlayer })
+
+  assert.ok(nearResult.similarity > farResult.similarity)
+  assert.equal(nearResult.angleDifferences[0]?.name, 'right_elbow_angle')
+})
+
+test('buildLocalWorkbench returns summaries sorted by local similarity descending', async () => {
+  const { buildLocalWorkbench } = await importComparisonWorkbench()
+
+  const analysis = {
+    shotType: 'one_motion',
+    poseData: {
+      keypoints: [
+        { id: 12, x: 20, y: 20, visibility: 1 },
+        { id: 16, x: 20, y: 5, visibility: 1 },
+        { id: 24, x: 20, y: 40, visibility: 1 }
+      ]
+    },
+    angles: [
+      { name: 'right_elbow_angle', value: 90 },
+      { name: 'release_angle', value: 70 }
+    ]
+  }
+
+  const players = [
+    makeResult(1, 0.1).player,
+    makeResult(2, 0.1).player,
+    makeResult(3, 0.1).player
+  ]
+
+  players[0].angles = [
+    { name: 'right_elbow_angle', value: 120 },
+    { name: 'release_angle', value: 20 }
+  ]
+  players[1].angles = [
+    { name: 'right_elbow_angle', value: 89 },
+    { name: 'release_angle', value: 69 }
+  ]
+  players[2].angles = [
+    { name: 'right_elbow_angle', value: 95 },
+    { name: 'release_angle', value: 74 }
+  ]
+
+  const workbench = buildLocalWorkbench(analysis, players, (name) => name)
+
+  assert.deepEqual(
+    workbench.summaries.map((summary) => summary.player.id),
+    [2, 3, 1]
+  )
+  assert.equal(workbench.selectedComparison?.player.id, 2)
+})

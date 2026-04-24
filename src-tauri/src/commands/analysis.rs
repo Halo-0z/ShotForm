@@ -1,13 +1,16 @@
 use crate::ai::hunyuan;
 use crate::analysis::{
-    calculate_all_angles, get_shooting_arm_angles, PoseComparator, ShotTypeClassifier,
+    build_workbench_snapshot, build_workbench_snapshot_from_ranked_results, calculate_all_angles,
+    classify_by_temporal, compute_temporal_features, fuse_results, generate_suggestion,
+    get_shooting_arm_angles, rank_comparison_results, PoseComparator, ShotTypeClassifier,
 };
 use crate::database::get_player_templates as get_player_templates_from_db;
 use crate::image::{ImageProcessor, PoseVisualizer};
 use crate::models::{
     AiAnalysisPayload, AiAnglePayloadItem, AiCoachingResponse, AiPayloadFlags, AiShotContext,
-    AiShotReview, ComparisonResult, ComparisonWorkbenchResult, CorrectionSuggestion, Keypoint,
-    PlayerTemplate, PoseData, ShotAnalysis, ShotType, VideoAnalysisFrame, VideoShotAnalysis,
+    AiShotReview, CanonicalAngleProfile, ComparisonResult, ComparisonWorkbenchResult,
+    ComparisonWorkbenchSnapshot, CorrectionSuggestion, Keypoint, PhaseAngleProfile, PlayerTemplate,
+    PlayerTemplateProfile, PoseData, ShotAnalysis, ShotType, VideoAnalysisFrame, VideoShotAnalysis,
 };
 use crate::pose::PoseDetector;
 use sqlx::SqlitePool;
@@ -22,6 +25,22 @@ struct AnalysisProgress {
     message: String,
 }
 
+#[derive(Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CompareProgressEvent {
+    request_id: String,
+    analysis_key: String,
+    stage: String,
+    percent: u8,
+    message: String,
+}
+
+struct CompareWorkbenchProgressStage {
+    stage: &'static str,
+    percent: u8,
+    message: &'static str,
+}
+
 fn emit_analysis_progress(app_handle: &AppHandle, stage: &str, progress: u8, message: &str) {
     let _ = app_handle.emit(
         "analysis-progress",
@@ -33,6 +52,93 @@ fn emit_analysis_progress(app_handle: &AppHandle, stage: &str, progress: u8, mes
     );
 }
 
+fn emit_compare_progress(
+    app_handle: &AppHandle,
+    request_id: &str,
+    analysis_key: &str,
+    stage: &str,
+    percent: u8,
+    message: &str,
+) {
+    let _ = app_handle.emit(
+        "compare-progress",
+        CompareProgressEvent {
+            request_id: request_id.to_string(),
+            analysis_key: analysis_key.to_string(),
+            stage: stage.to_string(),
+            percent,
+            message: message.to_string(),
+        },
+    );
+}
+
+fn compare_workbench_progress_plan(
+    has_templates: bool,
+    has_default_detail: bool,
+) -> Vec<CompareWorkbenchProgressStage> {
+    let mut stages = vec![
+        CompareWorkbenchProgressStage {
+            stage: "preparing",
+            percent: 5,
+            message: "正在准备球星对比工作台...",
+        },
+        CompareWorkbenchProgressStage {
+            stage: "loading_templates",
+            percent: 25,
+            message: "正在加载球星模板...",
+        },
+        CompareWorkbenchProgressStage {
+            stage: "validating_templates",
+            percent: 45,
+            message: "正在校验模板数据...",
+        },
+    ];
+
+    if has_templates {
+        stages.push(CompareWorkbenchProgressStage {
+            stage: "ranking_players",
+            percent: 68,
+            message: "正在计算球星相似度排序...",
+        });
+        stages.push(CompareWorkbenchProgressStage {
+            stage: "building_default_detail",
+            percent: 88,
+            message: "正在构建默认球星对比详情...",
+        });
+    } else {
+        stages.push(CompareWorkbenchProgressStage {
+            stage: "ranking_players",
+            percent: 68,
+            message: "无可用模板，跳过排序阶段。",
+        });
+        stages.push(CompareWorkbenchProgressStage {
+            stage: "building_default_detail",
+            percent: 88,
+            message: "无可用模板，跳过默认详情构建。",
+        });
+    }
+
+    stages.push(if has_default_detail {
+        CompareWorkbenchProgressStage {
+            stage: "ready",
+            percent: 100,
+            message: "球星对比工作台已准备完成。",
+        }
+    } else {
+        CompareWorkbenchProgressStage {
+            stage: "empty",
+            percent: 100,
+            message: if has_templates {
+                "当前没有可展示的默认对比详情。"
+            } else {
+                "当前没有可用模板，工作台已返回空状态。"
+            },
+        }
+    });
+
+    stages
+}
+
 fn current_timestamp_ms() -> Result<u64, String> {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -40,18 +146,15 @@ fn current_timestamp_ms() -> Result<u64, String> {
         .map(|duration| duration.as_millis() as u64)
 }
 
-async fn load_player_templates(app_handle: &AppHandle) -> Vec<PlayerTemplate> {
+async fn load_player_templates(app_handle: &AppHandle) -> Result<Vec<PlayerTemplate>, String> {
     let Some(pool) = app_handle.try_state::<SqlitePool>() else {
-        return Vec::new();
+        return Err("数据库未就绪，暂时无法加载球星模板。".to_string());
     };
 
-    match get_player_templates_from_db(&pool).await {
-        Ok(templates) => templates,
-        Err(error) => {
-            eprintln!("Failed to load player templates from database: {error}");
-            Vec::new()
-        }
-    }
+    get_player_templates_from_db(&pool).await.map_err(|error| {
+        eprintln!("Failed to load player templates from database: {error}");
+        format!("加载球星模板失败：{error}")
+    })
 }
 
 fn analyze_pose_frame(pose_data: PoseData, timestamp: u64) -> ShotAnalysis {
@@ -116,16 +219,124 @@ fn choose_best_frame_index(frames: &[VideoAnalysisFrame]) -> usize {
     })
 }
 
+const CANONICAL_TEMPLATE_ANGLES: [&str; 7] = [
+    "right_elbow_angle",
+    "shooting_elbow_angle",
+    "release_angle",
+    "right_shoulder_angle",
+    "shoulder_tilt",
+    "trunk_tilt",
+    "right_knee_angle",
+];
+
+fn normalize_video_phase(frame_index: usize, total_frames: usize) -> &'static str {
+    if total_frames <= 1 {
+        return "release";
+    }
+
+    let normalized = frame_index as f32 / (total_frames.saturating_sub(1).max(1) as f32);
+    if normalized < 0.34 {
+        "setup"
+    } else if normalized < 0.67 {
+        "release"
+    } else {
+        "follow_through"
+    }
+}
+
+fn build_template_profile_from_video_frames(
+    frames: &[VideoAnalysisFrame],
+) -> Option<PlayerTemplateProfile> {
+    if frames.is_empty() {
+        return None;
+    }
+
+    let mut phase_profiles = std::collections::BTreeMap::new();
+
+    for (position, frame) in frames.iter().enumerate() {
+        let phase = normalize_video_phase(position, frames.len()).to_string();
+        let entry = phase_profiles
+            .entry(phase.clone())
+            .or_insert_with(|| PhaseAngleProfile {
+                phase,
+                sample_count: 0,
+                coverage: 0.0,
+                angles: Vec::new(),
+            });
+
+        entry.sample_count += 1;
+
+        for angle_name in CANONICAL_TEMPLATE_ANGLES {
+            if let Some(source_angle) = frame
+                .analysis
+                .angles
+                .iter()
+                .find(|angle| angle.name == angle_name && angle.status != "low_confidence")
+            {
+                if let Some(existing) = entry
+                    .angles
+                    .iter_mut()
+                    .find(|angle| angle.name == source_angle.name)
+                {
+                    let sample_count = entry.sample_count as f32;
+                    let previous_count = (entry.sample_count - 1) as f32;
+                    existing.value =
+                        ((existing.value * previous_count) + source_angle.value) / sample_count;
+                    existing.confidence = ((existing.confidence * previous_count)
+                        + source_angle.confidence)
+                        / sample_count;
+                } else {
+                    entry.angles.push(CanonicalAngleProfile {
+                        name: source_angle.name.clone(),
+                        value: source_angle.value,
+                        confidence: source_angle.confidence,
+                    });
+                }
+            }
+        }
+
+        entry.coverage = entry.angles.len() as f32 / CANONICAL_TEMPLATE_ANGLES.len() as f32;
+    }
+
+    let representative_frame_index = Some(choose_best_frame_index(frames));
+    let representative_timestamp_ms = representative_frame_index
+        .and_then(|index| frames.get(index))
+        .map(|frame| frame.timestamp_ms as u64);
+    let total_phase_count = phase_profiles.len().max(1) as f32;
+    let coverage = phase_profiles
+        .values()
+        .map(|phase| phase.coverage)
+        .sum::<f32>()
+        / total_phase_count;
+
+    Some(PlayerTemplateProfile {
+        version: 1,
+        source_kind: "video".to_string(),
+        overall_shot_type: shot_type_key(
+            &frames[representative_frame_index.unwrap_or(0)]
+                .analysis
+                .shot_type,
+        )
+        .to_string(),
+        representative_frame_index,
+        representative_timestamp_ms,
+        samples_used: frames.len(),
+        coverage,
+        phase_profiles,
+    })
+}
+
 fn aggregate_video_result(
     frames: &[VideoAnalysisFrame],
     trim_start_ms: u32,
     trim_end_ms: u32,
-) -> (ShotType, f32, Vec<String>) {
+) -> (ShotType, f32, Vec<String>, Option<crate::analysis::temporal::TemporalFeatures>) {
     if frames.is_empty() {
         return (
             ShotType::Unknown,
             0.2,
             vec!["未能从裁剪片段中提取到可用的姿态关键帧。".to_string()],
+            None,
         );
     }
 
@@ -151,7 +362,7 @@ fn aggregate_video_result(
         })
         .unwrap_or(0);
 
-    let overall_shot_type = if motion_total > 0.0 {
+    let vote_shot_type = if motion_total > 0.0 {
         match best_motion_index {
             0 => ShotType::OneMotion,
             1 => ShotType::OnePointFiveMotion,
@@ -163,12 +374,12 @@ fn aggregate_video_result(
 
     let best_frame_index = choose_best_frame_index(frames);
     let best_frame = &frames[best_frame_index];
-    let dominant_weight = if overall_shot_type == ShotType::Unknown {
+    let dominant_weight = if vote_shot_type == ShotType::Unknown {
         weights[3]
     } else {
         weights[best_motion_index]
     };
-    let weight_total = if overall_shot_type == ShotType::Unknown {
+    let weight_total = if vote_shot_type == ShotType::Unknown {
         weights.iter().sum::<f32>()
     } else {
         motion_total
@@ -176,11 +387,22 @@ fn aggregate_video_result(
     .max(0.0001);
 
     let agreement = (dominant_weight / weight_total).clamp(0.0, 1.0);
-    let overall_confidence = if overall_shot_type == ShotType::Unknown {
+    let vote_confidence = if vote_shot_type == ShotType::Unknown {
         (best_frame.analysis.shot_type_confidence * 0.75).clamp(0.18, 0.55)
     } else {
         (agreement * 0.55 + best_frame.analysis.shot_type_confidence * 0.45).clamp(0.28, 0.94)
     };
+
+    let temporal_features = compute_temporal_features(frames);
+    let (temporal_shot_type, temporal_confidence) = classify_by_temporal(&temporal_features);
+
+    let (overall_shot_type, overall_confidence, fuse_reasons) = fuse_results(
+        vote_shot_type,
+        vote_confidence,
+        temporal_shot_type,
+        temporal_confidence,
+        &temporal_features,
+    );
 
     let mut reasons = vec![format!(
         "已对裁剪片段 {:.2}s - {:.2}s 进行 {} 个关键帧抽样。",
@@ -194,7 +416,9 @@ fn aggregate_video_result(
     ));
 
     if overall_shot_type == ShotType::Unknown {
-        reasons.push("当前片段里可用帧存在，但动作阶段和分型证据还不够稳定，先保留为待确认。".to_string());
+        reasons.push(
+            "当前片段里可用帧存在，但动作阶段和分型证据还不够稳定，先保留为待确认。".to_string(),
+        );
     } else {
         reasons.push(format!(
             "多数有效关键帧更偏向 {}，说明这不是单帧偶然判断。",
@@ -202,7 +426,9 @@ fn aggregate_video_result(
         ));
     }
 
-    (overall_shot_type, overall_confidence, reasons)
+    reasons.extend(fuse_reasons);
+
+    (overall_shot_type, overall_confidence, reasons, Some(temporal_features))
 }
 
 #[tauri::command]
@@ -251,14 +477,22 @@ pub async fn analyze_video(
 
     for (position, frame) in video_result.frames.iter().enumerate() {
         let progress = 35 + ((position + 1) * 45 / frame_total) as u8;
-        emit_analysis_progress(&app_handle, "analyzing", progress, "正在逐帧计算骨骼点和角度...");
+        emit_analysis_progress(
+            &app_handle,
+            "analyzing",
+            progress,
+            "正在逐帧计算骨骼点和角度...",
+        );
 
         let pose_data = PoseData {
             keypoints: frame.keypoints.clone(),
             width: frame.width,
             height: frame.height,
         };
-        let analysis = analyze_pose_frame(pose_data.clone(), timestamp_base + u64::from(frame.timestamp_ms));
+        let analysis = analyze_pose_frame(
+            pose_data.clone(),
+            timestamp_base + u64::from(frame.timestamp_ms),
+        );
         let annotated_image_data = annotate_pose_image(&frame.image_data, &pose_data)?;
 
         analyzed_frames.push(VideoAnalysisFrame {
@@ -270,11 +504,20 @@ pub async fn analyze_video(
         });
     }
 
-    emit_analysis_progress(&app_handle, "summarizing", 88, "正在汇总整段视频的投篮分型...");
+    emit_analysis_progress(
+        &app_handle,
+        "summarizing",
+        88,
+        "正在汇总整段视频的投篮分型...",
+    );
 
     let best_frame_index = choose_best_frame_index(&analyzed_frames);
-    let (overall_shot_type, overall_shot_type_confidence, overall_reasons) =
-        aggregate_video_result(&analyzed_frames, video_result.trim_start_ms, video_result.trim_end_ms);
+    let (overall_shot_type, overall_shot_type_confidence, overall_reasons, temporal_features) = aggregate_video_result(
+        &analyzed_frames,
+        video_result.trim_start_ms,
+        video_result.trim_end_ms,
+    );
+    let template_profile = build_template_profile_from_video_frames(&analyzed_frames);
 
     emit_analysis_progress(&app_handle, "complete", 100, "视频分析完成");
 
@@ -291,6 +534,8 @@ pub async fn analyze_video(
         overall_shot_type,
         overall_shot_type_confidence,
         overall_reasons,
+        template_profile,
+        temporal_features,
     })
 }
 
@@ -377,7 +622,7 @@ fn format_pose_error(error: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::{PoseData, ShotType};
+    use crate::models::{JointAngle, PoseData, ShotType};
 
     #[test]
     fn rewrites_no_pose_detected_error_to_actionable_message() {
@@ -426,6 +671,16 @@ mod tests {
             keypoint(27, -10.0, 280.0),
             keypoint(28, 30.0, 275.0),
         ]
+    }
+
+    fn joint_angle(name: &str, value: f32) -> JointAngle {
+        JointAngle {
+            name: name.to_string(),
+            value,
+            normal_range: (0.0, 180.0),
+            status: "normal".to_string(),
+            confidence: 0.95,
+        }
     }
 
     #[test]
@@ -482,11 +737,128 @@ mod tests {
             .iter()
             .any(|angle| angle.name == "release_angle"));
     }
+
+    #[test]
+    fn compare_progress_event_serializes_request_identity_and_percent() {
+        let value = serde_json::to_value(CompareProgressEvent {
+            request_id: "request-1".to_string(),
+            analysis_key: "analysis-1".to_string(),
+            stage: "ranking_players".to_string(),
+            percent: 68,
+            message: "loading".to_string(),
+        })
+        .expect("compare progress event json");
+
+        assert_eq!(value["requestId"], "request-1");
+        assert_eq!(value["analysisKey"], "analysis-1");
+        assert_eq!(value["stage"], "ranking_players");
+        assert_eq!(value["percent"], 68);
+        assert_eq!(value["message"], "loading");
+        assert!(value.get("progress").is_none());
+    }
+
+    #[test]
+    fn empty_compare_workbench_progress_keeps_full_stage_chain() {
+        let stages = compare_workbench_progress_plan(false, false);
+
+        assert_eq!(
+            stages.iter().map(|stage| stage.stage).collect::<Vec<_>>(),
+            vec![
+                "preparing",
+                "loading_templates",
+                "validating_templates",
+                "ranking_players",
+                "building_default_detail",
+                "empty",
+            ]
+        );
+        assert!(stages[3].message.contains("跳过排序"));
+        assert!(stages[4].message.contains("跳过默认详情"));
+    }
+
+    #[test]
+    fn builds_template_profile_from_video_frames() {
+        let frames = vec![
+            VideoAnalysisFrame {
+                index: 0,
+                timestamp_ms: 0,
+                image_data: String::new(),
+                annotated_image_data: String::new(),
+                analysis: ShotAnalysis {
+                    pose_data: PoseData::default(),
+                    angles: vec![
+                        joint_angle("right_elbow_angle", 82.0),
+                        joint_angle("right_knee_angle", 132.0),
+                    ],
+                    shot_type: ShotType::OneMotion,
+                    shot_type_confidence: 0.8,
+                    shot_type_reasons: vec![],
+                    ai_review: None,
+                    timestamp: 0,
+                },
+            },
+            VideoAnalysisFrame {
+                index: 1,
+                timestamp_ms: 120,
+                image_data: String::new(),
+                annotated_image_data: String::new(),
+                analysis: ShotAnalysis {
+                    pose_data: PoseData::default(),
+                    angles: vec![
+                        joint_angle("right_elbow_angle", 90.0),
+                        joint_angle("release_angle", 74.0),
+                    ],
+                    shot_type: ShotType::OneMotion,
+                    shot_type_confidence: 0.92,
+                    shot_type_reasons: vec![],
+                    ai_review: None,
+                    timestamp: 120,
+                },
+            },
+            VideoAnalysisFrame {
+                index: 2,
+                timestamp_ms: 240,
+                image_data: String::new(),
+                annotated_image_data: String::new(),
+                analysis: ShotAnalysis {
+                    pose_data: PoseData::default(),
+                    angles: vec![
+                        joint_angle("right_elbow_angle", 166.0),
+                        joint_angle("trunk_tilt", 7.0),
+                    ],
+                    shot_type: ShotType::OneMotion,
+                    shot_type_confidence: 0.7,
+                    shot_type_reasons: vec![],
+                    ai_review: None,
+                    timestamp: 240,
+                },
+            },
+        ];
+
+        let profile = build_template_profile_from_video_frames(&frames)
+            .expect("profile should be built from video frames");
+
+        assert_eq!(profile.source_kind, "video");
+        assert_eq!(profile.samples_used, 3);
+        assert!(profile.phase_profiles.contains_key("setup"));
+        assert!(profile.phase_profiles.contains_key("release"));
+        assert!(profile.phase_profiles.contains_key("follow_through"));
+        assert_eq!(profile.phase_profiles["release"].sample_count, 1);
+        assert!(profile.phase_profiles["release"]
+            .angles
+            .iter()
+            .any(|angle| angle.name == "right_elbow_angle"));
+    }
+
+    #[test]
+    fn canonical_template_angles_only_include_generated_angle_names() {
+        assert!(!CANONICAL_TEMPLATE_ANGLES.contains(&"hip_alignment"));
+    }
 }
 
 #[tauri::command]
 pub async fn get_player_templates(app_handle: AppHandle) -> Result<Vec<PlayerTemplate>, String> {
-    Ok(load_player_templates(&app_handle).await)
+    load_player_templates(&app_handle).await
 }
 
 #[tauri::command]
@@ -495,7 +867,7 @@ pub async fn compare_with_player(
     analysis: ShotAnalysis,
     player_id: i64,
 ) -> Result<ComparisonResult, String> {
-    let templates = load_player_templates(&app_handle).await;
+    let templates = load_player_templates(&app_handle).await?;
 
     let player = templates
         .into_iter()
@@ -513,7 +885,7 @@ pub async fn compare_against_all_players(
     app_handle: AppHandle,
     analysis: ShotAnalysis,
 ) -> Result<ComparisonWorkbenchResult, String> {
-    let templates = load_player_templates(&app_handle).await;
+    let templates = load_player_templates(&app_handle).await?;
     let comparator = PoseComparator::new();
     let summaries = comparator.rank_players(&analysis, &templates);
     let selected_comparison = summaries
@@ -524,6 +896,119 @@ pub async fn compare_against_all_players(
         summaries,
         selected_comparison,
     })
+}
+
+#[tauri::command]
+pub async fn build_compare_workbench(
+    app_handle: AppHandle,
+    request_id: String,
+    analysis_key: String,
+    analysis: ShotAnalysis,
+    analysis_profile: Option<PlayerTemplateProfile>,
+) -> Result<ComparisonWorkbenchSnapshot, String> {
+    let preparing_and_loading = compare_workbench_progress_plan(true, false);
+    for stage in preparing_and_loading.into_iter().take(2) {
+        emit_compare_progress(
+            &app_handle,
+            &request_id,
+            &analysis_key,
+            stage.stage,
+            stage.percent,
+            stage.message,
+        );
+    }
+
+    let templates = match load_player_templates(&app_handle).await {
+        Ok(templates) => templates,
+        Err(error) => {
+            emit_compare_progress(
+                &app_handle,
+                &request_id,
+                &analysis_key,
+                "failed",
+                25,
+                &error,
+            );
+            return Err(error);
+        }
+    };
+
+    let has_templates = !templates.is_empty();
+    let progress_plan = compare_workbench_progress_plan(has_templates, false);
+    emit_compare_progress(
+        &app_handle,
+        &request_id,
+        &analysis_key,
+        progress_plan[2].stage,
+        progress_plan[2].percent,
+        progress_plan[2].message,
+    );
+
+    if !has_templates {
+        let snapshot = build_workbench_snapshot(
+            analysis_key.clone(),
+            &analysis,
+            analysis_profile.as_ref(),
+            &templates,
+        );
+        for stage in progress_plan.into_iter().skip(3) {
+            emit_compare_progress(
+                &app_handle,
+                &request_id,
+                &analysis_key,
+                stage.stage,
+                stage.percent,
+                stage.message,
+            );
+        }
+
+        return Ok(snapshot);
+    }
+
+    emit_compare_progress(
+        &app_handle,
+        &request_id,
+        &analysis_key,
+        progress_plan[3].stage,
+        progress_plan[3].percent,
+        progress_plan[3].message,
+    );
+
+    let comparator = PoseComparator::new();
+    let ranked_results = rank_comparison_results(
+        &comparator,
+        &analysis,
+        analysis_profile.as_ref(),
+        &templates,
+    );
+
+    emit_compare_progress(
+        &app_handle,
+        &request_id,
+        &analysis_key,
+        progress_plan[4].stage,
+        progress_plan[4].percent,
+        progress_plan[4].message,
+    );
+
+    let snapshot = build_workbench_snapshot_from_ranked_results(
+        analysis_key.clone(),
+        &analysis,
+        ranked_results,
+    );
+    let terminal_plan = compare_workbench_progress_plan(true, snapshot.selected_detail.is_some());
+    for stage in terminal_plan.into_iter().skip(5) {
+        emit_compare_progress(
+            &app_handle,
+            &request_id,
+            &analysis_key,
+            stage.stage,
+            stage.percent,
+            stage.message,
+        );
+    }
+
+    Ok(snapshot)
 }
 
 #[tauri::command]
@@ -670,124 +1155,6 @@ fn append_shooting_arm_angles(keypoints: &[Keypoint], angles: &mut Vec<crate::mo
     }
 }
 
-fn generate_suggestion(angle: &crate::models::JointAngle) -> Option<CorrectionSuggestion> {
-    if angle.status == "low_confidence" {
-        return None;
-    }
-
-    let (body_part, issue, suggestion, priority) = match angle.name.as_str() {
-        "left_elbow_angle" | "right_elbow_angle" | "shooting_elbow_angle" => {
-            if angle.value < angle.normal_range.0 {
-                (
-                    "手肘",
-                    format!("肘角偏小（{:.1}°），出手点可能偏低。", angle.value),
-                    "建议在投篮准备阶段把肘部收住，保持更稳定的举球路径，让出手点更集中。",
-                    if angle.value < angle.normal_range.0 - 20.0 {
-                        "high"
-                    } else {
-                        "medium"
-                    },
-                )
-            } else if angle.value > angle.normal_range.1 {
-                (
-                    "手肘",
-                    format!("肘角偏大（{:.1}°），手臂可能过早伸展。", angle.value),
-                    "尝试减少提前伸臂，先把下肢和躯干的力量送上来，再在最高点附近自然伸肘。",
-                    if angle.value > angle.normal_range.1 + 20.0 {
-                        "high"
-                    } else {
-                        "medium"
-                    },
-                )
-            } else {
-                return None;
-            }
-        }
-        "left_knee_angle" | "right_knee_angle" => {
-            if angle.value < angle.normal_range.0 {
-                (
-                    "下肢",
-                    format!("膝角偏小（{:.1}°），下蹲较深，容易拖慢出手节奏。", angle.value),
-                    "起跳前不需要蹲得过深，保持膝盖有弹性但不过度下沉，让发力更直接。",
-                    "medium",
-                )
-            } else if angle.value > angle.normal_range.1 {
-                (
-                    "下肢",
-                    format!("膝角偏大（{:.1}°），屈膝不足，下肢参与偏少。", angle.value),
-                    "可以适当增加屈膝，让地面反作用力更顺畅地传到上肢。",
-                    "medium",
-                )
-            } else {
-                return None;
-            }
-        }
-        "left_shoulder_angle" | "right_shoulder_angle" | "release_angle" => {
-            if angle.value < angle.normal_range.0 {
-                (
-                    "肩部",
-                    format!("肩部或出手角度偏小（{:.1}°），出手点可能偏低。", angle.value),
-                    "把举球和出手轨迹再抬高一些，减少平推球的感觉，让球从更高的位置离手。",
-                    "high",
-                )
-            } else if angle.value > angle.normal_range.1 {
-                (
-                    "肩部",
-                    format!("肩部或出手角度偏大（{:.1}°），动作可能有些上抬过多。", angle.value),
-                    "控制肩部抬升幅度，保证投篮路径稳定，不要为了抬高弧线破坏出手一致性。",
-                    "medium",
-                )
-            } else {
-                return None;
-            }
-        }
-        "left_hip_angle" | "right_hip_angle" => {
-            if angle.value < angle.normal_range.0 {
-                (
-                    "躯干",
-                    format!("髋角偏小（{:.1}°），身体前倾较多。", angle.value),
-                    "收住髋部折叠，保持胸口和骨盆更稳定，避免靠大幅前倾去找力量。",
-                    "high",
-                )
-            } else {
-                return None;
-            }
-        }
-        "trunk_tilt" => {
-            if angle.value > angle.normal_range.1 {
-                (
-                    "躯干",
-                    format!("躯干倾斜偏大（{:.1}°），会影响出手稳定性。", angle.value),
-                    "尽量让头、胸、髋保持在一条更稳定的发力线上，减少明显前倾或侧倾。",
-                    "medium",
-                )
-            } else {
-                return None;
-            }
-        }
-        "shoulder_tilt" => {
-            if angle.value > angle.normal_range.1 {
-                (
-                    "肩部",
-                    format!("肩线倾斜偏大（{:.1}°），左右发力可能不够均衡。", angle.value),
-                    "尽量保持双肩更平一些，减少侧倒和歪肩，让出手方向更稳定。",
-                    "medium",
-                )
-            } else {
-                return None;
-            }
-        }
-        _ => return None,
-    };
-
-    Some(CorrectionSuggestion {
-        body_part: body_part.to_string(),
-        issue,
-        suggestion: suggestion.to_string(),
-        priority: priority.to_string(),
-    })
-}
-
 fn to_ai_angle_payload_item(angle: &crate::models::JointAngle) -> AiAnglePayloadItem {
     AiAnglePayloadItem {
         name: angle.name.clone(),
@@ -828,7 +1195,9 @@ fn angle_definition(name: &str) -> String {
         "right_knee_angle" => "right hip-right knee-right ankle".to_string(),
         "left_hip_angle" => "left shoulder-left hip-left knee".to_string(),
         "right_hip_angle" => "right shoulder-right hip-right knee".to_string(),
-        "shoulder_tilt" => "line between left and right shoulder relative to horizontal".to_string(),
+        "shoulder_tilt" => {
+            "line between left and right shoulder relative to horizontal".to_string()
+        }
         "trunk_tilt" => "mid shoulder to nose relative to vertical".to_string(),
         "shooting_elbow_angle" => "shooting shoulder-elbow-wrist".to_string(),
         "release_angle" => "shooting shoulder-wrist relative to horizontal".to_string(),

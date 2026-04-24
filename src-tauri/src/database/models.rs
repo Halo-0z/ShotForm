@@ -8,6 +8,7 @@ pub struct DbPlayerTemplate {
     pub description: String,
     pub pose_data_json: String,
     pub angles_json: String,
+    pub profile_json: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]

@@ -26,8 +26,27 @@ const isMaximized = ref(false)
 const isPinned = ref(false)
 let unlisten: (() => void) | null = null
 
+const hasTauriRuntime = () => {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  return Boolean((window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__)
+}
+
+const getAppWindow = () => {
+  if (!hasTauriRuntime()) {
+    return null
+  }
+
+  return getCurrentWindow()
+}
+
 onMounted(async () => {
-  const currentWindow = getCurrentWindow()
+  const currentWindow = getAppWindow()
+  if (!currentWindow) {
+    return
+  }
 
   isMaximized.value = await currentWindow.isMaximized()
   isPinned.value = await currentWindow.isAlwaysOnTop()
@@ -42,20 +61,25 @@ onUnmounted(() => {
 })
 
 const handleMinimize = async () => {
-  await getCurrentWindow().minimize()
+  await getAppWindow()?.minimize()
 }
 
 const handleToggleMaximize = async () => {
-  await getCurrentWindow().toggleMaximize()
+  await getAppWindow()?.toggleMaximize()
 }
 
 const handleClose = async () => {
-  await getCurrentWindow().close()
+  await getAppWindow()?.close()
 }
 
 const handleTogglePin = async () => {
+  const currentWindow = getAppWindow()
+  if (!currentWindow) {
+    return
+  }
+
   const nextPinned = !isPinned.value
-  await getCurrentWindow().setAlwaysOnTop(nextPinned)
+  await currentWindow.setAlwaysOnTop(nextPinned)
   isPinned.value = nextPinned
 }
 

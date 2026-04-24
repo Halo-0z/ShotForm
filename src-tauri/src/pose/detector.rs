@@ -2,8 +2,14 @@ use crate::models::{Keypoint, PoseData};
 use anyhow::Result;
 use image::{DynamicImage, ImageFormat, RgbImage};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
+
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 pub struct PoseDetector {
     python_path: String,
@@ -68,10 +74,18 @@ impl PoseDetector {
     }
 
     fn find_python_path() -> String {
+        #[cfg(windows)]
         let possible_paths = vec![
+            ".venv/Scripts/pythonw.exe",
+            "../.venv/Scripts/pythonw.exe",
+            "../../.venv/Scripts/pythonw.exe",
             ".venv/Scripts/python.exe",
             "../.venv/Scripts/python.exe",
             "../../.venv/Scripts/python.exe",
+        ];
+
+        #[cfg(not(windows))]
+        let possible_paths = vec![
             ".venv/bin/python",
             "../.venv/bin/python",
             "../../.venv/bin/python",
@@ -86,10 +100,14 @@ impl PoseDetector {
         if let Ok(manifest_dir) = std::env::var("CARGO_MANIFEST_DIR") {
             let project_root = std::path::Path::new(&manifest_dir).parent();
             if let Some(root) = project_root {
+                #[cfg(windows)]
                 let manifest_candidates = vec![
+                    root.join(".venv").join("Scripts").join("pythonw.exe"),
                     root.join(".venv").join("Scripts").join("python.exe"),
-                    root.join(".venv").join("bin").join("python"),
                 ];
+
+                #[cfg(not(windows))]
+                let manifest_candidates = vec![root.join(".venv").join("bin").join("python")];
 
                 for candidate in manifest_candidates {
                     if candidate.exists() {
@@ -99,6 +117,10 @@ impl PoseDetector {
             }
         }
 
+        #[cfg(windows)]
+        return "pythonw".to_string();
+
+        #[cfg(not(windows))]
         "python".to_string()
     }
 
@@ -111,7 +133,7 @@ impl PoseDetector {
 
         for path in &possible_paths {
             if std::path::Path::new(path).exists() {
-                return path.to_string();
+                return absolutize_path(path);
             }
         }
 
@@ -121,12 +143,12 @@ impl PoseDetector {
                 .map(|p| p.join("scripts").join("pose_detect.py"));
             if let Some(path) = project_root {
                 if path.exists() {
-                    return path.to_string_lossy().to_string();
+                    return absolutize_path(path);
                 }
             }
         }
 
-        "scripts/pose_detect.py".to_string()
+        absolutize_path("scripts/pose_detect.py")
     }
 
     fn find_video_script_path() -> String {
@@ -138,7 +160,7 @@ impl PoseDetector {
 
         for path in &possible_paths {
             if std::path::Path::new(path).exists() {
-                return path.to_string();
+                return absolutize_path(path);
             }
         }
 
@@ -148,12 +170,12 @@ impl PoseDetector {
                 .map(|p| p.join("scripts").join("video_pose_detect.py"));
             if let Some(path) = project_root {
                 if path.exists() {
-                    return path.to_string_lossy().to_string();
+                    return absolutize_path(path);
                 }
             }
         }
 
-        "scripts/video_pose_detect.py".to_string()
+        absolutize_path("scripts/video_pose_detect.py")
     }
 
     pub fn load_model(&mut self, _model_path: &str) -> Result<()> {
@@ -180,20 +202,11 @@ impl PoseDetector {
     }
 
     fn run_python_with_file(&self, input_file: &PathBuf) -> Result<PoseData> {
+        ensure_script_exists(&self.script_path)?;
         let input_path = input_file.to_string_lossy().to_string();
-
-        let output = Command::new(&self.python_path)
-            .arg(&self.script_path)
-            .arg("--input-file")
-            .arg(&input_path)
-            .output()?;
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            anyhow::bail!("Python script failed: {}", stderr);
-        }
-
-        let stdout = String::from_utf8_lossy(&output.stdout);
+        let mut command = build_python_command(&self.python_path, &self.script_path);
+        command.arg("--input-file").arg(&input_path);
+        let stdout = run_python_json_command(command)?;
         let result: PythonPoseResult = serde_json::from_str(&stdout).map_err(|e| {
             anyhow::anyhow!("Failed to parse Python output: {} - Output: {}", e, stdout)
         })?;
@@ -223,18 +236,10 @@ impl PoseDetector {
     }
 
     pub fn detect_from_file(&self, file_path: &str) -> Result<PoseData> {
-        let output = Command::new(&self.python_path)
-            .arg(&self.script_path)
-            .arg("--file")
-            .arg(file_path)
-            .output()?;
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            anyhow::bail!("Python script failed: {}", stderr);
-        }
-
-        let stdout = String::from_utf8_lossy(&output.stdout);
+        ensure_script_exists(&self.script_path)?;
+        let mut command = build_python_command(&self.python_path, &self.script_path);
+        command.arg("--file").arg(file_path);
+        let stdout = run_python_json_command(command)?;
         let result: PythonPoseResult = serde_json::from_str(&stdout)
             .map_err(|e| anyhow::anyhow!("Failed to parse Python output: {}", e))?;
 
@@ -269,8 +274,9 @@ impl PoseDetector {
         end_ms: u32,
         max_frames: u32,
     ) -> Result<VideoPoseResult> {
-        let output = Command::new(&self.python_path)
-            .arg(&self.video_script_path)
+        ensure_script_exists(&self.video_script_path)?;
+        let mut command = build_python_command(&self.python_path, &self.video_script_path);
+        command
             .arg("--video")
             .arg(file_path)
             .arg("--start-ms")
@@ -278,17 +284,14 @@ impl PoseDetector {
             .arg("--end-ms")
             .arg(end_ms.to_string())
             .arg("--max-frames")
-            .arg(max_frames.to_string())
-            .output()?;
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            anyhow::bail!("Python video script failed: {}", stderr);
-        }
-
-        let stdout = String::from_utf8_lossy(&output.stdout);
+            .arg(max_frames.to_string());
+        let stdout = run_python_json_command(command)?;
         let result: VideoPoseResult = serde_json::from_str(&stdout).map_err(|e| {
-            anyhow::anyhow!("Failed to parse Python video output: {} - Output: {}", e, stdout)
+            anyhow::anyhow!(
+                "Failed to parse Python video output: {} - Output: {}",
+                e,
+                stdout
+            )
         })?;
 
         if let Some(error) = &result.error {
@@ -296,6 +299,71 @@ impl PoseDetector {
         }
 
         Ok(result)
+    }
+}
+
+fn absolutize_path(path: impl AsRef<Path>) -> String {
+    let path = path.as_ref();
+    path.canonicalize()
+        .unwrap_or_else(|_| path.to_path_buf())
+        .to_string_lossy()
+        .to_string()
+}
+
+fn ensure_script_exists(script_path: &str) -> Result<()> {
+    if Path::new(script_path).exists() {
+        return Ok(());
+    }
+
+    anyhow::bail!("Python script not found: {}", script_path);
+}
+
+fn build_python_command(python_path: &str, script_path: &str) -> Command {
+    let mut command = Command::new(python_path);
+    command.arg(script_path);
+
+    #[cfg(windows)]
+    command.creation_flags(CREATE_NO_WINDOW);
+
+    command
+}
+
+fn run_python_json_command(mut command: Command) -> Result<String> {
+    #[cfg(windows)]
+    {
+        let output_path = std::env::temp_dir().join(format!(
+            "basketball-shot-analyzer-{}.json",
+            uuid::Uuid::new_v4()
+        ));
+        command.arg("--output-file").arg(&output_path);
+        let output = command.output()?;
+
+        if output_path.exists() {
+            let payload = fs::read_to_string(&output_path)?;
+            let _ = fs::remove_file(&output_path);
+            return Ok(payload);
+        }
+
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        anyhow::bail!(
+            "Python script finished without output file (status: {}) stderr: {} stdout: {}",
+            output.status,
+            stderr,
+            stdout
+        );
+    }
+
+    #[cfg(not(windows))]
+    {
+        let output = command.output()?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            anyhow::bail!("Python script failed: {}", stderr);
+        }
+
+        Ok(String::from_utf8_lossy(&output.stdout).to_string())
     }
 }
 

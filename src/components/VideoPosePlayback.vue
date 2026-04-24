@@ -45,7 +45,7 @@ const currentFrame = computed(() => props.frames[currentFrameIndex.value] ?? nul
 const hasFrames = computed(() => props.frames.length > 0)
 const canAnimate = computed(() => props.frames.length > 1)
 const isHeroVariant = computed(() => props.variant === 'hero')
-const canAutoplay = computed(() => canAnimate.value && !isHeroVariant.value)
+const canAutoplay = computed(() => canAnimate.value)
 
 const formatTime = (milliseconds: number) => {
   const totalSeconds = Math.max(0, Math.round(milliseconds / 1000))
@@ -355,14 +355,14 @@ onBeforeUnmount(() => {
         <canvas ref="canvasRef" class="playback-canvas"></canvas>
       </div>
 
-      <div v-if="!isHeroVariant" class="playback-toolbar" :class="{ 'playback-toolbar--hero': isHeroVariant }">
+      <div class="playback-toolbar" :class="{ 'playback-toolbar--hero': isHeroVariant }">
         <div class="playback-main-controls">
           <Button variant="outline" size="sm" :disabled="!canAnimate" @click="togglePlayback">
             <Pause v-if="isPlaying" class="mr-2 h-4 w-4" />
             <Play v-else class="mr-2 h-4 w-4" />
             {{ isPlaying ? '暂停回放' : '播放回放' }}
           </Button>
-          <Button variant="outline" size="sm" @click="restartPlayback">
+          <Button v-if="!isHeroVariant" variant="outline" size="sm" @click="restartPlayback">
             <RotateCcw class="mr-2 h-4 w-4" />
             回到当前关键帧
           </Button>
@@ -387,7 +387,7 @@ onBeforeUnmount(() => {
       </div>
 
       <input
-        v-if="frames.length > 1 && !isHeroVariant"
+        v-if="frames.length > 1"
         v-model.number="currentFrameIndex"
         class="playback-range"
         type="range"

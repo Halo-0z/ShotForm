@@ -8,11 +8,13 @@ import {
   type AiShotReview,
   type AnalysisHistory,
   type ComparisonResult,
+  type ComparisonWorkbenchSnapshot,
   type CorrectionSuggestion,
   type ShotAnalysis,
   type VideoShotAnalysis
 } from '@/types'
 import { getStoredAutoAiPreference, shouldAutoGenerateAiReview } from '@/lib/ai-analysis-flow.js'
+import { buildHistoryComparisonPayload, wrapLegacyComparisonResult } from '@/lib/comparison-history.js'
 
 export interface AnalysisProgress {
   stage: string
@@ -21,8 +23,17 @@ export interface AnalysisProgress {
 }
 
 type AiCoachingSource = 'idle' | 'rules' | 'ai' | 'cache'
+type ComparisonInput = ComparisonWorkbenchSnapshot | ComparisonResult | null | undefined
 
 const AUTO_AI_STORAGE_KEY = 'autoAiAnalysisEnabled'
+
+const hasTauriRuntime = () => {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  return Boolean((window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__)
+}
 
 export const useAnalysisStore = defineStore('analysis', () => {
   const currentAnalysis = ref<ShotAnalysis | null>(null)
@@ -33,6 +44,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
   const currentAnnotatedImage = ref<string>('')
   const currentHistoryId = ref<number | null>(null)
   const currentComparison = ref<ComparisonResult | null>(null)
+  const currentComparisonSnapshot = ref<ComparisonWorkbenchSnapshot | null>(null)
   const currentAiCoachingSummary = ref('')
   const currentAiCoachingSuggestions = ref<CorrectionSuggestion[]>([])
   const currentAiCoachingSource = ref<AiCoachingSource>('idle')
@@ -60,12 +72,133 @@ export const useAnalysisStore = defineStore('analysis', () => {
     }))
   })
 
-  const normalizeComparison = (comparison: ComparisonResult | null | undefined) => comparison ?? null
+  const isComparisonSnapshot = (
+    comparison: ComparisonInput
+  ): comparison is ComparisonWorkbenchSnapshot => {
+    return Boolean(
+      comparison &&
+      'summaries' in comparison &&
+      'detailsByPlayerId' in comparison
+    )
+  }
+
+  const normalizeComparisonSnapshot = (
+    comparison: ComparisonInput,
+    historyId?: number | null
+  ): ComparisonWorkbenchSnapshot | null => {
+    if (!comparison) {
+      return null
+    }
+
+    const snapshot = isComparisonSnapshot(comparison)
+      ? comparison
+      : wrapLegacyComparisonResult(comparison, { historyId })
+    if (!snapshot) {
+      return null
+    }
+
+    const payload = buildHistoryComparisonPayload(snapshot, { historyId })
+
+    if (!payload) {
+      return null
+    }
+
+    return {
+      ...payload,
+      historyId: historyId ?? snapshot.historyId ?? null
+    }
+  }
+
+  const applyCurrentComparisonSnapshot = (
+    snapshot: ComparisonWorkbenchSnapshot | null
+  ) => {
+    currentComparisonSnapshot.value = snapshot
+    currentComparison.value = snapshot?.selectedDetail?.result ?? null
+  }
+
+  const clearCurrentComparisonState = () => {
+    applyCurrentComparisonSnapshot(null)
+  }
+
+  const mergeSelectedComparisonIntoSnapshot = (
+    comparison: ComparisonResult,
+    historyId?: number | null
+  ): ComparisonWorkbenchSnapshot => {
+    const fallbackSnapshot = normalizeComparisonSnapshot(comparison, historyId)
+    if (!fallbackSnapshot) {
+      return {
+        analysisKey: '',
+        summaries: [],
+        detailsByPlayerId: {},
+        selectedPlayerId: null,
+        selectedDetail: null,
+        historyId: historyId ?? null
+      }
+    }
+
+    const existingSnapshot = currentComparisonSnapshot.value
+    if (!existingSnapshot) {
+      return fallbackSnapshot
+    }
+
+    const playerId = fallbackSnapshot.selectedPlayerId
+    const playerExistsInCurrentDetails = playerId != null &&
+      existingSnapshot.detailsByPlayerId[playerId] != null
+    const playerExistsInCurrentSummaries = playerId != null &&
+      existingSnapshot.summaries.some(summary => summary.player.id === playerId)
+
+    if (!playerExistsInCurrentDetails && !playerExistsInCurrentSummaries) {
+      return fallbackSnapshot
+    }
+
+    const fallbackDetail = fallbackSnapshot.selectedDetail ?? null
+    const existingDetail = playerId == null
+      ? null
+      : existingSnapshot.detailsByPlayerId[playerId] ?? null
+    const selectedDetail = existingDetail && fallbackDetail
+      ? {
+          ...existingDetail,
+          result: fallbackDetail.result
+        }
+      : existingDetail ?? fallbackDetail
+    const detailsByPlayerId = { ...existingSnapshot.detailsByPlayerId }
+
+    if (playerId != null && selectedDetail) {
+      detailsByPlayerId[playerId] = selectedDetail
+    }
+
+    const nextSummary = fallbackSnapshot.summaries[0] ?? null
+    const summaries = nextSummary
+      ? existingSnapshot.summaries.some(summary => summary.player.id === nextSummary.player.id)
+        ? existingSnapshot.summaries.map(summary => {
+            if (summary.player.id !== nextSummary.player.id) {
+              return summary
+            }
+
+            return {
+              ...summary,
+              player: nextSummary.player,
+              similarity: nextSummary.similarity,
+              topDifferences: nextSummary.topDifferences
+            }
+          })
+        : [...existingSnapshot.summaries, nextSummary]
+      : existingSnapshot.summaries
+
+    return {
+      ...existingSnapshot,
+      summaries,
+      detailsByPlayerId,
+      selectedPlayerId: playerId ?? existingSnapshot.selectedPlayerId ?? null,
+      selectedDetail,
+      historyId: historyId ?? existingSnapshot.historyId ?? null
+    }
+  }
 
   const normalizeHistoryRecord = (record: AnalysisHistory): AnalysisHistory => ({
     ...record,
     analysis: normalizeAnalysis(record.analysis),
-    comparison: normalizeComparison(record.comparison),
+    comparison: normalizeComparisonSnapshot(record.comparison, record.id),
     aiCoachingSummary: record.aiCoachingSummary ?? null,
     aiCoachingSuggestions: record.aiCoachingSuggestions ?? null
   })
@@ -85,7 +218,14 @@ export const useAnalysisStore = defineStore('analysis', () => {
   }
 
   const setCurrentComparison = (comparison: ComparisonResult | null) => {
-    currentComparison.value = normalizeComparison(comparison)
+    if (!comparison) {
+      clearCurrentComparisonState()
+      return
+    }
+
+    applyCurrentComparisonSnapshot(
+      mergeSelectedComparisonIntoSnapshot(comparison, currentHistoryId.value)
+    )
   }
 
   const applyVideoFrameSelection = (analysis: VideoShotAnalysis | null, frameIndex: number) => {
@@ -100,25 +240,30 @@ export const useAnalysisStore = defineStore('analysis', () => {
     currentAnalysis.value = normalizeAnalysis(frame.analysis)
     currentImage.value = frame.imageData
     currentAnnotatedImage.value = frame.annotatedImageData || frame.imageData
-    currentComparison.value = null
+    clearCurrentComparisonState()
     clearAiCoachingCache()
   }
 
-  const syncCurrentAnalysisAiReview = (review: AiShotReview) => {
-    if (!currentAnalysis.value) {
+  const syncCurrentAnalysisAiReview = (review: AiShotReview, sourceTimestamp?: number) => {
+    if (currentAnalysis.value && (
+      sourceTimestamp == null || currentAnalysis.value.timestamp === sourceTimestamp
+    )) {
+      currentAnalysis.value = {
+        ...currentAnalysis.value,
+        aiReview: review
+      }
+    }
+
+    if (!currentVideoAnalysis.value?.frames.length) {
       return
     }
 
-    currentAnalysis.value = {
-      ...currentAnalysis.value,
-      aiReview: review
-    }
+    const frame = sourceTimestamp == null
+      ? currentVideoAnalysis.value.frames[currentVideoFrameIndex.value]
+      : currentVideoAnalysis.value.frames.find(item => item.analysis.timestamp === sourceTimestamp)
 
-    if (currentVideoAnalysis.value?.frames.length) {
-      const frame = currentVideoAnalysis.value.frames[currentVideoFrameIndex.value]
-      if (frame) {
-        frame.analysis.aiReview = review
-      }
+    if (frame) {
+      frame.analysis.aiReview = review
     }
   }
 
@@ -133,7 +278,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
     currentAnnotatedImage.value = ''
     currentAnalysis.value = null
     currentHistoryId.value = null
-    currentComparison.value = null
+    clearCurrentComparisonState()
     clearAiCoachingCache()
   }
 
@@ -155,6 +300,10 @@ export const useAnalysisStore = defineStore('analysis', () => {
   }
 
   const setupProgressListener = async () => {
+    if (!hasTauriRuntime()) {
+      return
+    }
+
     await listen<AnalysisProgress>('analysis-progress', event => {
       progress.value = event.payload
     })
@@ -191,7 +340,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
       shotType: normalizeShotType(aiReview.shotType)
     }
 
-    syncCurrentAnalysisAiReview(normalizedReview)
+    syncCurrentAnalysisAiReview(normalizedReview, analysis.timestamp)
     return normalizedReview
   }
 
@@ -201,7 +350,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
     clearVideoState()
     clearAiCoachingCache()
     currentHistoryId.value = null
-    currentComparison.value = null
+    clearCurrentComparisonState()
     currentImage.value = imageData
     currentAnnotatedImage.value = ''
     currentAnalysis.value = null
@@ -285,7 +434,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
   const setCurrentAnalysis = (analysis: ShotAnalysis) => {
     currentHistoryId.value = null
     currentAnalysis.value = normalizeAnalysis(analysis)
-    currentComparison.value = null
+    clearCurrentComparisonState()
     clearAiCoachingCache()
   }
 
@@ -295,7 +444,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
     currentAnalysis.value = normalizedRecord.analysis
     currentImage.value = normalizedRecord.imagePath
     currentAnnotatedImage.value = normalizedRecord.annotatedImagePath
-    currentComparison.value = normalizedRecord.comparison ?? null
+    applyCurrentComparisonSnapshot(normalizedRecord.comparison ?? null)
     clearVideoState()
     setAiCoachingCache(
       normalizedRecord.aiCoachingSummary,
@@ -318,11 +467,13 @@ export const useAnalysisStore = defineStore('analysis', () => {
 
   const updateHistoryComparison = async (
     historyId: number,
-    comparison: ComparisonResult | null
+    comparison: ComparisonInput
   ): Promise<void> => {
+    const normalizedSnapshot = normalizeComparisonSnapshot(comparison, historyId)
+
     await invoke('update_analysis_history_comparison', {
       id: historyId,
-      comparison: normalizeComparison(comparison)
+      comparison: buildHistoryComparisonPayload(normalizedSnapshot, { historyId })
     })
   }
 
@@ -341,7 +492,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
       imagePath,
       annotatedImagePath,
       analysis: currentAnalysis.value,
-      comparison: currentComparison.value,
+      comparison: buildHistoryComparisonPayload(currentComparisonSnapshot.value, { historyId: null }),
       suggestions: options?.suggestions ?? [],
       aiCoachingSummary: options?.aiCoachingSummary ?? null,
       aiCoachingSuggestions: options?.aiCoachingSuggestions ?? null
@@ -374,6 +525,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
     currentAnnotatedImage,
     currentHistoryId,
     currentComparison,
+    currentComparisonSnapshot,
     currentAiCoachingSummary,
     currentAiCoachingSuggestions,
     currentAiCoachingSource,

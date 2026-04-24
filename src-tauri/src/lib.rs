@@ -14,19 +14,30 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {
             let app_handle = app.handle().clone();
-            tauri::async_runtime::spawn(async move {
-                if let Err(e) = database::init_database(&app_handle).await {
-                    eprintln!("Failed to initialize database: {}", e);
-                }
-            });
+            tauri::async_runtime::block_on(
+                async move { database::init_database(&app_handle).await },
+            )
+            .map_err(|error| -> Box<dyn std::error::Error> {
+                eprintln!("Failed to initialize database: {}", error);
+                Box::new(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    error.to_string(),
+                ))
+            })?;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             commands::analyze_shot,
             commands::analyze_video,
             commands::get_player_templates,
+            commands::get_player_templates_db,
+            commands::add_player_template,
+            commands::update_player_template,
+            commands::update_player_template_metadata,
+            commands::delete_player_template,
             commands::compare_with_player,
             commands::compare_against_all_players,
+            commands::build_compare_workbench,
             commands::get_correction_suggestions,
             commands::get_ai_shot_review,
             commands::get_ai_correction_suggestions,
@@ -42,6 +53,3 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
-
-
-

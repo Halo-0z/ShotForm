@@ -81,6 +81,25 @@ pub struct VideoAnalysisFrame {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
+pub struct MultiPoseEntry {
+    pub pose_index: u32,
+    pub keypoints: Vec<Keypoint>,
+    pub torso_cx: f32,
+    pub torso_cy: f32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct FirstFrameMultiPose {
+    pub index: u32,
+    pub image_data: String,
+    pub poses: Vec<MultiPoseEntry>,
+    pub width: u32,
+    pub height: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct VideoShotAnalysis {
     pub video_path: String,
     pub duration_ms: u32,
@@ -98,6 +117,10 @@ pub struct VideoShotAnalysis {
     pub template_profile: Option<PlayerTemplateProfile>,
     #[serde(default)]
     pub temporal_features: Option<TemporalFeatures>,
+    #[serde(default)]
+    pub detected_pose_count: Option<u32>,
+    #[serde(default)]
+    pub first_frame_multi_pose: Option<FirstFrameMultiPose>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

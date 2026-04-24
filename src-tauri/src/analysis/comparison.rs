@@ -376,20 +376,37 @@ impl PoseComparator {
             ));
         }
 
-        if reasons.is_empty() {
-            if result.comparison_mode == ComparisonMode::VideoLevel {
+        let similarity = result.similarity;
+        if similarity >= 0.90 {
+            if reasons.is_empty() {
                 format!("{} 在完整投篮节奏上最接近你。", player.name)
             } else {
-                format!("{} 是当前加权动作特征最接近的模板。", player.name)
+                format!(
+                    "{} 在整段投篮节奏上接近你，因为{}。",
+                    player.name,
+                    reasons.join("，")
+                )
             }
-        } else if result.comparison_mode == ComparisonMode::VideoLevel {
-            format!(
-                "{} 在整段投篮节奏上接近你，因为{}。",
-                player.name,
-                reasons.join("，")
-            )
+        } else if similarity >= 0.75 {
+            if reasons.is_empty() {
+                format!("{} 的投篮动作在某些环节与你有相似之处。", player.name)
+            } else {
+                format!(
+                    "{} 的投篮动作在某些环节与你有相似之处，因为{}。",
+                    player.name,
+                    reasons.join("，")
+                )
+            }
         } else {
-            format!("{} 排名靠前，因为{}。", player.name, reasons.join("，"))
+            if reasons.is_empty() {
+                format!("{} 可作为参考模板，但动作风格差异较大。", player.name)
+            } else {
+                format!(
+                    "{} 可作为参考模板，但在以下环节有参考价值：{}。",
+                    player.name,
+                    reasons.join("，")
+                )
+            }
         }
     }
 
@@ -450,13 +467,25 @@ impl PoseComparator {
     }
 
     fn infer_player_shot_type(&self, player: &PlayerTemplate) -> Option<ShotType> {
-        let description = player.description.to_ascii_lowercase();
+        // 优先使用模板配置文件中保存的投篮类型
+        if let Some(profile) = &player.template_profile {
+            let shot_type = profile.overall_shot_type.to_ascii_lowercase();
+            match shot_type.as_str() {
+                "one_motion" => return Some(ShotType::OneMotion),
+                "one_point_five_motion" => return Some(ShotType::OnePointFiveMotion),
+                "two_motion" => return Some(ShotType::TwoMotion),
+                "unknown" => return None,
+                _ => {}
+            }
+        }
 
+        // 回退：从描述中推断（兼容旧数据）
+        let description = player.description.to_ascii_lowercase();
         if description.contains("1.5") || description.contains("one point five") {
             Some(ShotType::OnePointFiveMotion)
-        } else if description.contains("two-motion") || description.contains("2") {
+        } else if description.contains("two-motion") || description.contains("二段式") {
             Some(ShotType::TwoMotion)
-        } else if description.contains("one-motion") || description.contains("1") {
+        } else if description.contains("one-motion") || description.contains("一段式") {
             Some(ShotType::OneMotion)
         } else {
             None
@@ -903,10 +932,17 @@ mod tests {
         assert_eq!(ranked[0].player.name, "Closer");
         assert!(ranked[0].similarity > ranked[1].similarity);
         assert!(!ranked[0].match_reason.trim().is_empty());
-        assert!(ranked[0].match_reason.contains("排名靠前"));
         assert!(!ranked[0].match_reason.contains("ranks highly"));
         assert!(!ranked[0].match_reason.contains("mechanical overlap"));
         assert!(ranked[0].top_differences.len() <= 3);
+
+        if ranked[0].similarity >= 0.90 {
+            assert!(ranked[0].match_reason.contains("整段投篮节奏"));
+        } else if ranked[0].similarity >= 0.75 {
+            assert!(ranked[0].match_reason.contains("相似之处"));
+        } else {
+            assert!(ranked[0].match_reason.contains("参考模板"));
+        }
     }
 
     #[test]

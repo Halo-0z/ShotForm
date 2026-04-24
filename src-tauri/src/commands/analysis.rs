@@ -454,6 +454,7 @@ pub async fn analyze_video(
     file_path: String,
     trim_start_ms: u32,
     trim_end_ms: u32,
+    subject_pose_index: Option<u32>,
     app_handle: AppHandle,
 ) -> Result<VideoShotAnalysis, String> {
     if file_path.trim().is_empty() {
@@ -464,7 +465,7 @@ pub async fn analyze_video(
 
     let detector = PoseDetector::new();
     let video_result = detector
-        .analyze_video_file(&file_path, trim_start_ms, trim_end_ms, 16)
+        .analyze_video_file(&file_path, trim_start_ms, trim_end_ms, 16, subject_pose_index)
         .map_err(|error| format!("视频姿态分析失败: {error}"))?;
 
     if video_result.frames.is_empty() {
@@ -536,6 +537,23 @@ pub async fn analyze_video(
         overall_reasons,
         template_profile,
         temporal_features,
+        detected_pose_count: video_result.detected_pose_count,
+        first_frame_multi_pose: video_result.first_frame_multi_pose.map(|fmp| {
+            crate::models::types::FirstFrameMultiPose {
+                index: fmp.index,
+                image_data: fmp.image_data,
+                poses: fmp.poses.into_iter().map(|p| {
+                    crate::models::types::MultiPoseEntry {
+                        pose_index: p.pose_index,
+                        keypoints: p.keypoints,
+                        torso_cx: p.torso_cx,
+                        torso_cy: p.torso_cy,
+                    }
+                }).collect(),
+                width: fmp.width,
+                height: fmp.height,
+            }
+        }),
     })
 }
 

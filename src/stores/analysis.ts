@@ -10,11 +10,14 @@ import {
   type ComparisonResult,
   type ComparisonWorkbenchSnapshot,
   type CorrectionSuggestion,
+  type FirstFrameMultiPose,
   type ShotAnalysis,
   type VideoShotAnalysis
 } from '@/types'
 import { getStoredAutoAiPreference, shouldAutoGenerateAiReview } from '@/lib/ai-analysis-flow.js'
 import { buildHistoryComparisonPayload, wrapLegacyComparisonResult } from '@/lib/comparison-history.js'
+
+import { hasTauriRuntime } from '@/lib/tauri-runtime'
 
 export interface AnalysisProgress {
   stage: string
@@ -26,14 +29,6 @@ type AiCoachingSource = 'idle' | 'rules' | 'ai' | 'cache'
 type ComparisonInput = ComparisonWorkbenchSnapshot | ComparisonResult | null | undefined
 
 const AUTO_AI_STORAGE_KEY = 'autoAiAnalysisEnabled'
-
-const hasTauriRuntime = () => {
-  if (typeof window === 'undefined') {
-    return false
-  }
-
-  return Boolean((window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__)
-}
 
 export const useAnalysisStore = defineStore('analysis', () => {
   const currentAnalysis = ref<ShotAnalysis | null>(null)
@@ -389,26 +384,40 @@ export const useAnalysisStore = defineStore('analysis', () => {
     }
   }
 
+  const subjectPoseIndex = ref<number | null>(null)
+  const firstFrameMultiPose = ref<FirstFrameMultiPose | null>(null)
+
   const analyzeVideo = async (
     filePath: string,
     trimStartMs: number,
-    trimEndMs: number
+    trimEndMs: number,
+    selectedSubjectIndex?: number | null
   ): Promise<VideoShotAnalysis> => {
     isLoading.value = true
     progress.value = { stage: 'starting', progress: 0, message: '开始视频分析...' }
     clearImageState()
     clearVideoState()
     currentVideoPath.value = filePath
+    firstFrameMultiPose.value = null
 
     try {
-      const result = await invoke<VideoShotAnalysis>('analyze_video', {
+      const invokeArgs: Record<string, unknown> = {
         filePath,
         trimStartMs,
         trimEndMs
-      })
+      }
+      if (selectedSubjectIndex != null) {
+        invokeArgs.subjectPoseIndex = selectedSubjectIndex
+      }
+
+      const result = await invoke<VideoShotAnalysis>('analyze_video', invokeArgs)
       const normalizedResult = normalizeVideoAnalysis(result)
       currentVideoAnalysis.value = normalizedResult
       applyVideoFrameSelection(normalizedResult, normalizedResult.bestFrameIndex)
+
+      if (normalizedResult.firstFrameMultiPose && normalizedResult.firstFrameMultiPose.poses.length > 1) {
+        firstFrameMultiPose.value = normalizedResult.firstFrameMultiPose
+      }
 
       if (shouldAutoGenerateAiReview(autoAiAnalysisEnabled.value, currentAnalysis.value)) {
         void generateAiReview({
@@ -532,6 +541,8 @@ export const useAnalysisStore = defineStore('analysis', () => {
     autoAiAnalysisEnabled,
     isLoading,
     progress,
+    subjectPoseIndex,
+    firstFrameMultiPose,
     analyzeImage,
     analyzeVideo,
     selectVideoFrame,

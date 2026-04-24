@@ -141,7 +141,7 @@ def _create_tasks_detector():
             options = vision.PoseLandmarkerOptions(
                 base_options=base_options,
                 running_mode=vision.RunningMode.IMAGE,
-                num_poses=1,
+                num_poses=3,
                 min_pose_detection_confidence=0.35,
                 min_pose_presence_confidence=0.35,
                 min_tracking_confidence=0.35,
@@ -219,6 +219,12 @@ def _tasks_landmarks(detector, image_rgb: np.ndarray):
     return result.pose_landmarks[0] if result.pose_landmarks else None
 
 
+def _tasks_all_landmarks(detector, image_rgb: np.ndarray):
+    mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=image_rgb)
+    result = detector.detect(mp_image)
+    return result.pose_landmarks if result.pose_landmarks else []
+
+
 def _solutions_landmarks(detector, image_rgb: np.ndarray):
     result = detector.process(image_rgb)
     return result.pose_landmarks.landmark if result.pose_landmarks else None
@@ -257,6 +263,61 @@ def detect_pose(image: np.ndarray) -> dict:
         return {"keypoints": keypoints, "width": width, "height": height}
     except Exception as exc:
         return _error_result(str(exc), width, height)
+
+
+def compute_torso_center(keypoints: list[dict]) -> tuple[float, float]:
+    torso_ids = [11, 12, 23, 24]
+    xs, ys = [], []
+    for kp in keypoints:
+        if kp["id"] in torso_ids and kp["visibility"] >= 0.3:
+            xs.append(kp["x"])
+            ys.append(kp["y"])
+    if xs:
+        return sum(xs) / len(xs), sum(ys) / len(ys)
+    visible = [kp for kp in keypoints if kp["visibility"] >= 0.3]
+    if visible:
+        return sum(kp["x"] for kp in visible) / len(visible), sum(kp["y"] for kp in visible) / len(visible)
+    return 0.0, 0.0
+
+
+def detect_poses(image: np.ndarray) -> dict:
+    height, width = image.shape[:2]
+
+    try:
+        detector_kind, detector = _get_detector()
+        image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+        if detector_kind == "tasks":
+            all_landmarks = _tasks_all_landmarks(detector, image_rgb)
+        else:
+            single = _solutions_landmarks(detector, image_rgb)
+            all_landmarks = [single] if single else []
+
+        if not all_landmarks:
+            return {"poses": [], "width": width, "height": height}
+
+        poses = []
+        for person_landmarks in all_landmarks:
+            keypoints = []
+            for index, landmark in enumerate(person_landmarks):
+                keypoints.append(
+                    {
+                        "id": index,
+                        "name": LANDMARK_NAMES[index]
+                        if index < len(LANDMARK_NAMES)
+                        else f"keypoint_{index}",
+                        "x": float(landmark.x * width),
+                        "y": float(landmark.y * height),
+                        "z": float(getattr(landmark, "z", 0.0)),
+                        "visibility": _landmark_visibility(landmark),
+                    }
+                )
+            cx, cy = compute_torso_center(keypoints)
+            poses.append({"keypoints": keypoints, "torso_cx": cx, "torso_cy": cy})
+
+        return {"poses": poses, "width": width, "height": height}
+    except Exception as exc:
+        return {"poses": [], "width": width, "height": height, "error": str(exc)}
 
 
 def detect_from_base64(image_base64: str) -> dict:

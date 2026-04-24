@@ -6,7 +6,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from pose_detect import detect_pose
+from pose_detect import detect_pose, detect_poses, compute_torso_center
 
 
 def _error_result(message: str) -> dict:
@@ -77,7 +77,62 @@ def _sample_frame_indices(start_frame: int, end_frame: int, max_frames: int) -> 
     return unique_indices
 
 
-def analyze_video(file_path: str, start_ms: int, end_ms: int, max_frames: int) -> dict:
+def _select_subject_by_index(poses: list[dict], subject_index: int) -> dict | None:
+    if 0 <= subject_index < len(poses):
+        return poses[subject_index]
+    return None
+
+
+def _select_subject_by_proximity(poses: list[dict], prev_cx: float, prev_cy: float, max_distance: float) -> dict | None:
+    if not poses:
+        return None
+
+    best_pose = None
+    best_dist = float('inf')
+    for pose in poses:
+        cx = pose.get('torso_cx', 0.0)
+        cy = pose.get('torso_cy', 0.0)
+        dist = ((cx - prev_cx) ** 2 + (cy - prev_cy) ** 2) ** 0.5
+        if dist < best_dist:
+            best_dist = dist
+            best_pose = pose
+
+    if best_dist > max_distance:
+        return None
+
+    return best_pose
+
+
+def _auto_select_subject(poses: list[dict], image_width: int, image_height: int) -> int:
+    if not poses:
+        return 0
+
+    if len(poses) == 1:
+        return 0
+
+    best_index = 0
+    best_score = -1.0
+    for i, pose in enumerate(poses):
+        kps = pose.get('keypoints', [])
+        visible_count = sum(1 for kp in kps if kp.get('visibility', 0) >= 0.4)
+        torso_ids = {11, 12, 23, 24}
+        torso_visible = sum(1 for kp in kps if kp.get('id') in torso_ids and kp.get('visibility', 0) >= 0.4)
+        cx = pose.get('torso_cx', 0.0)
+        cy = pose.get('torso_cy', 0.0)
+        center_x = image_width / 2.0
+        center_y = image_height * 0.4
+        center_dist = ((cx - center_x) ** 2 + (cy - center_y) ** 2) ** 0.5
+        max_dist = (image_width ** 2 + image_height ** 2) ** 0.5
+        center_score = 1.0 - (center_dist / max_dist)
+        score = visible_count * 0.3 + torso_visible * 2.0 + center_score * 5.0
+        if score > best_score:
+            best_score = score
+            best_index = i
+
+    return best_index
+
+
+def analyze_video(file_path: str, start_ms: int, end_ms: int, max_frames: int, subject_pose_index: int | None = None) -> dict:
     video_path = Path(file_path)
     if not video_path.exists():
         return _error_result(f'Video file not found: {file_path}')
@@ -100,6 +155,12 @@ def analyze_video(file_path: str, start_ms: int, end_ms: int, max_frames: int) -
         start_frame = max(0, min(total_frames - 1, int(trim_start_ms / 1000.0 * fps)))
         end_frame = max(start_frame, min(total_frames - 1, int(trim_end_ms / 1000.0 * fps)))
 
+        max_track_distance = max(width, height) * 0.35
+        locked_subject_cx: float | None = None
+        locked_subject_cy: float | None = None
+        detected_pose_count = 0
+        first_frame_multi_pose = None
+
         frames = []
         for frame_index in _sample_frame_indices(start_frame, end_frame, max(4, max_frames)):
             capture.set(cv2.CAP_PROP_POS_FRAMES, frame_index)
@@ -108,9 +169,56 @@ def analyze_video(file_path: str, start_ms: int, end_ms: int, max_frames: int) -
                 continue
 
             processed_frame = _resize_frame(frame)
-            pose_result = detect_pose(processed_frame)
-            if pose_result.get('error') or not pose_result.get('keypoints'):
+            multi_result = detect_poses(processed_frame)
+            poses = multi_result.get('poses', [])
+            frame_w = multi_result.get('width', processed_frame.shape[1])
+            frame_h = multi_result.get('height', processed_frame.shape[0])
+
+            if not poses:
                 continue
+
+            if first_frame_multi_pose is None and len(poses) > 1:
+                first_frame_multi_pose = {
+                    'index': frame_index,
+                    'image_data': _frame_to_data_url(processed_frame),
+                    'poses': [
+                        {
+                            'pose_index': i,
+                            'keypoints': p['keypoints'],
+                            'torso_cx': p['torso_cx'],
+                            'torso_cy': p['torso_cy'],
+                        }
+                        for i, p in enumerate(poses)
+                    ],
+                    'width': frame_w,
+                    'height': frame_h,
+                }
+
+            selected_pose = None
+
+            if locked_subject_cx is not None and locked_subject_cy is not None:
+                selected_pose = _select_subject_by_proximity(
+                    poses, locked_subject_cx, locked_subject_cy, max_track_distance
+                )
+
+            if selected_pose is None and subject_pose_index is not None:
+                selected_pose = _select_subject_by_index(poses, subject_pose_index)
+                if selected_pose and locked_subject_cx is None:
+                    locked_subject_cx = selected_pose['torso_cx']
+                    locked_subject_cy = selected_pose['torso_cy']
+
+            if selected_pose is None and locked_subject_cx is None:
+                auto_index = _auto_select_subject(poses, frame_w, frame_h)
+                selected_pose = poses[auto_index] if auto_index < len(poses) else poses[0]
+                locked_subject_cx = selected_pose['torso_cx']
+                locked_subject_cy = selected_pose['torso_cy']
+
+            if selected_pose is None:
+                continue
+
+            locked_subject_cx = selected_pose['torso_cx']
+            locked_subject_cy = selected_pose['torso_cy']
+            detected_pose_count = max(detected_pose_count, len(poses))
 
             timestamp_ms = int(round(frame_index / fps * 1000.0))
             frames.append(
@@ -118,9 +226,9 @@ def analyze_video(file_path: str, start_ms: int, end_ms: int, max_frames: int) -
                     'index': frame_index,
                     'timestamp_ms': timestamp_ms,
                     'image_data': _frame_to_data_url(processed_frame),
-                    'keypoints': pose_result['keypoints'],
-                    'width': pose_result['width'],
-                    'height': pose_result['height'],
+                    'keypoints': selected_pose['keypoints'],
+                    'width': frame_w,
+                    'height': frame_h,
                 }
             )
 
@@ -137,7 +245,7 @@ def analyze_video(file_path: str, start_ms: int, end_ms: int, max_frames: int) -
                 'total_frames': total_frames,
             }
 
-        return {
+        result = {
             'frames': frames,
             'width': width,
             'height': height,
@@ -146,7 +254,13 @@ def analyze_video(file_path: str, start_ms: int, end_ms: int, max_frames: int) -
             'trim_start_ms': trim_start_ms,
             'trim_end_ms': trim_end_ms,
             'total_frames': total_frames,
+            'detected_pose_count': detected_pose_count,
         }
+
+        if first_frame_multi_pose is not None:
+            result['first_frame_multi_pose'] = first_frame_multi_pose
+
+        return result
     finally:
         capture.release()
 
@@ -166,10 +280,11 @@ def main() -> None:
     parser.add_argument('--start-ms', type=int, default=0)
     parser.add_argument('--end-ms', type=int, default=0)
     parser.add_argument('--max-frames', type=int, default=16)
+    parser.add_argument('--subject-pose-index', type=int, default=None)
     parser.add_argument('--output-file')
     args = parser.parse_args()
 
-    result = analyze_video(args.video, args.start_ms, args.end_ms, args.max_frames)
+    result = analyze_video(args.video, args.start_ms, args.end_ms, args.max_frames, args.subject_pose_index)
     _write_result(result, args.output_file)
 
 

@@ -47,6 +47,23 @@ pub struct VideoPoseFrameResult {
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
+pub struct MultiPoseEntry {
+    pub pose_index: u32,
+    pub keypoints: Vec<Keypoint>,
+    pub torso_cx: f32,
+    pub torso_cy: f32,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct FirstFrameMultiPose {
+    pub index: u32,
+    pub image_data: String,
+    pub poses: Vec<MultiPoseEntry>,
+    pub width: u32,
+    pub height: u32,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
 pub struct VideoPoseResult {
     pub frames: Vec<VideoPoseFrameResult>,
     pub width: u32,
@@ -58,6 +75,10 @@ pub struct VideoPoseResult {
     pub total_frames: u32,
     #[serde(default)]
     pub error: Option<String>,
+    #[serde(default)]
+    pub detected_pose_count: Option<u32>,
+    #[serde(default)]
+    pub first_frame_multi_pose: Option<FirstFrameMultiPose>,
 }
 
 impl PoseDetector {
@@ -273,6 +294,7 @@ impl PoseDetector {
         start_ms: u32,
         end_ms: u32,
         max_frames: u32,
+        subject_pose_index: Option<u32>,
     ) -> Result<VideoPoseResult> {
         ensure_script_exists(&self.video_script_path)?;
         let mut command = build_python_command(&self.python_path, &self.video_script_path);
@@ -285,6 +307,11 @@ impl PoseDetector {
             .arg(end_ms.to_string())
             .arg("--max-frames")
             .arg(max_frames.to_string());
+
+        if let Some(idx) = subject_pose_index {
+            command.arg("--subject-pose-index").arg(idx.to_string());
+        }
+
         let stdout = run_python_json_command(command)?;
         let result: VideoPoseResult = serde_json::from_str(&stdout).map_err(|e| {
             anyhow::anyhow!(

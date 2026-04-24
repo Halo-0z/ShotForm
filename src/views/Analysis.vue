@@ -23,14 +23,14 @@ import ComparisonView from '@/components/ComparisonView/index.vue'
 import SuggestionPanel from '@/components/SuggestionPanel/index.vue'
 import VideoPosePlayback from '@/components/VideoPosePlayback.vue'
 import PoseSkeletonStage from '@/components/PoseSkeletonStage.vue'
+import SubjectPicker from '@/components/SubjectPicker.vue'
 import { PAGE_COVER_ART } from '@/lib/page-cover-art'
 import { useAnalysisStore } from '@/stores/analysis'
-import { buildAnalysisProfileKey, type ComparisonIdentity } from '@/lib/comparison-service'
+import { type ComparisonIdentity } from '@/lib/comparison-service'
+import { buildCompareIdentity, getShotTypeBadgeVariant, formatTime } from '@/lib/analysis-utils'
 import {
   getShotTypeGuidance,
-  getShotTypeName,
-  normalizeShotType,
-  type ShotType
+  getShotTypeName
 } from '@/types'
 
 type PreviewMode = 'annotated' | 'original'
@@ -42,46 +42,48 @@ const insightsTab = ref<'suggestion' | 'compare'>('suggestion')
 const previewMode = ref<PreviewMode>('annotated')
 const previewDialogOpen = ref(false)
 const previewZoom = ref(1)
+const showSubjectPicker = ref(false)
 
 const hasAnalysis = computed(() => !!analysisStore.currentAnalysis)
 const hasAnnotatedImage = computed(() => !!analysisStore.currentAnnotatedImage)
 const hasVideoAnalysis = computed(() => !!analysisStore.currentVideoAnalysis)
 const currentVideoAnalysis = computed(() => analysisStore.currentVideoAnalysis)
 
-const buildAnalysisCompareKey = () => {
-  const analysis = analysisStore.currentAnalysis
-  if (!analysis) {
-    return ''
-  }
+const onSubjectSelected = async (poseIndex: number) => {
+  showSubjectPicker.value = false
+  if (!analysisStore.currentVideoPath) return
 
-  const angleSignature = analysis.angles
-    .map(angle => `${angle.name}:${angle.value.toFixed(2)}`)
-    .join('|')
-
-  return `${analysis.timestamp}|${analysis.shotType}|${angleSignature}`
+  const videoAnalysis = analysisStore.currentVideoAnalysis
+  await analysisStore.analyzeVideo(
+    analysisStore.currentVideoPath,
+    videoAnalysis?.trimStartMs ?? 0,
+    videoAnalysis?.trimEndMs ?? 0,
+    poseIndex
+  )
 }
+
+const onSubjectPickerCancel = () => {
+  showSubjectPicker.value = false
+}
+
+watch(() => analysisStore.firstFrameMultiPose, (data) => {
+  if (data && data.poses.length > 1) {
+    showSubjectPicker.value = true
+  }
+})
 
 const compareIdentity = computed<ComparisonIdentity | null>(() => {
   if (!analysisStore.currentAnalysis) {
     return null
   }
 
-  const analysisKey = buildAnalysisCompareKey()
-  const videoPath = analysisStore.currentVideoPath || analysisStore.currentVideoAnalysis?.videoPath || ''
-  const isVideo = Boolean(analysisStore.currentVideoAnalysis?.frames.length)
-  const analysisProfile = analysisStore.currentVideoAnalysis?.templateProfile ?? null
-
-  return {
-    source: isVideo ? 'video-frame' : 'image',
-    sessionId: isVideo
-      ? `video:${videoPath || 'current'}`
-      : `image:${analysisStore.currentHistoryId ?? analysisStore.currentAnalysis.timestamp}`,
-    videoPath: isVideo ? videoPath : undefined,
-    frameIndex: isVideo ? analysisStore.currentVideoFrameIndex : null,
-    historyId: analysisStore.currentHistoryId,
-    analysisKey,
-    profileKey: buildAnalysisProfileKey(analysisProfile)
-  }
+  return buildCompareIdentity({
+    analysis: analysisStore.currentAnalysis,
+    videoAnalysis: analysisStore.currentVideoAnalysis,
+    videoPath: analysisStore.currentVideoPath || analysisStore.currentVideoAnalysis?.videoPath || '',
+    videoFrameIndex: analysisStore.currentVideoFrameIndex,
+    historyId: analysisStore.currentHistoryId
+  })
 })
 
 const compareAnalysisProfile = computed(() => {
@@ -107,17 +109,6 @@ const currentPreviewImage = computed(() => {
 const currentPreviewLabel = computed(() => {
   return previewMode.value === 'annotated' && hasAnnotatedImage.value ? '标注结果' : '原始图片'
 })
-
-const getShotTypeBadgeVariant = (type: string): 'excellent' | 'good' | 'average' | 'poor' | 'secondary' => {
-  const variants: Record<ShotType, 'excellent' | 'good' | 'average' | 'poor' | 'secondary'> = {
-    one_motion: 'excellent',
-    one_point_five_motion: 'good',
-    two_motion: 'average',
-    unknown: 'secondary'
-  }
-
-  return variants[normalizeShotType(type)]
-}
 
 const stableShotType = computed(() => {
   if (currentVideoAnalysis.value) {
@@ -169,7 +160,8 @@ const summaryText = computed(() => {
   return (
     getShotTypeGuidance(
       stableShotType.value,
-      stableShotConfidence.value
+      stableShotConfidence.value,
+      currentVideoAnalysis.value ? 'video' : 'image'
     ) || '已完成姿势诊断，可以继续查看关键角度、关键帧和矫正建议。'
   )
 })
@@ -245,13 +237,6 @@ const insightsScopeNote = computed(() => {
 
 const selectVideoFrame = (index: number) => {
   analysisStore.selectVideoFrame(index)
-}
-
-const formatTime = (milliseconds: number) => {
-  const totalSeconds = Math.max(0, Math.round(milliseconds / 1000))
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = totalSeconds % 60
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`
 }
 
 const goBack = () => {
@@ -574,6 +559,13 @@ const shotConfidenceHint =
         </div>
       </DialogContent>
     </Dialog>
+
+    <SubjectPicker
+      :visible="showSubjectPicker"
+      :multi-pose-data="analysisStore.firstFrameMultiPose"
+      @select="onSubjectSelected"
+      @cancel="onSubjectPickerCancel"
+    />
   </div>
 </template>
 
@@ -828,7 +820,7 @@ const shotConfidenceHint =
   margin: 0;
   color: var(--text-primary);
   font-size: 20px;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .analysis-page__hero-stage-caption {

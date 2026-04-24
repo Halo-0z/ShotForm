@@ -77,15 +77,22 @@ export const getShotTypeName = (type: string | null | undefined): string => {
 
 export const getShotTypeGuidance = (
   type: string | null | undefined,
-  confidence: number
+  confidence: number,
+  source: 'image' | 'video' = 'image'
 ): string => {
   const normalizedType = normalizeShotType(type)
 
   if (normalizedType === 'unknown') {
+    if (source === 'video') {
+      return '整段视频的关键帧都没有给出稳定的分型判断，可能动作区间裁剪不够精确，建议重新选取从举球到出手的完整区间再试。'
+    }
     return '这张图更像出手末段或跟随段，适合看出手姿态细节，但不适合稳定判断一段式还是二段式。想看分型，优先上传举球到准备出手前手和球短暂停住的位置附近的单人全身画面。'
   }
 
   if (confidence < 0.6) {
+    if (source === 'video') {
+      return '整段视频的分型倾向还不够稳定，建议重新裁剪动作区间，确保包含从举球到出手的完整过程。'
+    }
     return '这次已经有分型倾向，但参考度还不算高。建议再补一张更接近准备出手前手和球短暂停住的位置的画面，交叉确认会更稳。'
   }
 
@@ -118,6 +125,21 @@ export interface TemporalFeatures {
   confidence: number
 }
 
+export interface MultiPoseEntry {
+  poseIndex: number
+  keypoints: Keypoint[]
+  torsoCx: number
+  torsoCy: number
+}
+
+export interface FirstFrameMultiPose {
+  index: number
+  imageData: string
+  poses: MultiPoseEntry[]
+  width: number
+  height: number
+}
+
 export interface VideoShotAnalysis {
   videoPath: string
   durationMs: number
@@ -133,6 +155,8 @@ export interface VideoShotAnalysis {
   overallReasons: string[]
   templateProfile?: PlayerTemplateProfile | null
   temporalFeatures?: TemporalFeatures | null
+  detectedPoseCount?: number
+  firstFrameMultiPose?: FirstFrameMultiPose | null
 }
 
 export interface AiShotReview {

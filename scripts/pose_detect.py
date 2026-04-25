@@ -354,23 +354,69 @@ def _write_result(result: dict, output_file: str | None) -> None:
     print(payload)
 
 
+def run_daemon() -> None:
+    """Read JSON requests from stdin, process them, write JSON responses to stdout.
+    
+    Protocol: Each line is a JSON object with a "method" field:
+    - {"method": "detect_base64", "image_base64": "..."}
+    - {"method": "detect_file", "file_path": "..."}
+    - {"method": "shutdown"}
+    
+    Response: Each line is a JSON object with the detection result.
+    """
+    sys.stdout.write(json.dumps({"status": "ready", "pid": __import__("os").getpid()}, ensure_ascii=False) + "\n")
+    sys.stdout.flush()
+
+    for line in sys.stdin:
+        line = line.strip()
+        if not line:
+            continue
+
+        try:
+            request = json.loads(line)
+        except json.JSONDecodeError:
+            response = _error_result("Invalid JSON request")
+            sys.stdout.write(json.dumps(response, ensure_ascii=False) + "\n")
+            sys.stdout.flush()
+            continue
+
+        method = request.get("method", "")
+
+        if method == "detect_base64":
+            result = detect_from_base64(request["image_base64"])
+        elif method == "detect_file":
+            result = detect_from_file(request["file_path"])
+        elif method == "shutdown":
+            sys.stdout.write(json.dumps({"status": "shutting_down"}, ensure_ascii=False) + "\n")
+            sys.stdout.flush()
+            break
+        else:
+            result = _error_result(f"Unknown method: {method}")
+
+        sys.stdout.write(json.dumps(result, ensure_ascii=False) + "\n")
+        sys.stdout.flush()
+
+
 if __name__ == "__main__":
-    result = _error_result("No input provided")
-    args = sys.argv[1:]
-    output_file = None
+    if "--daemon" in sys.argv:
+        run_daemon()
+    else:
+        result = _error_result("No input provided")
+        args = sys.argv[1:]
+        output_file = None
 
-    if "--output-file" in args:
-        output_index = args.index("--output-file")
-        if output_index + 1 < len(args):
-            output_file = args[output_index + 1]
-            del args[output_index : output_index + 2]
+        if "--output-file" in args:
+            output_index = args.index("--output-file")
+            if output_index + 1 < len(args):
+                output_file = args[output_index + 1]
+                del args[output_index : output_index + 2]
 
-    if len(args) >= 2:
-        if args[0] == "--file":
-            result = detect_from_file(args[1])
-        elif args[0] == "--input-file":
-            input_path = Path(args[1])
-            image_base64 = input_path.read_text(encoding="utf-8").strip()
-            result = detect_from_base64(image_base64)
+        if len(args) >= 2:
+            if args[0] == "--file":
+                result = detect_from_file(args[1])
+            elif args[0] == "--input-file":
+                input_path = Path(args[1])
+                image_base64 = input_path.read_text(encoding="utf-8").strip()
+                result = detect_from_base64(image_base64)
 
-    _write_result(result, output_file)
+        _write_result(result, output_file)

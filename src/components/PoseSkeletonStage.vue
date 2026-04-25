@@ -5,6 +5,7 @@ import type { PoseData } from '@/types'
 const props = defineProps<{
   poseData: PoseData
   imageSrc?: string
+  continuousAnimation?: boolean
 }>()
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
@@ -41,25 +42,13 @@ const BREATH_PERIOD = 3200
 
 const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3)
 
-const loadBackgroundImage = () => {
-  if (!props.imageSrc) {
-    imageEl = null
-    return
-  }
-  const img = new Image()
-  img.onload = () => {
-    imageEl = img
-  }
-  img.src = props.imageSrc
-}
+let canvasWidth = 0
+let canvasHeight = 0
 
-const draw = (timestamp: number) => {
+const resizeCanvas = () => {
   const canvas = canvasRef.value
   const poseData = props.poseData
   if (!canvas || !poseData) return
-
-  const context = canvas.getContext('2d')
-  if (!context) return
 
   const baseWidth = imageEl?.naturalWidth || poseData.width || 960
   const baseHeight = imageEl?.naturalHeight || poseData.height || 720
@@ -75,13 +64,20 @@ const draw = (timestamp: number) => {
   }
 
   const dpr = window.devicePixelRatio || 1
-  canvas.width = Math.round(displayWidth * dpr)
-  canvas.height = Math.round(displayHeight * dpr)
+  canvasWidth = Math.round(displayWidth * dpr)
+  canvasHeight = Math.round(displayHeight * dpr)
+
+  if (canvas.width !== canvasWidth || canvas.height !== canvasHeight) {
+    canvas.width = canvasWidth
+    canvas.height = canvasHeight
+  }
   canvas.style.width = `min(100%, ${displayWidth}px)`
   canvas.style.height = 'auto'
+}
 
-  context.setTransform(dpr, 0, 0, dpr, 0, 0)
-  context.clearRect(0, 0, displayWidth, displayHeight)
+const drawSkeleton = (context: CanvasRenderingContext2D, poseData: PoseData, progress: number, breathScale: number) => {
+  const displayWidth = canvasWidth / (window.devicePixelRatio || 1)
+  const displayHeight = canvasHeight / (window.devicePixelRatio || 1)
 
   const background = context.createLinearGradient(0, 0, displayWidth, displayHeight)
   background.addColorStop(0, '#08111f')
@@ -96,17 +92,12 @@ const draw = (timestamp: number) => {
     context.restore()
   }
 
-  const scaleX = displayWidth / Math.max(poseData.width || baseWidth, 1)
-  const scaleY = displayHeight / Math.max(poseData.height || baseHeight, 1)
+  const scaleX = displayWidth / Math.max(poseData.width || (imageEl?.naturalWidth ?? 960), 1)
+  const scaleY = displayHeight / Math.max(poseData.height || (imageEl?.naturalHeight ?? 720), 1)
   const keypointMap = new Map(poseData.keypoints.map(kp => [kp.id, kp]))
 
   const centerX = displayWidth / 2
   const centerY = displayHeight / 2
-
-  const elapsed = timestamp - animStartTime
-  const entranceProgress = Math.min(elapsed / ENTRANCE_DURATION, 1)
-  const breathPhase = (elapsed % BREATH_PERIOD) / BREATH_PERIOD
-  const breathScale = 1 + BREATH_AMPLITUDE * Math.sin(breathPhase * Math.PI * 2)
 
   const visibleKeypoints = poseData.keypoints.filter(kp => kp.visibility >= 0.45)
   const totalPoints = visibleKeypoints.length
@@ -115,7 +106,7 @@ const draw = (timestamp: number) => {
   const pointProgressMap = new Map<number, number>()
   visibleKeypoints.forEach((kp, i) => {
     const pointStart = i * pointStagger
-    const rawProgress = Math.max(0, Math.min((entranceProgress - pointStart) / 0.4, 1))
+    const rawProgress = Math.max(0, Math.min((progress - pointStart) / 0.4, 1))
     pointProgressMap.set(kp.id, easeOutCubic(rawProgress))
   })
 
@@ -137,62 +128,116 @@ const draw = (timestamp: number) => {
     const ex = centerX + (endPoint.x * scaleX - centerX) * lineProgress
     const ey = centerY + (endPoint.y * scaleY - centerY) * lineProgress
 
+    const alpha = lineProgress
+    const lineWidth = 3.5 * lineProgress
+
     context.beginPath()
     context.moveTo(sx, sy)
     context.lineTo(ex, ey)
     context.strokeStyle = getLineColor(startId, endId)
-    context.shadowColor = context.strokeStyle
-    context.shadowBlur = 10 * lineProgress
-    context.lineWidth = 3.5 * lineProgress
-    context.globalAlpha = lineProgress
+    context.lineWidth = lineWidth
+    context.globalAlpha = alpha
     context.stroke()
+
+    if (lineWidth > 1.5) {
+      context.save()
+      context.beginPath()
+      context.moveTo(sx, sy)
+      context.lineTo(ex, ey)
+      context.strokeStyle = getLineColor(startId, endId)
+      context.lineWidth = lineWidth + 3
+      context.globalAlpha = alpha * 0.25
+      context.stroke()
+      context.restore()
+    }
+
     context.globalAlpha = 1
   })
 
-  context.shadowBlur = 0
-
   visibleKeypoints.forEach((keypoint) => {
-    const progress = pointProgressMap.get(keypoint.id) ?? 0
-    if (progress <= 0) return
+    const prog = pointProgressMap.get(keypoint.id) ?? 0
+    if (prog <= 0) return
 
     const targetX = keypoint.x * scaleX
     const targetY = keypoint.y * scaleY
-    const x = centerX + (targetX - centerX) * progress
-    const y = centerY + (targetY - centerY) * progress
+    const x = centerX + (targetX - centerX) * prog
+    const y = centerY + (targetY - centerY) * prog
 
     const baseRadius = 4.5 + keypoint.visibility * 2.5
-    const radius = baseRadius * progress * breathScale
+    const radius = baseRadius * prog * breathScale
+    const alpha = prog
 
     context.beginPath()
-    context.arc(x, y, radius + 1.5, 0, Math.PI * 2)
-    context.fillStyle = `rgba(255, 255, 255, ${0.9 * progress})`
+    context.arc(x, y, radius + 3, 0, Math.PI * 2)
+    context.fillStyle = `rgba(255, 255, 255, ${alpha * 0.2})`
     context.fill()
 
     context.beginPath()
     context.arc(x, y, radius, 0, Math.PI * 2)
     context.fillStyle = getPointColor(keypoint.id)
-    context.shadowColor = getPointColor(keypoint.id)
-    context.shadowBlur = 12 * progress
-    context.globalAlpha = progress
+    context.globalAlpha = alpha
     context.fill()
     context.globalAlpha = 1
   })
+}
 
-  context.shadowBlur = 0
-
-  animFrameId = requestAnimationFrame(draw)
+const loadBackgroundImage = () => {
+  if (!props.imageSrc) {
+    imageEl = null
+    return
+  }
+  const img = new Image()
+  img.onload = () => {
+    imageEl = img
+    resizeCanvas()
+  }
+  img.src = props.imageSrc
 }
 
 let animStartTime = 0
+let prefersReducedMotion = false
+let animationStarted = false
 
 const startAnimation = () => {
   cancelAnimationFrame(animFrameId)
   animStartTime = performance.now()
-  animFrameId = requestAnimationFrame(draw)
+  animFrameId = requestAnimationFrame(animate)
+  animationStarted = true
+}
+
+const animate = (timestamp: number) => {
+  const canvas = canvasRef.value
+  const poseData = props.poseData
+  if (!canvas || !poseData) return
+
+  const context = canvas.getContext('2d')
+  if (!context) return
+
+  const elapsed = timestamp - animStartTime
+  const entranceProgress = Math.min(elapsed / ENTRANCE_DURATION, 1)
+
+  let breathScale = 1
+  if (entranceProgress >= 1 && props.continuousAnimation) {
+    const breathPhase = (elapsed % BREATH_PERIOD) / BREATH_PERIOD
+    breathScale = 1 + BREATH_AMPLITUDE * Math.sin(breathPhase * Math.PI * 2)
+  }
+
+  drawSkeleton(context, poseData, entranceProgress, breathScale)
+
+  if (entranceProgress < 1 || (props.continuousAnimation && !prefersReducedMotion)) {
+    animFrameId = requestAnimationFrame(animate)
+  }
 }
 
 const handleResize = () => {
-  void draw(performance.now())
+  resizeCanvas()
+  if (animationStarted && props.poseData) {
+    const canvas = canvasRef.value
+    const context = canvas?.getContext('2d')
+    if (context && canvasWidth > 0) {
+      drawSkeleton(context, props.poseData, 1, 1)
+    }
+  }
 }
 
 watch(() => props.poseData, () => {
@@ -204,7 +249,9 @@ watch(() => props.imageSrc, () => {
 })
 
 onMounted(() => {
+  prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   loadBackgroundImage()
+  resizeCanvas()
   startAnimation()
   observer = new MutationObserver(() => {})
   window.addEventListener('resize', handleResize)

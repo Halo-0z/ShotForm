@@ -63,7 +63,7 @@ import { open } from '@tauri-apps/plugin-dialog'
 import { readFile } from '@tauri-apps/plugin-fs'
 import { basename } from '@tauri-apps/api/path'
 import { Button } from '@/components/ui/button'
-import { Film, Loader2, Pause, Play, Scissors, Upload, X } from 'lucide-vue-next'
+import { Film, Loader2, Pause, Play, Scissors, Upload, X, Volume2, VolumeX, Maximize2 } from 'lucide-vue-next'
 
 const props = withDefaults(defineProps<{
   desktopAnalysisAvailable?: boolean
@@ -101,6 +101,11 @@ const targetTimelineFrameHeight = 68
 const videoEventTimeoutMs = 5000
 let timelineGenerationId = 0
 let timelineResizeObserver: ResizeObserver | null = null
+let controlsTimer: number | null = null
+const isControlsVisible = ref(true)
+const isMuted = ref(false)
+const currentTimeMs = ref(0)
+const isPlaying = ref(false)
 
 const isBusy = computed(() => props.loading || loadingVideo.value)
 const hasVideo = computed(() => hasLoadedVideoSelection({
@@ -138,9 +143,9 @@ const clipEndInputStyle = computed(() => ({
 }))
 const uploadWorkspaceClass = computed(() => props.compact ? 'space-y-3 animate-slide-up' : 'space-y-4 animate-slide-up')
 const cardContentClass = computed(() => props.compact ? 'space-y-4 p-4' : 'space-y-5 p-5')
-const workspaceGridClass = computed(() => props.compact ? 'grid gap-4 xl:grid-cols-[minmax(320px,480px)_1fr]' : 'grid gap-5 xl:grid-cols-[minmax(360px,520px)_1fr]')
+const workspaceGridClass = computed(() => props.compact ? 'grid items-stretch gap-4 lg:grid-cols-[minmax(320px,480px)_1fr]' : 'grid items-stretch gap-5 lg:grid-cols-[minmax(360px,520px)_1fr]')
 const detailColumnClass = computed(() => props.compact ? 'flex min-h-full flex-col gap-3' : 'space-y-4')
-const videoPreviewClass = computed(() => props.compact ? 'aspect-[16/8.1] max-h-[320px] w-full bg-black object-contain' : 'aspect-video w-full bg-black object-contain')
+const videoPreviewClass = computed(() => props.compact ? 'max-h-[320px] w-full bg-black object-contain' : 'w-full h-full bg-black object-cover')
 const summaryPanelClass = computed(() => props.compact ? 'rounded-2xl border border-[color-mix(in_srgb,var(--surface-border)_84%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--surface-color)_90%,transparent),color-mix(in_srgb,var(--bg-solid)_94%,transparent))] p-3.5 shadow-[0_10px_22px_rgba(24,29,38,0.06),inset_0_1px_0_color-mix(in_srgb,var(--border-light)_52%,transparent)]' : 'rounded-2xl border border-[color-mix(in_srgb,var(--surface-border)_84%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--surface-color)_88%,transparent),color-mix(in_srgb,var(--bg-solid)_92%,transparent))] p-4 shadow-[0_12px_26px_rgba(24,29,38,0.07),inset_0_1px_0_color-mix(in_srgb,var(--border-light)_54%,transparent)]')
 const previewPanelClass = computed(() => props.compact ? 'rounded-2xl border border-[color-mix(in_srgb,var(--surface-border)_82%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--card-bg)_94%,var(--background)),color-mix(in_srgb,var(--surface-color)_88%,var(--bg-solid)))] p-3.5 shadow-[0_10px_22px_rgba(24,29,38,0.05),inset_0_1px_0_color-mix(in_srgb,var(--border-light)_48%,transparent)]' : 'rounded-2xl border border-[color-mix(in_srgb,var(--surface-border)_82%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--card-bg)_94%,var(--background)),color-mix(in_srgb,var(--surface-color)_86%,var(--bg-solid)))] p-4 shadow-[0_12px_26px_rgba(24,29,38,0.06),inset_0_1px_0_color-mix(in_srgb,var(--border-light)_50%,transparent)]')
 const helperNoteClass = computed(() => props.compact ? 'rounded-2xl border border-[color-mix(in_srgb,var(--surface-border)_80%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--surface-color)_88%,transparent),color-mix(in_srgb,var(--bg-solid)_92%,transparent))] px-4 py-2.5 text-sm leading-6 text-[var(--text-muted)] shadow-[0_10px_22px_rgba(24,29,38,0.05)]' : 'rounded-2xl border border-[color-mix(in_srgb,var(--surface-border)_80%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--surface-color)_88%,transparent),color-mix(in_srgb,var(--bg-solid)_92%,transparent))] px-4 py-3 text-sm leading-6 text-[var(--text-muted)] shadow-[0_10px_22px_rgba(24,29,38,0.05)]')
@@ -491,15 +496,23 @@ const toggleClipPreview = async () => {
 }
 
 const onVideoTimeUpdate = () => {
-  if (!videoRef.value || !isClipPreviewing.value) return
+  const video = videoRef.value
+  if (!video) return
+
+  currentTimeMs.value = Math.round(video.currentTime * 1000)
+  updateBuffered()
+
+  if (!isClipPreviewing.value) return
 
   const clipEndSeconds = trimEndMs.value / 1000
-  if (videoRef.value.currentTime >= clipEndSeconds) {
-    videoRef.value.currentTime = trimStartMs.value / 1000
+  if (video.currentTime >= clipEndSeconds) {
+    video.currentTime = trimStartMs.value / 1000
   }
 }
 
 const onVideoPause = () => {
+  isPlaying.value = false
+  isControlsVisible.value = true
   if (isClipPreviewing.value) {
     isClipPreviewing.value = false
   }
@@ -516,6 +529,73 @@ const confirmVideo = () => {
     trimEndMs: trimEndMs.value,
     durationMs: durationMs.value
   }))
+}
+
+// Custom video controls
+const progressBarRef = ref<HTMLDivElement | null>(null)
+const bufferedPercent = ref(0)
+
+const showControls = () => {
+  isControlsVisible.value = true
+  if (controlsTimer) clearTimeout(controlsTimer)
+  controlsTimer = window.setTimeout(() => {
+    if (isPlaying.value) {
+      isControlsVisible.value = false
+    }
+  }, 3000)
+}
+
+const hideControls = () => {
+  if (controlsTimer) clearTimeout(controlsTimer)
+  if (isPlaying.value) {
+    isControlsVisible.value = false
+  }
+}
+
+const togglePlay = () => {
+  const video = videoRef.value
+  if (!video) return
+  if (video.paused) {
+    video.play()
+  } else {
+    video.pause()
+  }
+}
+
+const toggleMute = () => {
+  const video = videoRef.value
+  if (!video) return
+  video.muted = !video.muted
+  isMuted.value = video.muted
+}
+
+const handleProgressClick = (e: MouseEvent) => {
+  const video = videoRef.value
+  const bar = progressBarRef.value
+  if (!video || !bar) return
+
+  const rect = bar.getBoundingClientRect()
+  const ratio = Math.max(0, Math.min((e.clientX - rect.left) / rect.width, 1))
+  video.currentTime = ratio * video.duration
+  currentTimeMs.value = Math.round(ratio * durationMs.value)
+}
+
+const toggleFullscreen = () => {
+  const video = videoRef.value
+  if (!video) return
+
+  if (document.fullscreenElement) {
+    document.exitFullscreen()
+  } else {
+    video.requestFullscreen()
+  }
+}
+
+const updateBuffered = () => {
+  const video = videoRef.value
+  if (!video || !video.buffered.length) return
+  const end = video.buffered.end(video.buffered.length - 1)
+  bufferedPercent.value = end / Math.max(video.duration, 1)
 }
 
 watch(timelineRailWidth, (nextWidth, previousWidth) => {
@@ -554,79 +634,134 @@ onUnmounted(() => {
 
 <template>
   <div class="w-full animate-fade-in">
-    <input
-      ref="browserFileInputRef"
-      type="file"
-      accept="video/mp4,video/quicktime,video/x-msvideo,video/webm,.mp4,.mov,.avi,.webm,.m4v"
-      class="hidden"
-      @change="handleBrowserVideoChange"
-    />
+    <input ref="browserFileInputRef" type="file"
+      accept="video/mp4,video/quicktime,video/x-msvideo,video/webm,.mp4,.mov,.avi,.webm,.m4v" class="hidden"
+      @change="handleBrowserVideoChange" />
 
-    <div
-      v-if="!hasVideo"
-      class="relative overflow-hidden rounded-[2rem] border border-[color-mix(in_srgb,var(--surface-border)_82%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--card-bg)_96%,var(--background)),color-mix(in_srgb,var(--bg-solid)_94%,var(--surface-color)))] px-6 py-6 shadow-[0_14px_30px_rgba(24,29,38,0.08),inset_0_1px_0_color-mix(in_srgb,var(--border-light)_56%,transparent)]"
-    >
-      <div class="pointer-events-none absolute inset-x-[18%] top-5 h-24 rounded-full bg-[color-mix(in_srgb,var(--accent-color)_12%,transparent)] blur-3xl opacity-65"></div>
-      <div class="relative grid min-h-[360px] place-items-center rounded-[1.75rem] border border-dashed border-[color-mix(in_srgb,var(--surface-border)_84%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--card-bg)_94%,var(--surface-color)),color-mix(in_srgb,var(--bg-solid)_92%,var(--background)))] px-8 py-10 text-center shadow-[0_10px_24px_rgba(24,29,38,0.08),inset_0_1px_0_color-mix(in_srgb,var(--border-light)_62%,transparent)]">
+    <div v-if="!hasVideo"
+      class="relative overflow-hidden rounded-[2rem] border border-[color-mix(in_srgb,var(--surface-border)_82%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--card-bg)_96%,var(--background)),color-mix(in_srgb,var(--bg-solid)_94%,var(--surface-color)))] px-6 py-6 shadow-[0_14px_30px_rgba(24,29,38,0.08),inset_0_1px_0_color-mix(in_srgb,var(--border-light)_56%,transparent)]">
+      <div
+        class="pointer-events-none absolute inset-x-[18%] top-5 h-24 rounded-full bg-[color-mix(in_srgb,var(--accent-color)_12%,transparent)] blur-3xl opacity-65">
+      </div>
+      <div
+        class="relative grid min-h-[360px] place-items-center rounded-[1.75rem] border border-dashed border-[color-mix(in_srgb,var(--surface-border)_84%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--card-bg)_94%,var(--surface-color)),color-mix(in_srgb,var(--bg-solid)_92%,var(--background)))] px-8 py-10 text-center shadow-[0_10px_24px_rgba(24,29,38,0.08),inset_0_1px_0_color-mix(in_srgb,var(--border-light)_62%,transparent)]">
         <div class="mx-auto flex max-w-xl flex-col items-center justify-center gap-5">
-          <div class="rounded-[1.4rem] border border-[color-mix(in_srgb,var(--surface-border)_76%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--card-bg)_94%,var(--surface-color)),color-mix(in_srgb,var(--bg-solid)_92%,var(--background)))] p-5 shadow-[0_10px_22px_rgba(24,29,38,0.08),inset_0_1px_0_color-mix(in_srgb,var(--border-light)_54%,transparent)]">
+          <div
+            class="rounded-[1.4rem] border border-[color-mix(in_srgb,var(--surface-border)_76%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--card-bg)_94%,var(--surface-color)),color-mix(in_srgb,var(--bg-solid)_92%,var(--background)))] p-5 shadow-[0_10px_22px_rgba(24,29,38,0.08),inset_0_1px_0_color-mix(in_srgb,var(--border-light)_54%,transparent)]">
             <Film class="h-10 w-10 text-[var(--primary-color)]" />
           </div>
           <div class="space-y-2 text-center">
-            <p class="text-[clamp(1.75rem,3vw,2.25rem)] font-semibold leading-none text-[var(--text-primary)]">选择投篮视频</p>
+            <p class="text-[clamp(1.75rem,3vw,2.25rem)] font-semibold leading-none text-[var(--text-primary)]">选择投篮视频
+            </p>
             <p class="mx-auto max-w-lg text-sm leading-7 text-[var(--text-secondary)]">
               建议 2 到 6 秒，包含举球到出手的完整片段。我们会在后续帮你裁剪分析区间并提取关键帧。
             </p>
           </div>
-          <p class="rounded-full border border-[var(--surface-border)] bg-[color-mix(in_srgb,var(--surface-color)_88%,var(--bg-solid))] px-4 py-2 text-xs text-[var(--text-muted)] shadow-[var(--shadow-sm)]">
-            支持 MP4 / MOV / AVI / WEBM
-          </p>
           <Button variant="upload-cta" size="lg" class="min-w-44" :disabled="isBusy" @click="pickVideo">
             <Loader2 v-if="loadingVideo" class="mr-2 h-4 w-4 animate-spin" />
             <Upload v-else class="mr-2 h-4 w-4" />
             {{ loadingVideo ? '读取视频中...' : '选择视频' }}
           </Button>
+          <p class="text-xs text-[var(--text-muted)]">
+            或将视频拖放到此处
+          </p>
+          <p
+            class="rounded-full border border-[var(--surface-border)] bg-[color-mix(in_srgb,var(--surface-color)_88%,var(--bg-solid))] px-4 py-2 text-xs text-[var(--text-muted)] shadow-[var(--shadow-sm)]">
+            支持 MP4 / MOV / AVI / WEBM
+          </p>
         </div>
       </div>
     </div>
 
     <div v-else :class="uploadWorkspaceClass">
-      <div class="overflow-hidden rounded-[2rem] border border-[color-mix(in_srgb,var(--surface-border)_82%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--card-bg)_96%,var(--background)),color-mix(in_srgb,var(--bg-solid)_94%,var(--surface-color)))] shadow-[0_12px_28px_rgba(24,29,38,0.08),inset_0_1px_0_color-mix(in_srgb,var(--border-light)_56%,transparent)]">
+      <div
+        class="overflow-hidden rounded-[2rem] border border-[color-mix(in_srgb,var(--surface-border)_82%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--card-bg)_96%,var(--background)),color-mix(in_srgb,var(--bg-solid)_94%,var(--surface-color)))] shadow-[0_12px_28px_rgba(24,29,38,0.08),inset_0_1px_0_color-mix(in_srgb,var(--border-light)_56%,transparent)]">
         <div :class="cardContentClass">
           <div :class="workspaceGridClass">
-            <div class="relative overflow-hidden rounded-2xl border border-[var(--surface-border)] bg-[color-mix(in_srgb,var(--card-bg)_92%,var(--bg-solid))]">
-              <video
-                ref="videoRef"
-                :src="previewUrl"
-                controls
-                playsinline
-                :class="videoPreviewClass"
-                @loadedmetadata="onLoadedMetadata"
-                @timeupdate="onVideoTimeUpdate"
-                @pause="onVideoPause"
-              ></video>
-              <video
-                ref="timelineCaptureVideoRef"
-                :src="previewUrl"
-                muted
-                playsinline
-                preload="auto"
-                tabindex="-1"
+            <div class="relative overflow-hidden rounded-2xl border border-[var(--surface-border)] bg-black"
+              @mouseenter="showControls" @mousemove="showControls" @mouseleave="hideControls">
+              <video ref="videoRef" :src="previewUrl" playsinline :class="videoPreviewClass"
+                @loadedmetadata="onLoadedMetadata" @timeupdate="onVideoTimeUpdate" @pause="onVideoPause"
+                @play="isPlaying = true" @click="togglePlay" class="cursor-pointer"></video>
+              <video ref="timelineCaptureVideoRef" :src="previewUrl" muted playsinline preload="auto" tabindex="-1"
                 aria-hidden="true"
-                class="pointer-events-none fixed -left-[9999px] top-0 h-auto w-[240px] max-w-none opacity-0"
-              ></video>
+                class="pointer-events-none fixed -left-[9999px] top-0 h-auto w-[240px] max-w-none opacity-0"></video>
+
+              <!-- Custom Controls Overlay -->
+              <div class="absolute inset-0 flex flex-col justify-end transition-opacity duration-300"
+                :class="isControlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'" @click.stop
+                @mousemove.stop>
+                <!-- Gradient fade at bottom -->
+                <div
+                  class="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/60 to-transparent pointer-events-none">
+                </div>
+
+                <!-- Controls bar -->
+                <div class="relative z-10 px-4 pb-3">
+                  <!-- Progress bar -->
+                  <div
+                    class="group/progress relative mb-3 h-1.5 cursor-pointer rounded-full bg-white/20 transition-all hover:h-2"
+                    @click="handleProgressClick" ref="progressBarRef">
+                    <!-- Buffered -->
+                    <div class="absolute inset-y-0 left-0 rounded-full bg-white/30"
+                      :style="{ width: (bufferedPercent * 100) + '%' }"></div>
+                    <!-- Played -->
+                    <div class="absolute inset-y-0 left-0 rounded-full bg-[var(--primary-color)]"
+                      :style="{ width: (currentTimeMs / Math.max(durationMs, 1) * 100) + '%' }">
+                      <div
+                        class="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 h-3.5 w-3.5 rounded-full bg-[var(--primary-color)] shadow-md opacity-0 transition-opacity group-hover/progress:opacity-100">
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Control buttons row -->
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                      <!-- Play/Pause -->
+                      <button
+                        class="flex h-8 w-8 items-center justify-center rounded-full text-white transition-colors hover:bg-white/20"
+                        @click="togglePlay">
+                        <Play v-if="!isPlaying" class="h-4 w-4 fill-current" />
+                        <Pause v-else class="h-4 w-4 fill-current" />
+                      </button>
+
+                      <!-- Volume -->
+                      <button
+                        class="flex h-8 w-8 items-center justify-center rounded-full text-white transition-colors hover:bg-white/20"
+                        @click="toggleMute">
+                        <VolumeX v-if="isMuted" class="h-4 w-4" />
+                        <Volume2 v-else class="h-4 w-4" />
+                      </button>
+
+                      <!-- Time display -->
+                      <span class="text-xs font-medium text-white/90 tabular-nums">
+                        {{ formatTime(currentTimeMs) }} / {{ formatTime(durationMs) }}
+                      </span>
+                    </div>
+
+                    <!-- Fullscreen -->
+                    <button
+                      class="flex h-8 w-8 items-center justify-center rounded-full text-white transition-colors hover:bg-white/20"
+                      @click="toggleFullscreen">
+                      <Maximize2 class="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div :class="detailColumnClass">
-                <div class="flex items-start justify-between gap-4">
-                  <div class="min-w-0">
-                    <h3 class="truncate text-lg font-semibold text-[var(--text-primary)]">{{ videoName }}</h3>
-                    <p class="mt-1 text-sm text-[var(--text-secondary)]">{{ props.compact ? '先裁剪，再开始分析。' : '先裁剪分析范围，再交给 MediaPipe 做动态骨骼点分析' }}</p>
-                  </div>
-                  <Button variant="outline" size="icon" @click="clearVideo">
-                    <X class="h-4 w-4" />
-                  </Button>
+              <div class="flex items-start justify-between gap-4">
+                <div class="min-w-0">
+                  <h3 class="truncate text-lg font-semibold text-[var(--text-primary)]">{{ videoName }}</h3>
+                  <p class="mt-1 text-sm text-[var(--text-secondary)]">
+                    {{ props.compact ? '先裁剪，再开始分析。' : '先裁剪分析范围，再交给 MediaPipe 做动态骨骼点分析' }}
+                  </p>
                 </div>
+                <Button variant="outline" size="icon" @click="clearVideo">
+                  <X class="h-4 w-4" />
+                </Button>
+              </div>
 
               <div :class="summaryPanelClass">
                 <div class="flex flex-wrap items-center justify-between gap-3 text-sm text-[var(--text-secondary)]">
@@ -642,7 +777,8 @@ onUnmounted(() => {
                         <p class="text-sm font-medium text-[var(--text-primary)]">裁剪分析区间</p>
                         <p class="mt-1 text-xs text-[var(--text-secondary)]">拖动两端控制点，只保留真正要分析的那段动作。</p>
                       </div>
-                      <p class="rounded-full border border-[color-mix(in_srgb,var(--accent-color)_26%,transparent)] bg-[color-mix(in_srgb,var(--accent-color)_10%,transparent)] px-3 py-1 text-xs font-medium text-[var(--text-primary)]">
+                      <p
+                        class="rounded-full border border-[color-mix(in_srgb,var(--accent-color)_26%,transparent)] bg-[color-mix(in_srgb,var(--accent-color)_10%,transparent)] px-3 py-1 text-xs font-medium text-[var(--text-primary)]">
                         {{ formatPreciseTime(trimStartMs) }} - {{ formatPreciseTime(trimEndMs) }}
                       </p>
                     </div>
@@ -650,22 +786,17 @@ onUnmounted(() => {
                     <div class="clip-range-rail mt-5">
                       <div class="clip-range-stage">
                         <div class="clip-range-filmstrip" :ref="bindTimelineFilmstrip">
-                          <div class="clip-range-thumbnails" :class="{ 'clip-range-thumbnails-loading': isGeneratingTimelineFrames }">
+                          <div class="clip-range-thumbnails"
+                            :class="{ 'clip-range-thumbnails-loading': isGeneratingTimelineFrames }">
                             <template v-if="timelineFrames.length">
-                              <div
-                                v-for="(frame, index) in timelineFrames"
-                                :key="`${frame}-${index}`"
-                                class="clip-range-frame"
-                              >
+                              <div v-for="(frame, index) in timelineFrames" :key="`${frame}-${index}`"
+                                class="clip-range-frame">
                                 <img :src="frame" alt="" class="clip-range-frame-image" />
                               </div>
                             </template>
                             <template v-else-if="isGeneratingTimelineFrames">
-                              <div
-                                v-for="placeholder in timelinePlaceholderFrames"
-                                :key="`placeholder-${placeholder}`"
-                                class="clip-range-frame clip-range-frame-placeholder"
-                              ></div>
+                              <div v-for="placeholder in timelinePlaceholderFrames" :key="`placeholder-${placeholder}`"
+                                class="clip-range-frame clip-range-frame-placeholder"></div>
                             </template>
                             <template v-else-if="timelineGenerationError">
                               <div class="clip-range-error">
@@ -676,11 +807,9 @@ onUnmounted(() => {
                               </div>
                             </template>
                             <template v-else>
-                              <div
-                                v-for="placeholder in timelinePlaceholderFrames"
+                              <div v-for="placeholder in timelinePlaceholderFrames"
                                 :key="`placeholder-idle-${placeholder}`"
-                                class="clip-range-frame clip-range-frame-placeholder"
-                              ></div>
+                                class="clip-range-frame clip-range-frame-placeholder"></div>
                             </template>
                           </div>
                           <div class="clip-range-mask clip-range-mask-start" :style="clipStartMaskStyle"></div>
@@ -691,44 +820,32 @@ onUnmounted(() => {
                         <div class="clip-range-grip clip-range-grip-start" :style="clipStartHandleStyle"></div>
                         <div class="clip-range-grip clip-range-grip-end" :style="clipEndHandleStyle"></div>
 
-                        <input
-                          aria-label="开始时间"
-                          class="clip-range-input clip-range-input-start"
-                          :style="clipStartInputStyle"
-                          type="range"
-                          min="0"
-                          :max="sliderMaxMs"
-                          step="10"
-                          :value="trimStartMs"
-                          @input="updateTrimStart"
-                        />
+                        <input aria-label="开始时间" class="clip-range-input clip-range-input-start"
+                          :style="clipStartInputStyle" type="range" min="0" :max="sliderMaxMs" step="10"
+                          :value="trimStartMs" @input="updateTrimStart" />
 
-                        <input
-                          aria-label="结束时间"
-                          class="clip-range-input clip-range-input-end"
-                          :style="clipEndInputStyle"
-                          type="range"
-                          min="0"
-                          :max="sliderMaxMs"
-                          step="10"
-                          :value="trimEndMs"
-                          @input="updateTrimEnd"
-                        />
+                        <input aria-label="结束时间" class="clip-range-input clip-range-input-end"
+                          :style="clipEndInputStyle" type="range" min="0" :max="sliderMaxMs" step="10"
+                          :value="trimEndMs" @input="updateTrimEnd" />
                       </div>
                     </div>
 
-                    <div :class="props.compact ? 'mt-3 flex items-center justify-between gap-4 text-xs text-[var(--text-secondary)]' : 'mt-4 flex items-center justify-between gap-4 text-xs text-[var(--text-secondary)]'">
+                    <div
+                      :class="props.compact ? 'mt-3 flex items-center justify-between gap-4 text-xs text-[var(--text-secondary)]' : 'mt-4 flex items-center justify-between gap-4 text-xs text-[var(--text-secondary)]'">
                       <div class="space-y-1">
                         <p class="uppercase tracking-[0.22em] text-[var(--text-muted)]">起点</p>
-                        <p class="text-sm font-semibold text-[var(--text-primary)]">{{ formatPreciseTime(trimStartMs) }}</p>
+                        <p class="text-sm font-semibold text-[var(--text-primary)]">{{ formatPreciseTime(trimStartMs) }}
+                        </p>
                       </div>
                       <div class="text-center">
                         <p class="uppercase tracking-[0.22em] text-[var(--text-muted)]">片段</p>
-                        <p class="text-sm font-semibold text-[var(--text-primary)]">{{ formatPreciseTime(clipDurationMs) }}</p>
+                        <p class="text-sm font-semibold text-[var(--text-primary)]">{{ formatPreciseTime(clipDurationMs)
+                        }}</p>
                       </div>
                       <div class="space-y-1 text-right">
                         <p class="uppercase tracking-[0.22em] text-[var(--text-muted)]">终点</p>
-                        <p class="text-sm font-semibold text-[var(--text-primary)]">{{ formatPreciseTime(trimEndMs) }}</p>
+                        <p class="text-sm font-semibold text-[var(--text-primary)]">{{ formatPreciseTime(trimEndMs) }}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -761,22 +878,13 @@ onUnmounted(() => {
               </p>
 
               <div :class="actionRowClass">
-                <Button
-                  v-if="props.compact"
-                  variant="outline"
-                  :disabled="isBusy || durationMs <= 0"
-                  @click="toggleClipPreview"
-                >
+                <Button v-if="props.compact" variant="outline" :disabled="isBusy || durationMs <= 0"
+                  @click="toggleClipPreview">
                   <Pause v-if="isClipPreviewing" class="mr-2 h-4 w-4" />
                   <Play v-else class="mr-2 h-4 w-4" />
                   {{ props.compact ? '预览片段' : '预览裁剪片段' }}
                 </Button>
-                <Button
-                  data-analysis-cta="video"
-                  :disabled="analysisCtaState.disabled"
-                  size="lg"
-                  @click="confirmVideo"
-                >
+                <Button data-analysis-cta="video" :disabled="analysisCtaState.disabled" size="lg" @click="confirmVideo">
                   <Loader2 v-if="props.loading" class="mr-2 h-4 w-4 animate-spin" />
                   <Upload v-else class="mr-2 h-4 w-4" />
                   {{ analysisCtaState.label }}
@@ -929,11 +1037,9 @@ onUnmounted(() => {
   border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--accent-color) 36%, white);
   background:
-    linear-gradient(
-      180deg,
+    linear-gradient(180deg,
       color-mix(in srgb, var(--card-bg) 94%, var(--surface-color)),
-      color-mix(in srgb, var(--surface-color) 88%, var(--bg-solid))
-    );
+      color-mix(in srgb, var(--surface-color) 88%, var(--bg-solid)));
   box-shadow:
     0 12px 26px rgba(24, 29, 38, 0.2),
     0 0 0 6px color-mix(in srgb, var(--accent-color) 8%, transparent);

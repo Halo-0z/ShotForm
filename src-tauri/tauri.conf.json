@@ -14,12 +14,12 @@
     "windows": [
       {
         "title": "篮球投篮姿势智能分析工具",
-        "width": 1400,
-        "height": 900,
+        "width": 1150,
+        "height": 820,
         "resizable": true,
         "fullscreen": false,
         "center": true,
-        "minWidth": 1200,
+        "minWidth": 1150,
         "minHeight": 700,
         "decorations": false
       }

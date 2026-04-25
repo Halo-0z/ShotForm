@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ArrowLeft, Clock3, Film, Image as ImageIcon, RotateCcw } from 'lucide-vue-next'
+import { ArrowLeft, Film, Image as ImageIcon, RotateCcw } from 'lucide-vue-next'
 import ImageUpload from '@/components/ImageUpload/index.vue'
 import VideoUpload from '@/components/VideoUpload/index.vue'
 import { Button } from '@/components/ui/button'
@@ -23,10 +23,6 @@ const browserModeMessage = '当前为浏览器预览模式：可上传、裁剪�
 
 const goHome = () => {
   navigateWithFogTransition(router, '/')
-}
-
-const goHistory = () => {
-  navigateWithFogTransition(router, '/history')
 }
 
 const resetWorkbench = () => {
@@ -92,10 +88,6 @@ const handleVideoLoaded = async (payload: {
         <Button variant="ghost" size="sm" @click="goHome">
           <ArrowLeft class="h-4 w-4" />
           首页
-        </Button>
-        <Button variant="outline" size="sm" @click="goHistory">
-          <Clock3 class="h-4 w-4" />
-          历史
         </Button>
       </div>
     </header>

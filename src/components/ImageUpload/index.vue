@@ -130,6 +130,7 @@ const emit = defineEmits<{
 const previewUrl = ref('')
 const imageBase64 = ref('')
 const isDragging = ref(false)
+const fileInputRef = ref<HTMLInputElement | null>(null)
 const cropDialogOpen = ref(false)
 const cropImageRef = ref<HTMLImageElement | null>(null)
 const cropImageNatural = ref({ width: 0, height: 0 })
@@ -302,13 +303,14 @@ const clearPreview = () => {
       @dragleave="handleDragLeave"
     >
       <input
+        ref="fileInputRef"
         type="file"
         accept="image/jpeg,image/png,image/jpg"
-        class="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+        class="hidden"
         @change="handleFileChange"
       />
 
-      <div class="relative grid min-h-[360px] place-items-center rounded-[1.75rem] border border-dashed border-[color-mix(in_srgb,var(--surface-border)_84%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--card-bg)_94%,var(--surface-color)),color-mix(in_srgb,var(--bg-solid)_92%,var(--background)))] px-8 py-10 text-center shadow-[0_10px_24px_rgba(24,29,38,0.08),inset_0_1px_0_color-mix(in_srgb,var(--border-light)_62%,transparent)]">
+      <div class="relative z-0 grid min-h-[360px] place-items-center rounded-[1.75rem] border border-dashed border-[color-mix(in_srgb,var(--surface-border)_84%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--card-bg)_94%,var(--surface-color)),color-mix(in_srgb,var(--bg-solid)_92%,var(--background)))] px-8 py-10 text-center shadow-[0_10px_24px_rgba(24,29,38,0.08),inset_0_1px_0_color-mix(in_srgb,var(--border-light)_62%,transparent)]">
         <div class="mx-auto flex max-w-xl flex-col items-center justify-center gap-5">
           <div
             class="rounded-[1.4rem] border border-[color-mix(in_srgb,var(--surface-border)_78%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--card-bg)_94%,var(--surface-color)),color-mix(in_srgb,var(--bg-solid)_92%,var(--background)))] p-5 shadow-[0_10px_22px_rgba(24,29,38,0.08),inset_0_1px_0_color-mix(in_srgb,var(--border-light)_54%,transparent)] transition-transform duration-300"
@@ -328,6 +330,15 @@ const clearPreview = () => {
               建议使用清晰的单人投篮图，尽量保留头、持球手和脚部，方便后续主体裁剪与姿态判断。
             </p>
           </div>
+
+          <Button size="lg" @click="fileInputRef?.click()" class="mt-2">
+            <UploadIcon class="mr-2 h-4 w-4" />
+            选择图片
+          </Button>
+
+          <p class="text-xs text-[var(--text-muted)]">
+            或将图片拖放到此处
+          </p>
 
           <p class="rounded-full border border-[var(--surface-border)] bg-[color-mix(in_srgb,var(--surface-color)_88%,var(--bg-solid))] px-4 py-2 text-xs text-[var(--text-muted)] shadow-[var(--shadow-sm)]">
             支持 JPG / PNG

@@ -7,7 +7,7 @@ use crate::analysis::get_default_player_templates;
 use crate::models::{
     AnalysisHistory, ComparisonDetailPayload, ComparisonLearningBridge, ComparisonLearningGap,
     ComparisonMode, ComparisonResult, ComparisonSummary, ComparisonWorkbenchSnapshot,
-    CorrectionSuggestion, PlayerTemplate, ShotAnalysis,
+    CorrectionSuggestion, PlayerTemplate, ShotAnalysis, VideoShotAnalysis,
 };
 use std::collections::BTreeMap;
 
@@ -73,6 +73,16 @@ async fn initialize_database_schema(pool: &SqlitePool) -> Result<()> {
     ensure_analysis_history_column(
         &pool,
         "ALTER TABLE analysis_history ADD COLUMN ai_coaching_suggestions_json TEXT",
+    )
+    .await?;
+    ensure_analysis_history_column(
+        &pool,
+        "ALTER TABLE analysis_history ADD COLUMN source_identifier TEXT",
+    )
+    .await?;
+    ensure_analysis_history_column(
+        &pool,
+        "ALTER TABLE analysis_history ADD COLUMN video_analysis_json TEXT",
     )
     .await?;
     ensure_database_column(
@@ -310,6 +320,8 @@ pub async fn save_analysis_history(
     suggestions: &[CorrectionSuggestion],
     ai_coaching_summary: Option<&str>,
     ai_coaching_suggestions: Option<&[CorrectionSuggestion]>,
+    source_identifier: Option<&str>,
+    video_analysis: Option<&VideoShotAnalysis>,
 ) -> Result<i64> {
     let analysis_json = serde_json::to_string(analysis)?;
     let comparison_json = comparison.map(|c| serde_json::to_string(c)).transpose()?;
@@ -317,10 +329,13 @@ pub async fn save_analysis_history(
     let ai_coaching_suggestions_json = ai_coaching_suggestions
         .map(serde_json::to_string)
         .transpose()?;
+    let video_analysis_json = video_analysis
+        .map(serde_json::to_string)
+        .transpose()?;
     let created_at = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
-        .as_secs() as i64;
+        .as_millis() as i64;
 
     let result = sqlx::query(
         r#"
@@ -333,9 +348,11 @@ pub async fn save_analysis_history(
             suggestions_json,
             ai_coaching_summary,
             ai_coaching_suggestions_json,
+            source_identifier,
+            video_analysis_json,
             created_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         "#,
     )
     .bind(image_path)
@@ -345,6 +362,8 @@ pub async fn save_analysis_history(
     .bind(&suggestions_json)
     .bind(ai_coaching_summary)
     .bind(&ai_coaching_suggestions_json)
+    .bind(source_identifier)
+    .bind(&video_analysis_json)
     .bind(created_at)
     .execute(pool)
     .await?;
@@ -440,6 +459,9 @@ pub async fn get_analysis_history(pool: &SqlitePool) -> Result<Vec<AnalysisHisto
             let ai_coaching_suggestions = row
                 .ai_coaching_suggestions_json
                 .and_then(|json| serde_json::from_str(&json).ok());
+            let video_analysis = row
+                .video_analysis_json
+                .and_then(|json| serde_json::from_str(&json).ok());
 
             AnalysisHistory {
                 id: row.id,
@@ -450,6 +472,8 @@ pub async fn get_analysis_history(pool: &SqlitePool) -> Result<Vec<AnalysisHisto
                 suggestions,
                 ai_coaching_summary: row.ai_coaching_summary,
                 ai_coaching_suggestions,
+                source_identifier: row.source_identifier,
+                video_analysis,
                 created_at: row.created_at as u64,
             }
         })
@@ -640,6 +664,8 @@ mod tests {
                 suggestions_json TEXT NOT NULL,
                 ai_coaching_summary TEXT,
                 ai_coaching_suggestions_json TEXT,
+                source_identifier TEXT,
+                video_analysis_json TEXT,
                 created_at INTEGER NOT NULL
             )
             "#,
@@ -740,6 +766,8 @@ mod tests {
             &[],
             None,
             None,
+            None,
+            None,
         )
         .await
         .expect("insert analysis history")
@@ -761,6 +789,27 @@ mod tests {
         .execute(pool)
         .await
         .expect("update legacy comparison json");
+
+        history_id
+    }
+
+    async fn insert_history_row_with_legacy_comparison_and_source(pool: &SqlitePool) -> i64 {
+        let history_id = insert_history_row(pool).await;
+        let legacy_json = serde_json::to_string(&sample_comparison()).expect("serialize legacy");
+
+        sqlx::query(
+            r#"
+            UPDATE analysis_history
+            SET comparison_json = ?, source_identifier = ?
+            WHERE id = ?
+            "#,
+        )
+        .bind(legacy_json)
+        .bind("test-source")
+        .bind(history_id)
+        .execute(pool)
+        .await
+        .expect("update legacy comparison json with source");
 
         history_id
     }
@@ -1249,6 +1298,8 @@ mod tests {
             Some(&sample_stale_legacy_snapshot(3)),
             &[],
             None,
+            None,
+            Some("test-source"),
             None,
         )
         .await

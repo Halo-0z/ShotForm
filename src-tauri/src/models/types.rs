@@ -343,6 +343,10 @@ pub struct AnalysisHistory {
     pub ai_coaching_summary: Option<String>,
     #[serde(default)]
     pub ai_coaching_suggestions: Option<Vec<CorrectionSuggestion>>,
+    #[serde(default)]
+    pub source_identifier: Option<String>,
+    #[serde(default)]
+    pub video_analysis: Option<VideoShotAnalysis>,
     pub created_at: u64,
 }
 

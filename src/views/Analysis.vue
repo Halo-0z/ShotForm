@@ -6,6 +6,7 @@ import {
   Expand,
   Lightbulb,
   Loader2,
+  Save,
   Search,
   Sparkles,
   Users,
@@ -266,6 +267,39 @@ const resetZoom = () => {
   previewZoom.value = 1
 }
 
+const isSaving = ref(false)
+const hasBeenSaved = ref(false)
+
+const saveToHistory = async () => {
+  if (!analysisStore.currentAnalysis) return
+  if (isSaving.value) return
+  if (hasBeenSaved.value) return
+
+  isSaving.value = true
+
+  try {
+    const sourceIdentifier = analysisStore.currentVideoPath
+      ? `video:${analysisStore.currentVideoPath}`
+      : `image:${Date.now()}`
+
+    await analysisStore.saveToHistory(
+      analysisStore.currentImage || '',
+      analysisStore.currentAnnotatedImage || '',
+      {
+        sourceIdentifier,
+        videoAnalysis: analysisStore.currentVideoAnalysis ?? null
+      }
+    )
+
+    hasBeenSaved.value = true
+  } catch (error) {
+    console.error('保存历史记录失败:', error)
+    alert('保存失败，请重试')
+  } finally {
+    isSaving.value = false
+  }
+}
+
 const shotConfidenceHint =
   '关键点可靠度用于衡量骨骼识别是否稳定，分型确定度则表示这一次判断对投篮分型的把握程度。'
 </script>
@@ -364,6 +398,15 @@ const shotConfidenceHint =
                 </div>
 
                 <div class="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    :variant="hasBeenSaved ? 'default' : 'outline'"
+                    :disabled="isSaving || hasBeenSaved"
+                    @click="saveToHistory"
+                  >
+                    <Save class="mr-1 h-4 w-4" />
+                    {{ hasBeenSaved ? '已保存' : (isSaving ? '保存中...' : '保存到历史记录') }}
+                  </Button>
                   <template v-if="!currentVideoAnalysis">
                     <Button size="sm" variant="outline" @click="openPreviewDialog">
                       <Expand class="mr-1 h-4 w-4" />

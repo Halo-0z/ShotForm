@@ -9,7 +9,7 @@ use crate::database::{
 };
 use crate::models::{
     AnalysisHistory, ComparisonWorkbenchSnapshot, CorrectionSuggestion, PlayerTemplate,
-    PlayerTemplateMetadataUpdate, ShotAnalysis,
+    PlayerTemplateMetadataUpdate, ShotAnalysis, VideoShotAnalysis,
 };
 use sqlx::SqlitePool;
 use tauri::State;
@@ -24,6 +24,8 @@ pub async fn save_analysis_history(
     suggestions: Vec<CorrectionSuggestion>,
     ai_coaching_summary: Option<String>,
     ai_coaching_suggestions: Option<Vec<CorrectionSuggestion>>,
+    source_identifier: Option<String>,
+    video_analysis: Option<VideoShotAnalysis>,
 ) -> Result<i64, String> {
     db_save_history(
         &pool,
@@ -34,6 +36,8 @@ pub async fn save_analysis_history(
         &suggestions,
         ai_coaching_summary.as_deref(),
         ai_coaching_suggestions.as_deref(),
+        source_identifier.as_deref(),
+        video_analysis.as_ref(),
     )
     .await
     .map_err(|e| e.to_string())

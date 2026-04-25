@@ -316,6 +316,8 @@ export interface AnalysisHistory {
   suggestions: CorrectionSuggestion[]
   aiCoachingSummary?: string | null
   aiCoachingSuggestions?: CorrectionSuggestion[] | null
+  sourceIdentifier?: string | null
+  videoAnalysis?: VideoShotAnalysis | null
   createdAt: number
 }
 

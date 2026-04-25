@@ -52,9 +52,9 @@ export const useAnalysisStore = defineStore('analysis', () => {
     shotType: normalizeShotType(analysis.shotType),
     aiReview: analysis.aiReview
       ? {
-          ...analysis.aiReview,
-          shotType: normalizeShotType(analysis.aiReview.shotType)
-        }
+        ...analysis.aiReview,
+        shotType: normalizeShotType(analysis.aiReview.shotType)
+      }
       : null
   })
 
@@ -152,9 +152,9 @@ export const useAnalysisStore = defineStore('analysis', () => {
       : existingSnapshot.detailsByPlayerId[playerId] ?? null
     const selectedDetail = existingDetail && fallbackDetail
       ? {
-          ...existingDetail,
-          result: fallbackDetail.result
-        }
+        ...existingDetail,
+        result: fallbackDetail.result
+      }
       : existingDetail ?? fallbackDetail
     const detailsByPlayerId = { ...existingSnapshot.detailsByPlayerId }
 
@@ -166,17 +166,17 @@ export const useAnalysisStore = defineStore('analysis', () => {
     const summaries = nextSummary
       ? existingSnapshot.summaries.some(summary => summary.player.id === nextSummary.player.id)
         ? existingSnapshot.summaries.map(summary => {
-            if (summary.player.id !== nextSummary.player.id) {
-              return summary
-            }
+          if (summary.player.id !== nextSummary.player.id) {
+            return summary
+          }
 
-            return {
-              ...summary,
-              player: nextSummary.player,
-              similarity: nextSummary.similarity,
-              topDifferences: nextSummary.topDifferences
-            }
-          })
+          return {
+            ...summary,
+            player: nextSummary.player,
+            similarity: nextSummary.similarity,
+            topDifferences: nextSummary.topDifferences
+          }
+        })
         : [...existingSnapshot.summaries, nextSummary]
       : existingSnapshot.summaries
 
@@ -195,7 +195,9 @@ export const useAnalysisStore = defineStore('analysis', () => {
     analysis: normalizeAnalysis(record.analysis),
     comparison: normalizeComparisonSnapshot(record.comparison, record.id),
     aiCoachingSummary: record.aiCoachingSummary ?? null,
-    aiCoachingSuggestions: record.aiCoachingSuggestions ?? null
+    aiCoachingSuggestions: record.aiCoachingSuggestions ?? null,
+    sourceIdentifier: record.sourceIdentifier ?? null,
+    videoAnalysis: record.videoAnalysis ?? null
   })
 
   const setAiCoachingCache = (
@@ -454,7 +456,15 @@ export const useAnalysisStore = defineStore('analysis', () => {
     currentImage.value = normalizedRecord.imagePath
     currentAnnotatedImage.value = normalizedRecord.annotatedImagePath
     applyCurrentComparisonSnapshot(normalizedRecord.comparison ?? null)
-    clearVideoState()
+
+    if (normalizedRecord.videoAnalysis) {
+      currentVideoAnalysis.value = normalizedRecord.videoAnalysis
+      currentVideoPath.value = normalizedRecord.videoAnalysis.videoPath
+      currentVideoFrameIndex.value = normalizedRecord.videoAnalysis.bestFrameIndex
+    } else {
+      clearVideoState()
+    }
+
     setAiCoachingCache(
       normalizedRecord.aiCoachingSummary,
       normalizedRecord.aiCoachingSuggestions,
@@ -493,6 +503,8 @@ export const useAnalysisStore = defineStore('analysis', () => {
       suggestions?: CorrectionSuggestion[]
       aiCoachingSummary?: string | null
       aiCoachingSuggestions?: CorrectionSuggestion[] | null
+      sourceIdentifier?: string | null
+      videoAnalysis?: VideoShotAnalysis | null
     }
   ): Promise<void> => {
     if (!currentAnalysis.value) return
@@ -504,7 +516,9 @@ export const useAnalysisStore = defineStore('analysis', () => {
       comparison: buildHistoryComparisonPayload(currentComparisonSnapshot.value, { historyId: null }),
       suggestions: options?.suggestions ?? [],
       aiCoachingSummary: options?.aiCoachingSummary ?? null,
-      aiCoachingSuggestions: options?.aiCoachingSuggestions ?? null
+      aiCoachingSuggestions: options?.aiCoachingSuggestions ?? null,
+      sourceIdentifier: options?.sourceIdentifier ?? null,
+      videoAnalysis: options?.videoAnalysis ?? null
     })
   }
 

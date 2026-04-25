@@ -21,5 +21,7 @@ pub struct DbAnalysisHistory {
     pub suggestions_json: String,
     pub ai_coaching_summary: Option<String>,
     pub ai_coaching_suggestions_json: Option<String>,
+    pub source_identifier: Option<String>,
+    pub video_analysis_json: Option<String>,
     pub created_at: i64,
 }

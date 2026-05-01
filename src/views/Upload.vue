@@ -22,21 +22,18 @@ onMounted(() => {
 })
 
 watch(phase, (newPhase) => {
-  if (newPhase === 'idle' && !shouldReveal.value && !prefersReducedMotion.value) {
+  if ((newPhase === 'reveal' || newPhase === 'idle') && !shouldReveal.value && !prefersReducedMotion.value) {
     shouldReveal.value = true
   }
 })
 </script>
 
 <template>
-  <div
-    class="upload-page"
-    :class="{
-      'upload-page--reveal': shouldReveal,
-      'upload-page--direct-access': isDirectAccess,
-      'upload-page--reduced-motion': prefersReducedMotion
-    }"
-  >
+  <div class="upload-page" :class="{
+    'upload-page--reveal': shouldReveal,
+    'upload-page--direct-access': isDirectAccess,
+    'upload-page--reduced-motion': prefersReducedMotion
+  }">
     <div class="upload-page__cover" :style="{ backgroundImage: `url(${PAGE_COVER_ART.upload})` }" aria-hidden="true" />
     <div class="upload-page__veil" aria-hidden="true" />
     <div class="upload-page__content">
@@ -87,11 +84,9 @@ watch(phase, (newPhase) => {
   background:
     radial-gradient(circle at 70% 26%, color-mix(in srgb, var(--accent-color) 8%, transparent), transparent 22%),
     radial-gradient(circle at 32% 18%, color-mix(in srgb, var(--primary-color) 5%, transparent), transparent 26%),
-    linear-gradient(
-      180deg,
+    linear-gradient(180deg,
       color-mix(in srgb, var(--bg-solid) 70%, transparent),
-      color-mix(in srgb, var(--bg-solid) 92%, var(--background))
-    );
+      color-mix(in srgb, var(--bg-solid) 92%, var(--background)));
   opacity: 0.38;
   transition: opacity 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }

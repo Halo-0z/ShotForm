@@ -56,7 +56,9 @@ const handleStartAnalysis = async () => {
   isTransitioningToUpload.value = true
 
   try {
-    await navigateWithFogTransition(router, '/upload')
+    await navigateWithFogTransition(router, '/upload', {
+      preload: () => import('@/views/Upload.vue')
+    })
   } finally {
     isTransitioningToUpload.value = false
   }

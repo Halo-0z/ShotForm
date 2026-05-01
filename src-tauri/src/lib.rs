@@ -46,6 +46,7 @@ pub fn run() {
             commands::update_analysis_history_ai_coaching,
             commands::update_analysis_history_comparison,
             commands::get_analysis_history,
+            commands::get_analysis_history_page,
             commands::delete_analysis_history,
             commands::process_image,
             commands::draw_pose_on_image,

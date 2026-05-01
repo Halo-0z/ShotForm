@@ -1,7 +1,9 @@
 use crate::database::{
     delete_analysis_history as db_delete_history, delete_player_template as db_delete_player,
-    get_analysis_history as db_get_history, get_player_templates as db_get_players,
-    save_analysis_history as db_save_history, save_player_template as db_save_player,
+    get_analysis_history as db_get_history,
+    get_analysis_history_paginated as db_get_history_paginated,
+    get_player_templates as db_get_players, save_analysis_history as db_save_history,
+    save_player_template as db_save_player,
     update_analysis_history_ai_coaching as db_update_history_ai,
     update_analysis_history_comparison as db_update_history_comparison,
     update_player_template as db_update_player,
@@ -71,6 +73,17 @@ pub async fn get_analysis_history(
     pool: State<'_, SqlitePool>,
 ) -> Result<Vec<AnalysisHistory>, String> {
     db_get_history(&pool).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn get_analysis_history_page(
+    pool: State<'_, SqlitePool>,
+    limit: i64,
+    offset: i64,
+) -> Result<Vec<AnalysisHistory>, String> {
+    db_get_history_paginated(&pool, Some(limit), Some(offset))
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]

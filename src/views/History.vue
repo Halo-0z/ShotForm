@@ -457,6 +457,8 @@ const isExpanded = (sourceIdentifier: string) => expandedGroups.value.has(source
   border-radius: 16px;
   border: 1px solid color-mix(in srgb, var(--surface-border) 60%, transparent);
   background: color-mix(in srgb, var(--background) 60%, var(--card-bg));
+  content-visibility: auto;
+  contain-intrinsic-size: auto 88px;
 }
 
 .history-session-row__time {

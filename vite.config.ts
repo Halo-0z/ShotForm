@@ -27,7 +27,6 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          echarts: ['echarts/core', 'echarts/charts', 'echarts/components', 'echarts/renderers'],
           'ui-vendor': ['reka-ui', 'class-variance-authority', 'clsx', 'tailwind-merge'],
           'lucide-icons': ['lucide-vue-next'],
           'tauri-api': ['@tauri-apps/api/core', '@tauri-apps/api/event'],

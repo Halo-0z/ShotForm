@@ -31,6 +31,12 @@ pub async fn init_database(app_handle: &tauri::AppHandle) -> Result<()> {
 }
 
 async fn initialize_database_schema(pool: &SqlitePool) -> Result<()> {
+    sqlx::query("PRAGMA journal_mode=WAL").execute(pool).await?;
+    sqlx::query("PRAGMA synchronous=NORMAL")
+        .execute(pool)
+        .await?;
+    sqlx::query("PRAGMA cache_size=-8000").execute(pool).await?;
+
     sqlx::query(
         r#"
         CREATE TABLE IF NOT EXISTS player_templates (
@@ -329,9 +335,7 @@ pub async fn save_analysis_history(
     let ai_coaching_suggestions_json = ai_coaching_suggestions
         .map(serde_json::to_string)
         .transpose()?;
-    let video_analysis_json = video_analysis
-        .map(serde_json::to_string)
-        .transpose()?;
+    let video_analysis_json = video_analysis.map(serde_json::to_string).transpose()?;
     let created_at = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
@@ -441,11 +445,23 @@ pub async fn update_analysis_history_comparison(
 }
 
 pub async fn get_analysis_history(pool: &SqlitePool) -> Result<Vec<AnalysisHistory>> {
-    let rows = sqlx::query_as::<_, DbAnalysisHistory>(
-        "SELECT * FROM analysis_history ORDER BY created_at DESC",
-    )
-    .fetch_all(pool)
-    .await?;
+    get_analysis_history_paginated(pool, None, None).await
+}
+
+pub async fn get_analysis_history_paginated(
+    pool: &SqlitePool,
+    limit: Option<i64>,
+    offset: Option<i64>,
+) -> Result<Vec<AnalysisHistory>> {
+    let query = "SELECT * FROM analysis_history ORDER BY created_at DESC LIMIT ? OFFSET ?";
+    let limit_val = limit.unwrap_or(-1);
+    let offset_val = offset.unwrap_or(0);
+
+    let rows = sqlx::query_as::<_, DbAnalysisHistory>(query)
+        .bind(limit_val)
+        .bind(offset_val)
+        .fetch_all(pool)
+        .await?;
 
     let history = rows
         .into_iter()

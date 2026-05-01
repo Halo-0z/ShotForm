@@ -527,6 +527,11 @@ export const useAnalysisStore = defineStore('analysis', () => {
     return history.map(normalizeHistoryRecord)
   }
 
+  const getHistoryPage = async (limit: number, offset: number): Promise<AnalysisHistory[]> => {
+    const history = await invoke<AnalysisHistory[]>('get_analysis_history_page', { limit, offset })
+    return history.map(normalizeHistoryRecord)
+  }
+
   const deleteHistory = async (id: number): Promise<void> => {
     await invoke('delete_analysis_history', { id })
   }
@@ -572,6 +577,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
     updateHistoryComparison,
     saveToHistory,
     getHistory,
+    getHistoryPage,
     deleteHistory,
     buildAiAnalysisPayload
   }

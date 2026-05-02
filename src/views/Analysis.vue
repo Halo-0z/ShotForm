@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   ArrowLeft,
+  Download,
   Expand,
   Lightbulb,
   Loader2,
@@ -27,8 +28,10 @@ import PoseSkeletonStage from '@/components/PoseSkeletonStage.vue'
 import SubjectPicker from '@/components/SubjectPicker.vue'
 import { PAGE_COVER_ART } from '@/lib/page-cover-art'
 import { useAnalysisStore } from '@/stores/analysis'
+import { useToast } from '@/composables/useToast'
 import { type ComparisonIdentity } from '@/lib/comparison-service'
 import { buildCompareIdentity, getShotTypeBadgeVariant, formatTime } from '@/lib/analysis-utils'
+import { exportAnalysisJSON } from '@/lib/export-report'
 import {
   getShotTypeGuidance,
   getShotTypeName
@@ -38,6 +41,7 @@ type PreviewMode = 'annotated' | 'original'
 
 const router = useRouter()
 const analysisStore = useAnalysisStore()
+const toast = useToast()
 
 const insightsTab = ref<'suggestion' | 'compare'>('suggestion')
 const previewMode = ref<PreviewMode>('annotated')
@@ -294,7 +298,7 @@ const saveToHistory = async () => {
     hasBeenSaved.value = true
   } catch (error) {
     console.error('保存历史记录失败:', error)
-    alert('保存失败，请重试')
+    toast.error('保存失败', '请重试或检查磁盘空间。')
   } finally {
     isSaving.value = false
   }
@@ -302,6 +306,20 @@ const saveToHistory = async () => {
 
 const shotConfidenceHint =
   '关键点可靠度用于衡量骨骼识别是否稳定，分型确定度则表示这一次判断对投篮分型的把握程度。'
+
+const handleExportReport = async () => {
+  if (!analysisStore.currentAnalysis) return
+  const ok = await exportAnalysisJSON(
+    analysisStore.currentAnalysis,
+    analysisStore.currentComparisonSnapshot,
+    analysisStore.currentVideoAnalysis,
+  )
+  if (ok) {
+    toast.success('报告已导出', 'JSON 格式的分析报告已保存到指定位置。')
+  } else {
+    toast.error('导出取消', '未选择保存位置。')
+  }
+}
 </script>
 
 <template>
@@ -402,10 +420,15 @@ const shotConfidenceHint =
                     size="sm"
                     :variant="hasBeenSaved ? 'default' : 'outline'"
                     :disabled="isSaving || hasBeenSaved"
+                    :loading="isSaving"
                     @click="saveToHistory"
                   >
                     <Save class="mr-1 h-4 w-4" />
-                    {{ hasBeenSaved ? '已保存' : (isSaving ? '保存中...' : '保存到历史记录') }}
+                    {{ hasBeenSaved ? '已保存' : '保存到历史记录' }}
+                  </Button>
+                  <Button size="sm" variant="outline" @click="handleExportReport">
+                    <Download class="mr-1 h-4 w-4" />
+                    导出报告
                   </Button>
                   <template v-if="!currentVideoAnalysis">
                     <Button size="sm" variant="outline" @click="openPreviewDialog">

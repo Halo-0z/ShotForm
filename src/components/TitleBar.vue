@@ -2,7 +2,7 @@
 import { onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import { History, Monitor, Moon, Pin, Sun } from 'lucide-vue-next'
+import { History, Layers, Monitor, Moon, Pin, Sun } from 'lucide-vue-next'
 import { navigateWithFogTransition } from '@/composables/useFogRouteTransition'
 import { useResolvedThemeState } from '@/composables/useResolvedThemeState'
 import { useTheme } from '@/composables/useTheme'
@@ -79,6 +79,10 @@ const handleTogglePin = async () => {
 const handleOpenHistory = async () => {
   await navigateWithFogTransition(router, '/history')
 }
+
+const handleOpenTemplates = async () => {
+  await navigateWithFogTransition(router, '/templates')
+}
 </script>
 
 <template>
@@ -122,6 +126,17 @@ const handleOpenHistory = async () => {
         >
           <History class="w-3.5 h-3.5" />
           <span>历史记录</span>
+        </button>
+
+        <button
+          v-if="props.immersive"
+          class="titlebar-utility"
+          type="button"
+          title="模板管理"
+          @click="handleOpenTemplates"
+        >
+          <Layers class="w-3.5 h-3.5" />
+          <span>模板管理</span>
         </button>
 
         <button

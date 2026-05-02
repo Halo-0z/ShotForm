@@ -3,7 +3,8 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeft, Trash2, Eye, Clock, ChevronRight, ChevronDown, FileVideo, Image, Loader2 } from 'lucide-vue-next'
+import ConfirmDialog from '@/components/ui/confirm-dialog/ConfirmDialog.vue'
+import { ArrowLeft, Search, Trash2, Eye, Clock, ChevronRight, ChevronDown, FileVideo, Image, Loader2 } from 'lucide-vue-next'
 import { PAGE_COVER_ART } from '@/lib/page-cover-art'
 import { useAnalysisStore } from '@/stores/analysis'
 import type { AnalysisHistory, ShotType } from '@/types'
@@ -15,12 +16,58 @@ const analysisStore = useAnalysisStore()
 const historyList = ref<AnalysisHistory[]>([])
 const isLoadingHistory = ref(true)
 
-onMounted(async () => {
+const PAGE_SIZE = 20
+const currentOffset = ref(0)
+const hasMore = ref(false)
+const isLoadingMore = ref(false)
+const searchQuery = ref('')
+const shotTypeFilter = ref<ShotType | ''>('')
+
+const filteredHistory = computed(() => {
+  let list = historyList.value
+
+  if (shotTypeFilter.value) {
+    list = list.filter(r => r.analysis.shotType === shotTypeFilter.value)
+  }
+
+  if (searchQuery.value.trim()) {
+    const q = searchQuery.value.trim().toLowerCase()
+    list = list.filter(r => {
+      const typeName = getShotTypeName(r.analysis.shotType).toLowerCase()
+      return typeName.includes(q)
+    })
+  }
+
+  return list
+})
+
+const loadInitial = async () => {
+  isLoadingHistory.value = true
   try {
-    historyList.value = await analysisStore.getHistory()
+    const page = await analysisStore.getHistoryPage(PAGE_SIZE, 0)
+    historyList.value = page
+    currentOffset.value = page.length
+    hasMore.value = page.length === PAGE_SIZE
   } finally {
     isLoadingHistory.value = false
   }
+}
+
+const loadMore = async () => {
+  if (isLoadingMore.value || !hasMore.value) return
+  isLoadingMore.value = true
+  try {
+    const page = await analysisStore.getHistoryPage(PAGE_SIZE, currentOffset.value)
+    historyList.value = [...historyList.value, ...page]
+    currentOffset.value += page.length
+    hasMore.value = page.length === PAGE_SIZE
+  } finally {
+    isLoadingMore.value = false
+  }
+}
+
+onMounted(() => {
+  void loadInitial()
 })
 
 const goBack = () => {
@@ -39,12 +86,16 @@ const formatRelativeTime = (timestamp: number) => {
   const minutes = Math.floor(diff / 60000)
   const hours = Math.floor(diff / 3600000)
   const days = Math.floor(diff / 86400000)
+  const weeks = Math.floor(days / 7)
+  const months = Math.floor(days / 30)
 
   if (minutes < 1) return '刚刚'
   if (minutes < 60) return `${minutes}分钟前`
   if (hours < 24) return `${hours}小时前`
   if (days < 7) return `${days}天前`
-  return formatDate(timestamp)
+  if (weeks < 4) return `${weeks}周前`
+  if (months < 12) return `${months}个月前`
+  return '很久以前'
 }
 
 const viewDetail = (record: AnalysisHistory) => {
@@ -53,10 +104,32 @@ const viewDetail = (record: AnalysisHistory) => {
 }
 
 const deleteHistory = async (id: number) => {
-  if (confirm('确定要删除这条记录吗？')) {
+  pendingDeleteId.value = id
+  confirmDialogOpen.value = true
+}
+
+const confirmDialogOpen = ref(false)
+const pendingDeleteId = ref<number | null>(null)
+const isDeleting = ref(false)
+
+const handleConfirmDelete = async () => {
+  const id = pendingDeleteId.value
+  if (id == null) return
+
+  isDeleting.value = true
+  try {
     await analysisStore.deleteHistory(id)
     historyList.value = historyList.value.filter(h => h.id !== id)
+  } finally {
+    isDeleting.value = false
+    confirmDialogOpen.value = false
+    pendingDeleteId.value = null
   }
+}
+
+const handleCancelDelete = () => {
+  confirmDialogOpen.value = false
+  pendingDeleteId.value = null
 }
 
 interface HistoryGroup {
@@ -69,7 +142,7 @@ interface HistoryGroup {
 const groupedHistory = computed<HistoryGroup[]>(() => {
   const groups = new Map<string, HistoryGroup>()
 
-  for (const record of historyList.value) {
+  for (const record of filteredHistory.value) {
     const sourceId = record.sourceIdentifier || 'unknown'
     const existing = groups.get(sourceId)
 
@@ -110,11 +183,8 @@ const isExpanded = (sourceIdentifier: string) => expandedGroups.value.has(source
 
 <template>
   <div class="history-page">
-    <div
-      class="history-page__cover"
-      :style="{ backgroundImage: `url(${PAGE_COVER_ART.history})` }"
-      aria-hidden="true"
-    />
+    <div class="history-page__cover" :style="{ backgroundImage: `url(${PAGE_COVER_ART.history})` }"
+      aria-hidden="true" />
     <div class="history-page__veil" aria-hidden="true" />
 
     <div class="history-page__content">
@@ -141,19 +211,25 @@ const isExpanded = (sourceIdentifier: string) => expandedGroups.value.has(source
               <p class="history-archive__eyebrow">Session Archive</p>
               <h2 class="history-archive__title">继续查看以往分析</h2>
             </div>
-            <p class="history-archive__hint">按来源文件分组，展开后可查看该文件的所有分析记录。</p>
+            <div class="history-archive__filters">
+              <div class="history-archive__search">
+                <Search class="history-archive__search-icon h-3.5 w-3.5" />
+                <input v-model="searchQuery" class="history-archive__search-input" type="text"
+                  placeholder="搜索投篮分型..." />
+              </div>
+              <select v-model="shotTypeFilter" class="history-archive__select">
+                <option value="">全部分型</option>
+                <option value="one_motion">一段式投篮</option>
+                <option value="one_point_five_motion">1.5 段式投篮</option>
+                <option value="two_motion">二段式投篮</option>
+                <option value="unknown">分型待确认</option>
+              </select>
+            </div>
           </header>
 
           <div v-if="historyList.length > 0" class="history-archive__list">
-            <div
-              v-for="group in groupedHistory"
-              :key="group.sourceIdentifier"
-              class="history-group"
-            >
-              <button
-                class="history-group__header"
-                @click="toggleGroup(group.sourceIdentifier)"
-              >
+            <div v-for="group in groupedHistory" :key="group.sourceIdentifier" class="history-group">
+              <button class="history-group__header" @click="toggleGroup(group.sourceIdentifier)">
                 <div class="history-group__toggle">
                   <ChevronDown v-if="isExpanded(group.sourceIdentifier)" class="w-4 h-4" />
                   <ChevronRight v-else class="w-4 h-4" />
@@ -168,15 +244,8 @@ const isExpanded = (sourceIdentifier: string) => expandedGroups.value.has(source
                 </div>
               </button>
 
-              <div
-                v-show="isExpanded(group.sourceIdentifier)"
-                class="history-group__content"
-              >
-                <article
-                  v-for="record in group.records"
-                  :key="record.id"
-                  class="history-session-row"
-                >
+              <div v-show="isExpanded(group.sourceIdentifier)" class="history-group__content">
+                <article v-for="record in group.records" :key="record.id" class="history-session-row">
                   <div class="history-session-row__time">
                     <p class="history-session-row__label">分析时间</p>
                     <div class="history-session-row__timestamp">
@@ -208,12 +277,9 @@ const isExpanded = (sourceIdentifier: string) => expandedGroups.value.has(source
                       <Eye class="w-4 h-4" />
                       查看分析
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
+                    <Button variant="outline" size="sm"
                       class="text-[var(--color-danger)] hover:bg-[var(--color-danger-bg)]"
-                      @click="deleteHistory(record.id)"
-                    >
+                      @click="deleteHistory(record.id)">
                       <Trash2 class="w-4 h-4" />
                     </Button>
                   </div>
@@ -222,16 +288,30 @@ const isExpanded = (sourceIdentifier: string) => expandedGroups.value.has(source
             </div>
           </div>
 
-          <div v-else class="history-empty-state">
+          <div v-if="hasMore && !searchQuery && !shotTypeFilter" class="history-archive__more">
+            <Button variant="outline" :loading="isLoadingMore" :disabled="isLoadingMore" @click="void loadMore()">
+              加载更多记录
+            </Button>
+          </div>
+
+          <div v-if="groupedHistory.length === 0" class="history-empty-state">
             <Clock class="w-12 h-12 text-[var(--text-muted)] mb-4" />
-            <h2 class="history-empty-state__title">还没有投篮档案记录</h2>
+            <h2 class="history-empty-state__title">
+              {{ historyList.length === 0 ? '还没有投篮档案记录' : '未找到匹配的记录' }}
+            </h2>
             <p class="history-empty-state__copy">
-              完成第一次分析后，这里会按来源文件分组记录每次训练结果，并提供查看分析入口。
+              {{ historyList.length === 0
+                ? '完成第一次分析后，这里会按来源文件分组记录每次训练结果，并提供查看分析入口。'
+                : '尝试调整搜索关键词或筛选条件。' }}
             </p>
           </div>
         </template>
       </section>
     </div>
+
+    <ConfirmDialog :open="confirmDialogOpen" title="确定要删除这条记录吗？" description="删除后无法恢复，但你可以重新上传分析。" confirm-label="删除"
+      variant="danger" :loading="isDeleting" @confirm="handleConfirmDelete" @cancel="handleCancelDelete"
+      @update:open="confirmDialogOpen = $event" />
   </div>
 </template>
 
@@ -265,11 +345,9 @@ const isExpanded = (sourceIdentifier: string) => expandedGroups.value.has(source
 .history-page__veil {
   background:
     radial-gradient(circle at 72% 22%, color-mix(in srgb, var(--accent-color) 8%, transparent), transparent 22%),
-    linear-gradient(
-      180deg,
+    linear-gradient(180deg,
       color-mix(in srgb, var(--bg-solid) 58%, transparent),
-      color-mix(in srgb, var(--bg-solid) 90%, var(--background))
-    );
+      color-mix(in srgb, var(--bg-solid) 90%, var(--background)));
   opacity: 0.44;
 }
 
@@ -349,6 +427,69 @@ const isExpanded = (sourceIdentifier: string) => expandedGroups.value.has(source
   font-size: 13px;
   line-height: 1.6;
   color: var(--text-secondary);
+}
+
+.history-archive__filters {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.history-archive__search {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.history-archive__search-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.history-archive__search-input {
+  width: 200px;
+  height: 34px;
+  padding: 0 12px 0 34px;
+  border-radius: 10px;
+  border: 1px solid var(--surface-border);
+  background: var(--glass-xs);
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.history-archive__search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.history-archive__search-input:focus {
+  border-color: var(--primary-color);
+}
+
+.history-archive__select {
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1px solid var(--surface-border);
+  background: var(--glass-xs);
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.history-archive__select:focus {
+  border-color: var(--primary-color);
+}
+
+.history-archive__more {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0 4px;
 }
 
 .history-archive__loading {

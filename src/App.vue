@@ -3,12 +3,18 @@ import { computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import FogRouteTransition from '@/components/transition/FogRouteTransition.vue'
 import TitleBar from '@/components/TitleBar.vue'
+import ErrorBoundary from '@/components/ErrorBoundary.vue'
+import ToastContainer from '@/components/ui/toast/Toast.vue'
 import { useTheme } from '@/composables/useTheme'
+import { useToast } from '@/composables/useToast'
+import { useGlobalShortcuts } from '@/composables/useGlobalShortcuts'
 import { COPY_LOCK_CLASS, createCopyGuardHandlers } from '@/lib/copy-guard.js'
 
 const route = useRoute()
 const { initTheme } = useTheme()
 const { handleCopy, handleCut } = createCopyGuardHandlers()
+const { messages, dismiss } = useToast()
+useGlobalShortcuts()
 
 const isImmersiveChrome = computed(() => Boolean(route.meta.immersiveChrome))
 const isWorkbenchChrome = computed(() => Boolean(route.meta.workbenchPage))
@@ -30,8 +36,11 @@ onUnmounted(() => {
     <TitleBar :immersive="isImmersiveChrome" :workbench="isWorkbenchChrome" />
     <FogRouteTransition />
     <div class="app-content" :class="{ 'immersive-home': isImmersiveChrome }">
-      <router-view />
+      <ErrorBoundary>
+        <router-view />
+      </ErrorBoundary>
     </div>
+    <ToastContainer :messages="messages" @remove="dismiss" />
   </div>
 </template>
 

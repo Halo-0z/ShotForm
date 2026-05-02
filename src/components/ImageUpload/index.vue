@@ -113,7 +113,7 @@ export const getImageAnalysisCtaState = ({
 import { computed, ref } from 'vue'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Crop, Loader2, Scissors, Upload as UploadIcon, X } from 'lucide-vue-next'
+import { Crop, Loader2, Scissors, Upload as UploadIcon } from 'lucide-vue-next'
 
 const props = withDefaults(defineProps<{
   desktopAnalysisAvailable?: boolean
@@ -352,12 +352,6 @@ const clearPreview = () => {
         <div class="flex flex-col gap-5 lg:flex-row">
           <div class="relative h-40 w-full overflow-hidden rounded-[1.5rem] border border-[color-mix(in_srgb,var(--surface-border)_78%,transparent)] bg-[color-mix(in_srgb,var(--bg-solid)_94%,var(--surface-color))] shadow-[0_10px_24px_rgba(24,29,38,0.06)] lg:h-44 lg:w-44 lg:flex-shrink-0">
             <img :src="previewUrl" class="h-full w-full object-cover" alt="Preview" />
-            <button
-              class="absolute right-2 top-2 rounded-full border border-[color-mix(in_srgb,var(--surface-border)_78%,transparent)] bg-[color-mix(in_srgb,var(--card-bg)_92%,var(--bg-solid))] p-1.5 text-[var(--text-primary)] shadow-[0_10px_18px_rgba(24,29,38,0.16)] transition-transform duration-200 hover:scale-105"
-              @click="clearPreview"
-            >
-              <X class="h-4 w-4" />
-            </button>
           </div>
 
           <div class="min-w-0 flex-1">

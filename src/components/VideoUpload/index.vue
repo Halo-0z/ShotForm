@@ -63,7 +63,7 @@ import { open } from '@tauri-apps/plugin-dialog'
 import { readFile } from '@tauri-apps/plugin-fs'
 import { basename } from '@tauri-apps/api/path'
 import { Button } from '@/components/ui/button'
-import { Film, Loader2, Pause, Play, Scissors, Upload, X, Volume2, VolumeX, Maximize2 } from 'lucide-vue-next'
+import { Film, Loader2, Pause, Play, Scissors, Upload, Volume2, VolumeX, Maximize2 } from 'lucide-vue-next'
 
 const props = withDefaults(defineProps<{
   desktopAnalysisAvailable?: boolean
@@ -152,7 +152,7 @@ const helperNoteClass = computed(() => props.compact ? 'rounded-2xl border borde
 const compactHelperText = computed(() => props.compact
   ? '不修改原视频，只分析当前选中的动作区间。'
   : '这一步不会修改原视频，只是限定分析区间。我们会从你选中的片段里抽关键帧，做逐帧骨骼点和投篮分型判断。')
-const actionRowClass = computed(() => props.compact ? 'mt-auto flex flex-wrap items-center gap-2 border-t border-[color-mix(in_srgb,var(--surface-border)_80%,transparent)] pt-3' : 'flex flex-wrap gap-3')
+const actionRowClass = computed(() => props.compact ? 'mt-auto flex flex-wrap items-center gap-2 border-t border-[color-mix(in_srgb,var(--surface-border)_80%,transparent)] pt-3' : 'flex flex-wrap items-center gap-3')
 const analysisCtaState = computed(() => getVideoAnalysisCtaState({
   previewUrl: previewUrl.value,
   durationMs: durationMs.value,
@@ -758,9 +758,6 @@ onUnmounted(() => {
                     {{ props.compact ? '先裁剪，再开始分析。' : '先裁剪分析范围，再交给 MediaPipe 做动态骨骼点分析' }}
                   </p>
                 </div>
-                <Button variant="outline" size="icon" @click="clearVideo">
-                  <X class="h-4 w-4" />
-                </Button>
               </div>
 
               <div :class="summaryPanelClass">
@@ -889,6 +886,7 @@ onUnmounted(() => {
                   <Upload v-else class="mr-2 h-4 w-4" />
                   {{ analysisCtaState.label }}
                 </Button>
+                <div class="video-action-divider" />
                 <Button variant="outline" size="lg" @click="pickVideo" :disabled="isBusy">
                   <Film class="mr-2 h-4 w-4" />
                   重新选择视频
@@ -1092,6 +1090,13 @@ onUnmounted(() => {
 
 .clip-range-input-end {
   z-index: 4;
+}
+
+.video-action-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--surface-border);
+  margin: 0 4px;
 }
 
 @media (max-width: 640px) {

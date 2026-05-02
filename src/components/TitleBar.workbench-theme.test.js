@@ -15,3 +15,10 @@ test('title bar consumes explicit workbench route intent instead of inferring wo
   assert.match(titleBarSource, /workbench:\s*props\.workbench/)
   assert.doesNotMatch(titleBarSource, /'workbench': !props\.immersive/)
 })
+
+test('title bar controls expose visible focus states for keyboard navigation', () => {
+  assert.match(titleBarSource, /\.titlebar-btn:focus-visible\s*\{/)
+  assert.match(titleBarSource, /\.titlebar-utility:focus-visible\s*\{/)
+  assert.match(titleBarSource, /outline:\s*2px solid/)
+  assert.match(titleBarSource, /outline-offset:\s*2px/)
+})

@@ -48,3 +48,23 @@ test('evidence-oriented variants do not replace default button language', () => 
   assert.match(source, /defaultVariants:\s*{[\s\S]*variant:\s*"default"/)
   assert.doesNotMatch(source, /defaultVariants:\s*{[\s\S]*variant:\s*"(accent|destructive|upload-cta)"/)
 })
+
+test('global button reset stays in the base layer and does not remove focus outlines', () => {
+  assert.match(cssSource, /@layer base\s*\{[\s\S]*button\s*\{[\s\S]*background:\s*transparent/)
+  assert.doesNotMatch(cssSource, /button\s*\{[\s\S]*outline:\s*none[\s\S]*\}/)
+})
+
+test('shared button surface uses explicit premium interaction states', () => {
+  assert.match(source, /button-surface/)
+  assert.doesNotMatch(source, /transition-all/)
+
+  const buttonSurfaceBlock = getCssRuleBlock('button-surface')
+  assert.match(buttonSurfaceBlock, /transition:\s*color/)
+  assert.match(buttonSurfaceBlock, /background-color/)
+  assert.match(buttonSurfaceBlock, /box-shadow/)
+  assert.match(buttonSurfaceBlock, /transform/)
+
+  assert.match(cssSource, /\.button-surface:hover:not\(:disabled\)/)
+  assert.match(cssSource, /\.button-surface:active:not\(:disabled\)/)
+  assert.match(cssSource, /\.button-surface:focus-visible/)
+})

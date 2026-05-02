@@ -319,6 +319,12 @@ const handleOpenHistory = async () => {
   transform: translateY(0);
 }
 
+.titlebar-utility:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--primary-color) 72%, transparent);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary-color) 18%, transparent);
+}
+
 .titlebar-utility svg {
   opacity: 0.82;
 }
@@ -409,6 +415,17 @@ const handleOpenHistory = async () => {
 
 .titlebar-btn:active {
   transform: scale(0.92);
+}
+
+.titlebar-btn:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--primary-color) 72%, transparent);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary-color) 18%, transparent);
+}
+
+.titlebar-btn:focus-visible::after {
+  background: var(--titlebar-btn-hover-surface);
+  box-shadow: var(--titlebar-btn-hover-shadow);
 }
 
 .titlebar.workbench .titlebar-btn:active {

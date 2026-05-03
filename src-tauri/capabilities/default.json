@@ -3,7 +3,8 @@
   "identifier": "default",
   "description": "Capability for the main window",
   "windows": [
-    "main"
+    "main",
+    "tray-menu"
   ],
   "permissions": [
     "core:default",
@@ -19,6 +20,7 @@
     "core:window:allow-is-always-on-top",
     "shell:allow-open",
     "dialog:default",
-    "fs:default"
+    "fs:default",
+    "notification:default"
   ]
 }

@@ -42,6 +42,14 @@
   "plugins": {
     "shell": {
       "open": true
+    },
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://github.com/Halo-0z/basketball-shot-analyzer/releases/latest/download/latest.json"
+      ],
+      "dialog": true,
+      "pubkey": "REPLACE_WITH_YOUR_PUBLIC_KEY"
     }
   }
 }

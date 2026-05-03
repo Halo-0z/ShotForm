@@ -6,16 +6,17 @@ pub mod image;
 pub mod models;
 pub mod pose;
 
-use tauri::{Emitter, Manager};
+use std::sync::atomic::{AtomicI64, Ordering};
+use std::time::UNIX_EPOCH;
+
+use tauri::Manager;
 
 const TRAY_WINDOW_LABEL: &str = "tray-menu";
 const TRAY_WINDOW_WIDTH: f64 = 376.0;
 const TRAY_WINDOW_HEIGHT: f64 = 492.0;
+const TRAY_DEBOUNCE_MS: i64 = 400;
 
-#[derive(Clone, serde::Serialize)]
-struct TrayRoutePayload {
-    path: String,
-}
+static TRAY_LAST_CLICK_MS: AtomicI64 = AtomicI64::new(0);
 
 fn show_main_window(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
@@ -54,16 +55,20 @@ fn position_tray_window(window: &tauri::WebviewWindow, rect: &tauri::Rect) -> ta
     ))
 }
 
-fn toggle_tray_window(app: &tauri::AppHandle, rect: &tauri::Rect) {
+fn show_tray_window(app: &tauri::AppHandle, rect: &tauri::Rect) {
+    let now_ms = UNIX_EPOCH
+        .elapsed()
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(0);
+    let prev = TRAY_LAST_CLICK_MS.swap(now_ms, Ordering::SeqCst);
+    if now_ms - prev < TRAY_DEBOUNCE_MS {
+        return;
+    }
+
     if let Some(window) = app.get_webview_window(TRAY_WINDOW_LABEL) {
-        let is_visible = window.is_visible().unwrap_or(false);
-        if is_visible {
-            let _ = window.hide();
-        } else {
-            let _ = position_tray_window(&window, rect);
-            let _ = window.show();
-            let _ = window.set_focus();
-        }
+        let _ = position_tray_window(&window, rect);
+        let _ = window.show();
+        let _ = window.set_focus();
     }
 }
 
@@ -82,7 +87,13 @@ fn tray_hide_panel(app: tauri::AppHandle) {
 fn tray_open_route(app: tauri::AppHandle, path: String) {
     hide_tray_window(&app);
     show_main_window(&app);
-    let _ = app.emit_to("main", "tray://open-route", TrayRoutePayload { path });
+    if let Some(window) = app.get_webview_window("main") {
+        let js = format!(
+            "window.history.pushState({{v: Date.now()}}, '', '{}'); window.dispatchEvent(new PopStateEvent('popstate'))",
+            path
+        );
+        let _ = window.eval(&js);
+    }
 }
 
 #[tauri::command]
@@ -130,9 +141,6 @@ pub fn run() {
                     api.prevent_close();
                     let _ = tray_window_clone.hide();
                 }
-                tauri::WindowEvent::Focused(false) => {
-                    let _ = tray_window_clone.hide();
-                }
                 _ => {}
             });
 
@@ -142,19 +150,18 @@ pub fn run() {
                     let app = tray.app_handle();
                     match event {
                         tauri::tray::TrayIconEvent::Click {
-                            button:
-                                tauri::tray::MouseButton::Left | tauri::tray::MouseButton::Right,
-                            rect,
-                            ..
-                        } => {
-                            toggle_tray_window(app, &rect);
-                        }
-                        tauri::tray::TrayIconEvent::DoubleClick {
                             button: tauri::tray::MouseButton::Left,
                             ..
                         } => {
                             hide_tray_window(app);
                             show_main_window(app);
+                        }
+                        tauri::tray::TrayIconEvent::Click {
+                            button: tauri::tray::MouseButton::Right,
+                            rect,
+                            ..
+                        } => {
+                            show_tray_window(app, &rect);
                         }
                         _ => {}
                     }

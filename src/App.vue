@@ -31,7 +31,7 @@ onMounted(() => {
     document.addEventListener("copy", handleCopy)
     document.addEventListener("cut", handleCut)
 
-    if (hasTauriRuntime()) {
+    if (hasTauriRuntime() && !isTrayPanel.value) {
         void import("@tauri-apps/api/event").then(async ({ listen }) => {
             unlistenTrayRoute = await listen<{ path: string }>("tray://open-route", (event) => {
                 if (event.payload?.path) {

@@ -87,14 +87,23 @@ function handleKeydown(event: KeyboardEvent) {
     }
 }
 
+function handleMousedown(event: MouseEvent) {
+    const panel = document.querySelector(".tray-menu-panel")
+    if (panel && !panel.contains(event.target as Node)) {
+        void hidePanel()
+    }
+}
+
 onMounted(() => {
     document.body.classList.add("tray-panel-window")
     window.addEventListener("keydown", handleKeydown)
+    window.addEventListener("mousedown", handleMousedown)
 })
 
 onUnmounted(() => {
     document.body.classList.remove("tray-panel-window")
     window.removeEventListener("keydown", handleKeydown)
+    window.removeEventListener("mousedown", handleMousedown)
 })
 </script>
 

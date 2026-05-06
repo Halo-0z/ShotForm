@@ -95,7 +95,7 @@ const handleStart = async () => {
                 </div>
                 <div class="home-page__privacy-text">
                     <h3>隐私与安全保障</h3>
-                    <p>我们仅在本地处理你上传的视频，确保你的数据安全与隐私不被泄露。</p>
+                    <p>基础分析在本地完成，AI 分析会将图像和分析数据发送至腾讯混元云服务处理。</p>
                 </div>
                 <div class="home-page__privacy-badge">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">

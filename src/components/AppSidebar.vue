@@ -145,7 +145,7 @@ const handleNav = async (item: NavItem) => {
 .app-sidebar__nav {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 6px;
     flex: 1;
     padding-top: 4px;
 }
@@ -153,8 +153,8 @@ const handleNav = async (item: NavItem) => {
 .app-sidebar__nav-item {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 10px 12px;
+    gap: 12px;
+    padding: 12px 12px;
     border-radius: 10px;
     font-size: 14px;
     font-weight: 500;
@@ -186,8 +186,8 @@ const handleNav = async (item: NavItem) => {
 }
 
 .app-sidebar__nav-icon {
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
     flex-shrink: 0;
 }
 

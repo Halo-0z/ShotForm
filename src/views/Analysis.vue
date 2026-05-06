@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from "vue"
-import { useRouter } from "vue-router"
 import {
     Play,
     Pause,
@@ -20,7 +19,6 @@ import AngleAnalysisChart from "@/components/analysis/AngleAnalysisChart.vue"
 import AngleDeviationCards from "@/components/analysis/AngleDeviationCards.vue"
 import AISuggestionList from "@/components/analysis/AISuggestionList.vue"
 
-const router = useRouter()
 const analysisStore = useAnalysisStore()
 
 const analysis = computed(() => analysisStore.currentAnalysis)
@@ -31,14 +29,26 @@ const currentAiSuggestions = computed(() => analysisStore.currentAiCoachingSugge
 const aiSuggestionsCount = computed(() => analysisStore.currentAiCoachingSuggestions.length)
 
 const shotTypeName = computed(() => {
+    if (videoAnalysis.value) {
+        return getShotTypeName(videoAnalysis.value.overallShotType) ?? "一段式投篮"
+    }
     const a = analysis.value
     if (!a) return "一段式投篮"
     return getShotTypeName(a.shotType) ?? "一段式投篮"
 })
 
+const displayAnalysis = computed(() => {
+    if (videoAnalysis.value) {
+        const va = videoAnalysis.value
+        return va.frames[va.bestFrameIndex]?.analysis ?? analysis.value
+    }
+    return analysis.value
+})
+
 const score = computed(() => {
-    if (!analysis.value) return 86
-    const angles = analysis.value.angles
+    const analysisToScore = displayAnalysis.value
+    if (!analysisToScore) return 86
+    const angles = analysisToScore.angles
     const scoreMap = new Map<string, number>()
     for (const angle of angles) {
         if (!angle.value || angle.value <= 0) continue
@@ -71,6 +81,9 @@ const score = computed(() => {
 })
 
 const confidencePercent = computed(() => {
+    if (videoAnalysis.value) {
+        return Math.round((videoAnalysis.value.overallShotTypeConfidence ?? 0) * 1000) / 10
+    }
     if (!analysis.value) return 54.8
     return Math.round((analysis.value.shotTypeConfidence ?? 0) * 1000) / 10
 })
@@ -83,6 +96,9 @@ const confidenceGrade = computed(() => {
 })
 
 const analysisReasons = computed(() => {
+    if (videoAnalysis.value?.overallReasons?.length) {
+        return videoAnalysis.value.overallReasons
+    }
     if (!analysis.value || !analysis.value.shotTypeReasons?.length) {
         return ["整体动作流畅，投篮发力较好，出手稳定性中等，建议优化起跳与手肘的协同发力。"]
     }
@@ -365,9 +381,10 @@ onUnmounted(() => {
 
                         <div class="analysis-workbench__conclusion-main">
                             <h3 class="analysis-workbench__judgment">
-                                当前判断：<span class="analysis-workbench__judgment-type">{{
-                                    shotTypeName
-                                }}</span>
+                                {{ videoAnalysis ? "最终判断" : "当前判断" }}：<span
+                                    class="analysis-workbench__judgment-type"
+                                    >{{ shotTypeName }}</span
+                                >
                             </h3>
                             <p class="analysis-workbench__conclusion-desc">
                                 整体动作流畅，投篮发力较好，出手稳定性中等，建议优化起跳与手肘的协同发力。
@@ -508,7 +525,7 @@ onUnmounted(() => {
                             </button>
                         </div>
                     </div>
-                    <AngleAnalysisChart :angles="analysis?.angles ?? []" />
+                    <AngleAnalysisChart :angles="displayAnalysis?.angles ?? []" />
                 </section>
 
                 <section class="analysis-workbench__timeline-section">
@@ -576,62 +593,6 @@ onUnmounted(() => {
             </div>
 
             <div class="analysis-workbench__right">
-                <section class="analysis-workbench__visualizer">
-                    <div class="analysis-workbench__visualizer-header">
-                        <h3 class="analysis-workbench__visualizer-title">动作可视化</h3>
-                        <Info class="h-4 w-4 analysis-workbench__section-info" />
-                    </div>
-                    <div class="analysis-workbench__video-player">
-                        <canvas
-                            v-if="frames.length > 0"
-                            ref="videoCanvasRef"
-                            class="analysis-workbench__canvas"
-                        />
-                        <div v-else class="analysis-workbench__video-empty">
-                            <Play class="h-8 w-8" />
-                        </div>
-                        <div class="analysis-workbench__video-controls">
-                            <button
-                                class="analysis-workbench__video-play-btn"
-                                @click="togglePlayback"
-                            >
-                                <Pause v-if="isPlaying" class="h-4 w-4" />
-                                <Play v-else class="h-4 w-4" />
-                            </button>
-                            <div class="analysis-workbench__video-progress">
-                                <div
-                                    class="analysis-workbench__video-progress-fill"
-                                    :style="{
-                                        width: `${frames.length > 0 ? ((currentFrameIndex + 1) / frames.length) * 100 : 0}%`,
-                                    }"
-                                />
-                            </div>
-                            <span class="analysis-workbench__video-time"
-                                >{{ currentTimestampDisplay }} /
-                                {{
-                                    frames.length > 0
-                                        ? formatTime(frames[frames.length - 1]?.timestampMs ?? 0)
-                                        : "0:00"
-                                }}</span
-                            >
-                            <div class="analysis-workbench__video-speeds">
-                                <button
-                                    v-for="speed in [0.5, 1, 1.5]"
-                                    :key="speed"
-                                    class="analysis-workbench__video-speed-btn"
-                                    :class="{
-                                        'analysis-workbench__video-speed-btn--active':
-                                            playbackSpeed === speed,
-                                    }"
-                                    @click="playbackSpeed = speed"
-                                >
-                                    {{ speed }}x
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
                 <section class="analysis-workbench__deviation">
                     <div class="analysis-workbench__deviation-header">
                         <h3 class="analysis-workbench__deviation-title">关键角度偏差</h3>
@@ -669,7 +630,7 @@ onUnmounted(() => {
 
 <style scoped>
 .analysis-workbench {
-    padding: 20px 28px 32px;
+    padding: clamp(3.75rem, 6vh, 4.5rem) 28px 32px;
     display: flex;
     flex-direction: column;
     gap: 20px;

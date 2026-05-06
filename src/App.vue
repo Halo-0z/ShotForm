@@ -70,9 +70,11 @@ onUnmounted(() => {
                     :workbench="isWorkbenchChrome"
                 />
                 <FogRouteTransition v-if="!isTrayPanel" />
-                <ErrorBoundary>
-                    <router-view />
-                </ErrorBoundary>
+                <div class="app-viewport" :class="{ 'tray-panel': isTrayPanel }">
+                    <ErrorBoundary>
+                        <router-view />
+                    </ErrorBoundary>
+                </div>
             </div>
         </div>
         <ToastContainer v-if="!isTrayPanel" :messages="messages" @remove="dismiss" />
@@ -125,9 +127,9 @@ body,
     flex: 1;
     min-height: 0;
     position: relative;
-    overflow-x: hidden;
-    overflow-y: auto;
-    scrollbar-gutter: stable;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 .app-content.immersive-home {
@@ -137,6 +139,18 @@ body,
 .app-content.tray-panel {
     overflow: hidden;
     background: transparent;
+}
+
+.app-viewport {
+    flex: 1;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+}
+
+.app-viewport.tray-panel {
+    overflow: hidden;
 }
 
 .app-copy-locked,

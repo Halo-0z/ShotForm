@@ -221,14 +221,19 @@ const handleOpenTemplates = async () => {
     z-index: 100;
 }
 
-.titlebar:not(.workbench) {
+.titlebar:not(.workbench):not(.immersive) {
     background: transparent;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
 }
 
 .titlebar.workbench {
-    background: transparent;
+    position: sticky;
+    top: 0;
+    left: 0;
+    right: 0;
+    margin-bottom: -48px;
+    background: var(--bg-solid);
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
     border-bottom: none;

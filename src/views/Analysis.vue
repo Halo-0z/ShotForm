@@ -525,7 +525,7 @@ onUnmounted(() => {
                             </button>
                         </div>
                     </div>
-                    <AngleAnalysisChart :angles="displayAnalysis?.angles ?? []" />
+                    <AngleAnalysisChart :angles="analysis?.angles ?? []" />
                 </section>
 
                 <section class="analysis-workbench__timeline-section">

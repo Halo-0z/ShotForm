@@ -23,75 +23,42 @@ const chartData = computed(() => {
 
 const maxAngle = computed(() => {
     const allValues = chartData.value.flatMap((d) => [d.value, d.normalMax])
-    const max = Math.max(...allValues, 0)
+    const max = Math.max(...allValues, 180)
     return Math.ceil(max / 30) * 30
 })
+
+const valuePct = (v: number) => `${(v / maxAngle.value) * 100}%`
 </script>
 
 <template>
     <div class="angle-chart">
+        <div class="angle-chart__scale">
+            <span>{{ maxAngle }}°</span>
+            <span>{{ Math.round(maxAngle / 2) }}°</span>
+            <span>0°</span>
+        </div>
+
         <div class="angle-chart__bars">
-            <div v-for="(item, idx) in chartData" :key="idx" class="angle-chart__bar-group">
-                <div class="angle-chart__bar-track">
+            <div v-for="(item, idx) in chartData" :key="idx" class="angle-chart__col">
+                <div class="angle-chart__track">
                     <div
-                        class="angle-chart__normal-range"
+                        class="angle-chart__normal-band"
                         :style="{
-                            bottom: `${(item.normalMin / maxAngle) * 100}%`,
-                            height: `${((item.normalMax - item.normalMin) / maxAngle) * 100}%`,
+                            bottom: valuePct(item.normalMin),
+                            top: `calc(100% - ${valuePct(item.normalMax)})`,
                         }"
                     />
                     <div
                         class="angle-chart__bar"
-                        :class="`angle-chart__bar--${item.status === 'normal' ? 'good' : item.status === 'warning' ? 'warning' : 'error'}`"
-                        :style="{ height: `${(item.value / maxAngle) * 100}%` }"
+                        :class="`angle-chart__bar--${item.status}`"
+                        :style="{ height: valuePct(item.value) }"
                     />
+                    <span class="angle-chart__value" :class="`angle-chart__value--${item.status}`">
+                        {{ item.value }}°
+                    </span>
                 </div>
-                <span class="angle-chart__bar-label">{{ item.name }}</span>
+                <span class="angle-chart__label">{{ item.name }}</span>
             </div>
-        </div>
-
-        <svg class="angle-chart__axis-y" width="36" :height="180">
-            <line x1="30" y1="0" x2="30" y2="180" stroke="var(--surface-border)" stroke-width="1" />
-            <text x="24" y="8" text-anchor="end" fill="var(--text-muted)" font-size="10">
-                {{ maxAngle }}
-            </text>
-            <text x="24" y="94" text-anchor="end" fill="var(--text-muted)" font-size="10">
-                {{ Math.round(maxAngle / 2) }}
-            </text>
-            <text x="24" y="180" text-anchor="end" fill="var(--text-muted)" font-size="10">0</text>
-            <line
-                x1="30"
-                y1="90"
-                x2="36"
-                y2="90"
-                stroke="var(--surface-border)"
-                stroke-width="1"
-                stroke-dasharray="3 3"
-            />
-            <line x1="30" y1="0" x2="36" y2="0" stroke="var(--surface-border)" stroke-width="1" />
-            <line
-                x1="30"
-                y1="180"
-                x2="36"
-                y2="180"
-                stroke="var(--surface-border)"
-                stroke-width="1"
-            />
-        </svg>
-
-        <div class="angle-chart__legend">
-            <span class="angle-chart__legend-item">
-                <span class="angle-chart__legend-swatch angle-chart__legend-swatch--good" />
-                正常范围
-            </span>
-            <span class="angle-chart__legend-item">
-                <span class="angle-chart__legend-swatch angle-chart__legend-swatch--warning" />
-                偏差一般
-            </span>
-            <span class="angle-chart__legend-item">
-                <span class="angle-chart__legend-swatch angle-chart__legend-swatch--error" />
-                偏差较大
-            </span>
         </div>
     </div>
 </template>
@@ -99,41 +66,60 @@ const maxAngle = computed(() => {
 <style scoped>
 .angle-chart {
     display: flex;
+    gap: 4px;
+    padding: 8px 0 4px;
+}
+
+.angle-chart__scale {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
     align-items: flex-end;
-    gap: 12px;
-    padding: 8px 0;
+    height: 200px;
+    flex-shrink: 0;
+    padding-bottom: 24px;
+}
+
+.angle-chart__scale span {
+    font-size: 10px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-muted);
+    line-height: 1;
 }
 
 .angle-chart__bars {
     display: flex;
-    gap: 10px;
+    gap: 12px;
     flex: 1;
     justify-content: space-around;
     align-items: flex-end;
 }
 
-.angle-chart__bar-group {
+.angle-chart__col {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 8px;
+    flex: 1;
+    max-width: 72px;
 }
 
-.angle-chart__bar-track {
+.angle-chart__track {
     position: relative;
-    width: 32px;
-    height: 180px;
-    background: color-mix(in srgb, var(--text-muted) 8%, transparent);
+    width: 100%;
+    height: 200px;
+    background: color-mix(in srgb, var(--text-muted) 6%, transparent);
     border-radius: 4px;
 }
 
-.angle-chart__normal-range {
+.angle-chart__normal-band {
     position: absolute;
     left: 0;
     right: 0;
-    background: color-mix(in srgb, var(--color-success) 16%, transparent);
-    border: 1px dashed color-mix(in srgb, var(--color-success) 40%, transparent);
-    border-radius: 2px;
+    background: color-mix(in srgb, var(--color-success) 14%, transparent);
+    border-left: 1px solid color-mix(in srgb, var(--color-success) 30%, transparent);
+    border-right: 1px solid color-mix(in srgb, var(--color-success) 30%, transparent);
 }
 
 .angle-chart__bar {
@@ -142,10 +128,11 @@ const maxAngle = computed(() => {
     left: 0;
     right: 0;
     border-radius: 4px 4px 0 0;
-    transition: height 300ms ease;
+    min-height: 4px;
+    transition: height 400ms ease-out;
 }
 
-.angle-chart__bar--good {
+.angle-chart__bar--normal {
     background: var(--color-success);
 }
 
@@ -157,47 +144,34 @@ const maxAngle = computed(() => {
     background: var(--color-danger);
 }
 
-.angle-chart__bar-label {
+.angle-chart__value {
+    position: absolute;
+    top: -18px;
+    left: 50%;
+    transform: translateX(-50%);
     font-size: 11px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.angle-chart__value--normal {
+    color: var(--color-success);
+}
+
+.angle-chart__value--warning {
+    color: var(--color-warning);
+}
+
+.angle-chart__value--error {
+    color: var(--color-danger);
+}
+
+.angle-chart__label {
+    font-size: 11px;
+    font-weight: 600;
     color: var(--text-muted);
     text-align: center;
-    max-width: 64px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.angle-chart__legend {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    flex-shrink: 0;
-}
-
-.angle-chart__legend-item {
-    font-size: 11px;
-    color: var(--text-muted);
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.angle-chart__legend-swatch {
-    width: 12px;
-    height: 8px;
-    border-radius: 2px;
-    flex-shrink: 0;
-}
-
-.angle-chart__legend-swatch--good {
-    background: var(--color-success);
-}
-
-.angle-chart__legend-swatch--warning {
-    background: var(--color-warning);
-}
-
-.angle-chart__legend-swatch--error {
-    background: var(--color-danger);
+    line-height: 1.3;
 }
 </style>

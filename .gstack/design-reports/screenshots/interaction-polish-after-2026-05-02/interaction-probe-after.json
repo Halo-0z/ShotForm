@@ -1,0 +1,366 @@
+[
+    {
+        "route": "/compare",
+        "mode": "light",
+        "name": "/管理球星模板/",
+        "normal": {
+            "text": "管理球星模板",
+            "className": "button-surface inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium disabled:cursor-not-allowed disabled:opacity-[0.55] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-",
+            "bg": "rgba(250, 247, 242, 0.94)",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "borderColor": "rgba(103, 114, 130, 0.18)",
+            "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(20, 25, 34, 0.05) 0px 1px 2px 0px, rgba(20, 25, 34, 0.06) 0px 4px 10px 0px, rgba(255, 255, 255, 0.88) 0px 1px 0px 0px inset",
+            "transform": "none",
+            "outline": "oklab(0.57 -0.0273616 -0.0751754 / 0.5) none 0px"
+        },
+        "hover": {
+            "text": "管理球星模板",
+            "className": "button-surface inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium disabled:cursor-not-allowed disabled:opacity-[0.55] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-",
+            "bg": "rgba(250, 247, 242, 0.58)",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "borderColor": "rgba(103, 114, 130, 0.22)",
+            "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(20, 25, 34, 0.05) 0px 1px 2px 0px, rgba(20, 25, 34, 0.06) 0px 4px 10px 0px, rgba(255, 255, 255, 0.88) 0px 1px 0px 0px inset",
+            "transform": "matrix(1, 0, 0, 1, 0, -1)",
+            "outline": "oklab(0.57 -0.0273616 -0.0751754 / 0.5) none 0px"
+        },
+        "focus": {
+            "text": "管理球星模板",
+            "className": "button-surface inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium disabled:cursor-not-allowed disabled:opacity-[0.55] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-",
+            "bg": "rgba(250, 247, 242, 0.58)",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "borderColor": "rgba(103, 114, 130, 0.22)",
+            "shadow": "oklab(0.55184 -0.0110123 -0.0597715 / 0.153379) 0px 0px 0px 3.40841px, rgba(20, 25, 34, 0.043) 0px 0.852103px 1.70421px 0px, rgba(20, 25, 34, 0.05) 0px 3.40841px 8.52103px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(20, 25, 34, 0.008) 0px 0.147897px 0.295793px 0px, rgba(20, 25, 34, 0.008) 0px 0.591587px 1.47897px 0px, rgba(255, 255, 255, 0.13) 0px 0.147897px 0px 0px inset",
+            "transform": "matrix(1, 0, 0, 1, 0, -1)",
+            "outline": "color(srgb 0.364706 0.45098 0.588235 / 0.72) solid 2px"
+        }
+    },
+    {
+        "route": "/upload",
+        "mode": "light",
+        "name": "/图片/",
+        "normal": {
+            "text": "图片",
+            "className": "button-surface inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium disabled:cursor-not-allowed disabled:opacity-[0.55] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 bg-[var(--glass-s",
+            "bg": "rgba(250, 247, 242, 0.58)",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "borderColor": "rgba(103, 114, 130, 0.18)",
+            "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(20, 25, 34, 0.05) 0px 1px 2px 0px, rgba(20, 25, 34, 0.06) 0px 4px 10px 0px, rgba(255, 255, 255, 0.88) 0px 1px 0px 0px inset",
+            "transform": "none",
+            "outline": "oklab(0.57 -0.0273616 -0.0751754 / 0.5) none 0px"
+        },
+        "hover": {
+            "text": "图片",
+            "className": "button-surface inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium disabled:cursor-not-allowed disabled:opacity-[0.55] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 bg-[var(--glass-s",
+            "bg": "rgba(250, 247, 242, 0.72)",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "borderColor": "rgba(103, 114, 130, 0.22)",
+            "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(20, 25, 34, 0.05) 0px 1px 2px 0px, rgba(20, 25, 34, 0.06) 0px 4px 10px 0px, rgba(255, 255, 255, 0.88) 0px 1px 0px 0px inset",
+            "transform": "matrix(1, 0, 0, 1, 0, -1)",
+            "outline": "oklab(0.57 -0.0273616 -0.0751754 / 0.5) none 0px"
+        },
+        "focus": {
+            "text": "图片",
+            "className": "button-surface inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium disabled:cursor-not-allowed disabled:opacity-[0.55] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 bg-[var(--glass-s",
+            "bg": "rgba(250, 247, 242, 0.72)",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "borderColor": "rgba(103, 114, 130, 0.22)",
+            "shadow": "oklab(0.55184 -0.0110123 -0.0597715 / 0.166468) 0px 0px 0px 3.6993px, rgba(20, 25, 34, 0.047) 0px 0.924824px 1.84965px 0px, rgba(20, 25, 34, 0.055) 0px 3.6993px 9.24824px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(20, 25, 34, 0.004) 0px 0.075176px 0.150352px 0px, rgba(20, 25, 34, 0.004) 0px 0.300704px 0.75176px 0px, rgba(255, 255, 255, 0.067) 0px 0.075176px 0px 0px inset",
+            "transform": "matrix(1, 0, 0, 1, 0, -1)",
+            "outline": "color(srgb 0.364706 0.45098 0.588235 / 0.72) solid 2px"
+        }
+    },
+    {
+        "route": "/upload",
+        "mode": "light",
+        "name": "/选择视频/",
+        "normal": {
+            "text": "选择视频",
+            "className": "button-surface inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium disabled:cursor-not-allowed disabled:opacity-[0.55] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 button-va",
+            "bg": "rgb(73, 95, 128)",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "borderColor": "color(srgb 0.200941 0.270118 0.365647)",
+            "shadow": "rgba(20, 25, 34, 0.08) 0px 8px 20px 0px, rgba(20, 25, 34, 0.05) 0px 2px 8px 0px, rgba(255, 255, 255, 0.16) 0px 1px 0px 0px inset",
+            "transform": "none",
+            "outline": "oklab(0.57 -0.0273616 -0.0751754 / 0.5) none 0px"
+        },
+        "hover": {
+            "text": "选择视频",
+            "className": "button-surface inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium disabled:cursor-not-allowed disabled:opacity-[0.55] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 button-va",
+            "bg": "rgb(93, 115, 150)",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "borderColor": "rgb(73, 95, 128)",
+            "shadow": "rgba(20, 25, 34, 0.1) 0px 14px 30px 0px, rgba(20, 25, 34, 0.07) 0px 6px 14px 0px, rgba(255, 255, 255, 0.18) 0px 1px 0px 0px inset",
+            "transform": "matrix(1, 0, 0, 1, 0, -1)",
+            "outline": "oklab(0.57 -0.0273616 -0.0751754 / 0.5) none 0px"
+        },
+        "focus": {
+            "text": "选择视频",
+            "className": "button-surface inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium disabled:cursor-not-allowed disabled:opacity-[0.55] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 button-va",
+            "bg": "rgb(93, 115, 150)",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "borderColor": "rgb(73, 95, 128)",
+            "shadow": "rgba(20, 25, 34, 0.1) 0px 14px 30px 0px, rgba(20, 25, 34, 0.07) 0px 6px 14px 0px, rgba(255, 255, 255, 0.18) 0px 1px 0px 0px inset",
+            "transform": "matrix(1, 0, 0, 1, 0, -1)",
+            "outline": "color(srgb 0.364706 0.45098 0.588235 / 0.72) solid 2px"
+        }
+    },
+    {
+        "route": "/upload",
+        "mode": "light",
+        "name": "/首页/",
+        "normal": {
+            "text": "首页",
+            "className": "button-surface inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium disabled:cursor-not-allowed disabled:opacity-[0.55] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-[var(--g",
+            "bg": "rgba(0, 0, 0, 0)",
+            "borderWidth": "0px",
+            "borderStyle": "none",
+            "borderColor": "oklch(0.145 0 0)",
+            "shadow": "none",
+            "transform": "none",
+            "outline": "oklab(0.57 -0.0273616 -0.0751754 / 0.5) none 0px"
+        },
+        "hover": {
+            "text": "首页",
+            "className": "button-surface inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium disabled:cursor-not-allowed disabled:opacity-[0.55] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-[var(--g",
+            "bg": "rgba(250, 247, 242, 0.42)",
+            "borderWidth": "0px",
+            "borderStyle": "none",
+            "borderColor": "rgb(28, 33, 40)",
+            "shadow": "none",
+            "transform": "matrix(1, 0, 0, 1, 0, -1)",
+            "outline": "oklab(0.57 -0.0273616 -0.0751754 / 0.5) none 0px"
+        },
+        "focus": {
+            "text": "首页",
+            "className": "button-surface inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium disabled:cursor-not-allowed disabled:opacity-[0.55] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-[var(--g",
+            "bg": "rgba(250, 247, 242, 0.42)",
+            "borderWidth": "0px",
+            "borderStyle": "none",
+            "borderColor": "rgb(28, 33, 40)",
+            "shadow": "oklab(0.55184 -0.0110123 -0.0597715 / 0.16647) 0px 0px 0px 3.69932px, rgba(20, 25, 34, 0.047) 0px 0.924831px 1.84966px 0px, rgba(20, 25, 34, 0.055) 0px 3.69932px 9.24831px 0px",
+            "transform": "matrix(1, 0, 0, 1, 0, -1)",
+            "outline": "color(srgb 0.364706 0.45098 0.588235 / 0.72) solid 2px"
+        }
+    },
+    {
+        "route": "/compare",
+        "mode": "dark",
+        "name": "/管理球星模板/",
+        "normal": {
+            "text": "管理球星模板",
+            "className": "button-surface inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium disabled:cursor-not-allowed disabled:opacity-[0.55] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-",
+            "bg": "rgba(34, 41, 51, 0.92)",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "borderColor": "rgba(168, 180, 196, 0.18)",
+            "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.24) 0px 1px 3px 0px, rgba(255, 255, 255, 0.02) 0px 0px 0px 1px, rgba(255, 255, 255, 0.08) 0px 1px 0px 0px inset",
+            "transform": "none",
+            "outline": "oklab(0.67 -0.0224764 -0.055631 / 0.5) none 0px"
+        },
+        "hover": {
+            "text": "管理球星模板",
+            "className": "button-surface inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium disabled:cursor-not-allowed disabled:opacity-[0.55] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-",
+            "bg": "rgba(255, 255, 255, 0.05)",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "borderColor": "rgba(168, 180, 196, 0.2)",
+            "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.24) 0px 1px 3px 0px, rgba(255, 255, 255, 0.02) 0px 0px 0px 1px, rgba(255, 255, 255, 0.08) 0px 1px 0px 0px inset",
+            "transform": "matrix(1, 0, 0, 1, 0, -1)",
+            "outline": "oklab(0.67 -0.0224764 -0.055631 / 0.5) none 0px"
+        },
+        "focus": {
+            "text": "管理球星模板",
+            "className": "button-surface inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium disabled:cursor-not-allowed disabled:opacity-[0.55] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-",
+            "bg": "rgba(255, 255, 255, 0.05)",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "borderColor": "rgba(168, 180, 196, 0.2)",
+            "shadow": "oklab(0.609681 -0.0103631 -0.059791 / 0.166468) 0px 0px 0px 3.6993px, rgba(0, 0, 0, 0.22) 0px 0.924824px 2.77447px 0px, rgba(255, 255, 255, 0.02) 0px 0px 0px 0.924824px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.02) 0px 0.075176px 0.225528px 0px, rgba(255, 255, 255, 0) 0px 0px 0px 0.075176px, rgba(255, 255, 255, 0.008) 0px 0.075176px 0px 0px inset",
+            "transform": "matrix(1, 0, 0, 1, 0, -1)",
+            "outline": "color(srgb 0.431373 0.517647 0.658824 / 0.72) solid 2px"
+        }
+    },
+    {
+        "route": "/upload",
+        "mode": "dark",
+        "name": "/图片/",
+        "normal": {
+            "text": "图片",
+            "className": "button-surface inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium disabled:cursor-not-allowed disabled:opacity-[0.55] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 bg-[var(--glass-s",
+            "bg": "rgba(255, 255, 255, 0.05)",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "borderColor": "rgba(168, 180, 196, 0.18)",
+            "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.24) 0px 1px 3px 0px, rgba(255, 255, 255, 0.02) 0px 0px 0px 1px, rgba(255, 255, 255, 0.08) 0px 1px 0px 0px inset",
+            "transform": "none",
+            "outline": "oklab(0.67 -0.0224764 -0.055631 / 0.5) none 0px"
+        },
+        "hover": {
+            "text": "图片",
+            "className": "button-surface inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium disabled:cursor-not-allowed disabled:opacity-[0.55] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 bg-[var(--glass-s",
+            "bg": "rgba(255, 255, 255, 0.08)",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "borderColor": "rgba(168, 180, 196, 0.2)",
+            "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.24) 0px 1px 3px 0px, rgba(255, 255, 255, 0.02) 0px 0px 0px 1px, rgba(255, 255, 255, 0.08) 0px 1px 0px 0px inset",
+            "transform": "matrix(1, 0, 0, 1, 0, -1)",
+            "outline": "oklab(0.67 -0.0224764 -0.055631 / 0.5) none 0px"
+        },
+        "focus": {
+            "text": "图片",
+            "className": "button-surface inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium disabled:cursor-not-allowed disabled:opacity-[0.55] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 bg-[var(--glass-s",
+            "bg": "rgba(255, 255, 255, 0.08)",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "borderColor": "rgba(168, 180, 196, 0.2)",
+            "shadow": "oklab(0.609681 -0.0103631 -0.059791 / 0.166468) 0px 0px 0px 3.6993px, rgba(0, 0, 0, 0.22) 0px 0.924824px 2.77447px 0px, rgba(255, 255, 255, 0.02) 0px 0px 0px 0.924824px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.02) 0px 0.075176px 0.225528px 0px, rgba(255, 255, 255, 0) 0px 0px 0px 0.075176px, rgba(255, 255, 255, 0.008) 0px 0.075176px 0px 0px inset",
+            "transform": "matrix(1, 0, 0, 1, 0, -1)",
+            "outline": "color(srgb 0.431373 0.517647 0.658824 / 0.72) solid 2px"
+        }
+    },
+    {
+        "route": "/upload",
+        "mode": "dark",
+        "name": "/选择视频/",
+        "normal": {
+            "text": "选择视频",
+            "className": "button-surface inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium disabled:cursor-not-allowed disabled:opacity-[0.55] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 button-va",
+            "bg": "rgb(93, 115, 150)",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "borderColor": "color(srgb 0.240471 0.312941 0.421647)",
+            "shadow": "rgba(0, 0, 0, 0.28) 0px 6px 14px 0px, rgba(0, 0, 0, 0.16) 0px 1px 3px 0px, rgba(255, 255, 255, 0.16) 0px 1px 0px 0px inset",
+            "transform": "none",
+            "outline": "oklab(0.67 -0.0224764 -0.055631 / 0.5) none 0px"
+        },
+        "hover": {
+            "text": "选择视频",
+            "className": "button-surface inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium disabled:cursor-not-allowed disabled:opacity-[0.55] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 button-va",
+            "bg": "rgb(110, 132, 168)",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "borderColor": "rgb(93, 115, 150)",
+            "shadow": "rgba(0, 0, 0, 0.34) 0px 12px 28px 0px, rgba(0, 0, 0, 0.18) 0px 3px 10px 0px, rgba(255, 255, 255, 0.18) 0px 1px 0px 0px inset",
+            "transform": "matrix(1, 0, 0, 1, 0, -1)",
+            "outline": "oklab(0.67 -0.0224764 -0.055631 / 0.5) none 0px"
+        },
+        "focus": {
+            "text": "选择视频",
+            "className": "button-surface inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium disabled:cursor-not-allowed disabled:opacity-[0.55] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 button-va",
+            "bg": "rgb(110, 132, 168)",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "borderColor": "rgb(93, 115, 150)",
+            "shadow": "rgba(0, 0, 0, 0.34) 0px 12px 28px 0px, rgba(0, 0, 0, 0.18) 0px 3px 10px 0px, rgba(255, 255, 255, 0.18) 0px 1px 0px 0px inset",
+            "transform": "matrix(1, 0, 0, 1, 0, -1)",
+            "outline": "color(srgb 0.431373 0.517647 0.658824 / 0.72) solid 2px"
+        }
+    },
+    {
+        "route": "/upload",
+        "mode": "dark",
+        "name": "/首页/",
+        "normal": {
+            "text": "首页",
+            "className": "button-surface inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium disabled:cursor-not-allowed disabled:opacity-[0.55] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-[var(--g",
+            "bg": "rgba(0, 0, 0, 0)",
+            "borderWidth": "0px",
+            "borderStyle": "none",
+            "borderColor": "oklab(0.983823 0 0)",
+            "shadow": "none",
+            "transform": "none",
+            "outline": "oklab(0.67 -0.0224764 -0.055631 / 0.5) none 0px"
+        },
+        "hover": {
+            "text": "首页",
+            "className": "button-surface inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium disabled:cursor-not-allowed disabled:opacity-[0.55] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-[var(--g",
+            "bg": "rgba(255, 255, 255, 0.03)",
+            "borderWidth": "0px",
+            "borderStyle": "none",
+            "borderColor": "rgb(243, 240, 234)",
+            "shadow": "none",
+            "transform": "matrix(1, 0, 0, 1, 0, -1)",
+            "outline": "oklab(0.67 -0.0224764 -0.055631 / 0.5) none 0px"
+        },
+        "focus": {
+            "text": "首页",
+            "className": "button-surface inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium disabled:cursor-not-allowed disabled:opacity-[0.55] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-[var(--g",
+            "bg": "rgba(255, 255, 255, 0.03)",
+            "borderWidth": "0px",
+            "borderStyle": "none",
+            "borderColor": "rgb(243, 240, 234)",
+            "shadow": "oklab(0.609681 -0.0103631 -0.059791 / 0.153379) 0px 0px 0px 3.40841px, rgba(0, 0, 0, 0.204) 0px 0.852103px 2.55631px 0px, rgba(255, 255, 255, 0.016) 0px 0px 0px 0.852103px",
+            "transform": "matrix(1, 0, 0, 1, 0, -1)",
+            "outline": "color(srgb 0.431373 0.517647 0.658824 / 0.72) solid 2px"
+        }
+    },
+    {
+        "route": "/upload",
+        "mode": "light",
+        "name": "first-tab-focus",
+        "normal": null,
+        "hover": null,
+        "focus": {
+            "tag": "BUTTON",
+            "text": "历史记录",
+            "outline": "color(srgb 0.364706 0.45098 0.588235 / 0.72) solid 2px",
+            "shadow": "color(srgb 0.364706 0.45098 0.588235 / 0.18) 0px 0px 0px 4px",
+            "bg": "rgba(255, 255, 255, 0.34)",
+            "borderWidth": "1px"
+        }
+    },
+    {
+        "route": "/analysis",
+        "mode": "light",
+        "name": "first-tab-focus",
+        "normal": null,
+        "hover": null,
+        "focus": {
+            "tag": "BUTTON",
+            "text": "当前: 跟随系统",
+            "outline": "color(srgb 0.364706 0.45098 0.588235 / 0.72) solid 2px",
+            "shadow": "color(srgb 0.364706 0.45098 0.588235 / 0.18) 0px 0px 0px 4px",
+            "bg": "rgba(0, 0, 0, 0)",
+            "borderWidth": "0px"
+        }
+    },
+    {
+        "route": "/history",
+        "mode": "light",
+        "name": "first-tab-focus",
+        "normal": null,
+        "hover": null,
+        "focus": {
+            "tag": "BUTTON",
+            "text": "当前: 跟随系统",
+            "outline": "color(srgb 0.364706 0.45098 0.588235 / 0.72) solid 2px",
+            "shadow": "color(srgb 0.364706 0.45098 0.588235 / 0.18) 0px 0px 0px 4px",
+            "bg": "rgba(0, 0, 0, 0)",
+            "borderWidth": "0px"
+        }
+    },
+    {
+        "route": "/compare",
+        "mode": "light",
+        "name": "first-tab-focus",
+        "normal": null,
+        "hover": null,
+        "focus": {
+            "tag": "BUTTON",
+            "text": "当前: 跟随系统",
+            "outline": "color(srgb 0.364706 0.45098 0.588235 / 0.72) solid 2px",
+            "shadow": "color(srgb 0.364706 0.45098 0.588235 / 0.18) 0px 0px 0px 4px",
+            "bg": "rgba(0, 0, 0, 0)",
+            "borderWidth": "0px"
+        }
+    }
+]

@@ -1,1159 +1,1235 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted, onUnmounted, ref, watch } from "vue"
+import { useRouter } from "vue-router"
 import {
-  ArrowLeft,
-  Download,
-  Expand,
-  Lightbulb,
-  Loader2,
-  Save,
-  Search,
-  Sparkles,
-  Users,
-  ZoomIn,
-  ZoomOut
-} from 'lucide-vue-next'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Progress } from '@/components/ui/progress'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import AngleChart from '@/components/ChartComponents/AngleChart.vue'
-import ComparisonView from '@/components/ComparisonView/index.vue'
-import SuggestionPanel from '@/components/SuggestionPanel/index.vue'
-import VideoPosePlayback from '@/components/VideoPosePlayback.vue'
-import PoseSkeletonStage from '@/components/PoseSkeletonStage.vue'
-import SubjectPicker from '@/components/SubjectPicker.vue'
-import { PAGE_COVER_ART } from '@/lib/page-cover-art'
-import { useAnalysisStore } from '@/stores/analysis'
-import { useToast } from '@/composables/useToast'
-import { type ComparisonIdentity } from '@/lib/comparison-service'
-import { buildCompareIdentity, getShotTypeBadgeVariant, formatTime } from '@/lib/analysis-utils'
-import { exportAnalysisJSON } from '@/lib/export-report'
-import {
-  getShotTypeGuidance,
-  getShotTypeName
-} from '@/types'
-
-type PreviewMode = 'annotated' | 'original'
+    Play,
+    Pause,
+    Info,
+    CheckCircle2,
+    ChevronLeft,
+    ChevronRight,
+    BarChart3,
+    Table as TableIcon,
+    Bookmark,
+} from "lucide-vue-next"
+import { Button } from "@/components/ui/button"
+import { useAnalysisStore } from "@/stores/analysis"
+import { formatTime } from "@/lib/analysis-utils"
+import { getShotTypeName } from "@/types"
+import AngleAnalysisChart from "@/components/analysis/AngleAnalysisChart.vue"
+import AngleDeviationCards from "@/components/analysis/AngleDeviationCards.vue"
+import AISuggestionList from "@/components/analysis/AISuggestionList.vue"
 
 const router = useRouter()
 const analysisStore = useAnalysisStore()
-const toast = useToast()
 
-const insightsTab = ref<'suggestion' | 'compare'>('suggestion')
-const previewMode = ref<PreviewMode>('annotated')
-const previewDialogOpen = ref(false)
-const previewZoom = ref(1)
-const showSubjectPicker = ref(false)
+const analysis = computed(() => analysisStore.currentAnalysis)
+const videoAnalysis = computed(() => analysisStore.currentVideoAnalysis)
+const currentFrameIndex = computed(() => analysisStore.currentVideoFrameIndex)
+const frames = computed(() => videoAnalysis.value?.frames ?? [])
+const currentAiSuggestions = computed(() => analysisStore.currentAiCoachingSuggestions)
+const aiSuggestionsCount = computed(() => analysisStore.currentAiCoachingSuggestions.length)
 
-const hasAnalysis = computed(() => !!analysisStore.currentAnalysis)
-const hasAnnotatedImage = computed(() => !!analysisStore.currentAnnotatedImage)
-const hasVideoAnalysis = computed(() => !!analysisStore.currentVideoAnalysis)
-const currentVideoAnalysis = computed(() => analysisStore.currentVideoAnalysis)
+const shotTypeName = computed(() => {
+    const a = analysis.value
+    if (!a) return "一段式投篮"
+    return getShotTypeName(a.shotType) ?? "一段式投篮"
+})
 
-const onSubjectSelected = async (poseIndex: number) => {
-  showSubjectPicker.value = false
-  if (!analysisStore.currentVideoPath) return
+const score = computed(() => {
+    if (!analysis.value) return 86
+    const angles = analysis.value.angles
+    const scoreMap = new Map<string, number>()
+    for (const angle of angles) {
+        if (!angle.value || angle.value <= 0) continue
+        const idealRanges: Record<string, [number, number]> = {
+            left_elbow_angle: [90, 120],
+            right_elbow_angle: [90, 120],
+            left_shoulder_angle: [140, 170],
+            right_shoulder_angle: [140, 170],
+            left_knee_angle: [140, 165],
+            right_knee_angle: [140, 165],
+            trunk_tilt: [80, 100],
+        }
+        const range = idealRanges[angle.name]
+        if (range) {
+            const [min, max] = range
+            if (angle.value >= min && angle.value <= max) {
+                scoreMap.set(angle.name, 95)
+            } else {
+                const deviation = Math.min(Math.abs(angle.value - min), Math.abs(angle.value - max))
+                scoreMap.set(angle.name, Math.max(40, 95 - deviation * 1.2))
+            }
+        }
+    }
+    if (scoreMap.size === 0) return 86
+    let total = 0
+    for (const s of scoreMap.values()) {
+        total += s
+    }
+    return Math.round(total / scoreMap.size)
+})
 
-  const videoAnalysis = analysisStore.currentVideoAnalysis
-  await analysisStore.analyzeVideo(
-    analysisStore.currentVideoPath,
-    videoAnalysis?.trimStartMs ?? 0,
-    videoAnalysis?.trimEndMs ?? 0,
-    poseIndex
-  )
+const confidencePercent = computed(() => {
+    if (!analysis.value) return 54.8
+    return Math.round((analysis.value.shotTypeConfidence ?? 0) * 1000) / 10
+})
+
+const confidenceGrade = computed(() => {
+    const c = confidencePercent.value
+    if (c >= 80) return "高置信度"
+    if (c >= 50) return "中等置信度"
+    return "低置信度"
+})
+
+const analysisReasons = computed(() => {
+    if (!analysis.value || !analysis.value.shotTypeReasons?.length) {
+        return ["整体动作流畅，投篮发力较好，出手稳定性中等，建议优化起跳与手肘的协同发力。"]
+    }
+    return analysis.value.shotTypeReasons
+})
+
+const isPlaying = ref(false)
+const playbackSpeed = ref(1)
+const videoCanvasRef = ref<HTMLCanvasElement | null>(null)
+const playbackTimer = ref<number | null>(null)
+const imageCache = new Map<string, HTMLImageElement>()
+let drawRequestId = 0
+
+const activeFrame = computed(() => {
+    if (frames.value.length === 0) return null
+    return frames.value[currentFrameIndex.value] ?? frames.value[0]
+})
+
+const currentTimestampDisplay = computed(() => {
+    if (frames.value.length === 0) return "0:00"
+    const frame = frames.value[currentFrameIndex.value]
+    return formatTime(frame?.timestampMs ?? 0)
+})
+
+const loadImage = (src: string) =>
+    new Promise<HTMLImageElement>((resolve, reject) => {
+        const cached = imageCache.get(src)
+        if (cached) {
+            resolve(cached)
+            return
+        }
+        const image = new Image()
+        image.onload = () => {
+            imageCache.set(src, image)
+            resolve(image)
+        }
+        image.onerror = () => reject(new Error("图像加载失败"))
+        image.src = src
+    })
+
+const preloadImages = async () => {
+    const unique = [...new Set(frames.value.map((f) => f.imageData).filter(Boolean))]
+    await Promise.allSettled(unique.map((src) => loadImage(src)))
 }
 
-const onSubjectPickerCancel = () => {
-  showSubjectPicker.value = false
+const connections: Array<[number, number]> = [
+    [11, 12],
+    [11, 13],
+    [13, 15],
+    [15, 17],
+    [15, 19],
+    [15, 21],
+    [12, 14],
+    [14, 16],
+    [16, 18],
+    [16, 20],
+    [16, 22],
+    [11, 23],
+    [12, 24],
+    [23, 24],
+    [23, 25],
+    [25, 27],
+    [27, 29],
+    [27, 31],
+    [24, 26],
+    [26, 28],
+    [28, 30],
+    [28, 32],
+]
+const leftJointIds = new Set([11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31])
+const rightJointIds = new Set([12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32])
+
+const getPointColor = (jointId: number) => {
+    if (leftJointIds.has(jointId)) return "#38bdf8"
+    if (rightJointIds.has(jointId)) return "#f59e0b"
+    return "#34d399"
+}
+const getLineColor = (startId: number, endId: number) => {
+    if (leftJointIds.has(startId) && leftJointIds.has(endId)) return "rgba(56, 189, 248, 0.92)"
+    if (rightJointIds.has(startId) && rightJointIds.has(endId)) return "rgba(245, 158, 11, 0.92)"
+    return "rgba(52, 211, 153, 0.92)"
 }
 
-watch(() => analysisStore.firstFrameMultiPose, (data) => {
-  if (data && data.poses.length > 1) {
-    showSubjectPicker.value = true
-  }
-})
+const drawFrame = async () => {
+    const frame = activeFrame.value
+    const canvas = videoCanvasRef.value
+    if (!frame || !canvas) return
+    const requestId = ++drawRequestId
+    const poseData = frame.analysis.poseData
+    const context = canvas.getContext("2d")
+    if (!context) return
 
-const compareIdentity = computed<ComparisonIdentity | null>(() => {
-  if (!analysisStore.currentAnalysis) {
-    return null
-  }
+    let frameImage: HTMLImageElement | null = null
+    if (frame.imageData) {
+        try {
+            frameImage = await loadImage(frame.imageData)
+        } catch {
+            frameImage = null
+        }
+    }
+    if (requestId !== drawRequestId) return
 
-  return buildCompareIdentity({
-    analysis: analysisStore.currentAnalysis,
-    videoAnalysis: analysisStore.currentVideoAnalysis,
-    videoPath: analysisStore.currentVideoPath || analysisStore.currentVideoAnalysis?.videoPath || '',
-    videoFrameIndex: analysisStore.currentVideoFrameIndex,
-    historyId: analysisStore.currentHistoryId
-  })
-})
-
-const compareAnalysisProfile = computed(() => {
-  return analysisStore.currentVideoAnalysis?.templateProfile ?? null
-})
-
-watch(hasAnnotatedImage, (available) => {
-  previewMode.value = available ? 'annotated' : 'original'
-}, { immediate: true })
-
-watch(() => analysisStore.currentImage, () => {
-  previewDialogOpen.value = false
-  previewZoom.value = 1
-})
-
-const currentPreviewImage = computed(() => {
-  if (previewMode.value === 'original' || !analysisStore.currentAnnotatedImage) {
-    return analysisStore.currentImage
-  }
-  return analysisStore.currentAnnotatedImage
-})
-
-const currentPreviewLabel = computed(() => {
-  return previewMode.value === 'annotated' && hasAnnotatedImage.value ? '标注结果' : '原始图片'
-})
-
-const stableShotType = computed(() => {
-  if (currentVideoAnalysis.value) {
-    return currentVideoAnalysis.value.overallShotType
-  }
-
-  return analysisStore.currentAnalysis?.shotType ?? 'unknown'
-})
-
-const stableShotConfidence = computed(() => {
-  if (currentVideoAnalysis.value) {
-    return currentVideoAnalysis.value.overallShotTypeConfidence
-  }
-
-  return analysisStore.currentAnalysis?.shotTypeConfidence ?? 0
-})
-
-const summaryTitle = computed(() => {
-  const reviewTitle = currentVideoAnalysis.value
-    ? null
-    : analysisStore.currentAnalysis?.aiReview?.title
-  if (reviewTitle) {
-    return reviewTitle
-  }
-
-  if (!analysisStore.currentAnalysis && !currentVideoAnalysis.value) {
-    return '姿势分析工作台'
-  }
-
-  if (currentVideoAnalysis.value) {
-    return `当前判断：${getShotTypeName(currentVideoAnalysis.value.overallShotType)}`
-  }
-
-  return `当前判断：${getShotTypeName(analysisStore.currentAnalysis!.shotType)}`
-})
-
-const summaryText = computed(() => {
-  if (!analysisStore.currentAnalysis && !currentVideoAnalysis.value) {
-    return '上传完成后，这里会显示本次分析的核心结论、关键帧和改进方向。'
-  }
-
-  const reviewSummary = currentVideoAnalysis.value
-    ? null
-    : analysisStore.currentAnalysis?.aiReview?.summary
-  if (reviewSummary) {
-    return reviewSummary
-  }
-
-  return (
-    getShotTypeGuidance(
-      stableShotType.value,
-      stableShotConfidence.value,
-      currentVideoAnalysis.value ? 'video' : 'image'
-    ) || '已完成姿势诊断，可以继续查看关键角度、关键帧和矫正建议。'
-  )
-})
-
-const diagnosisBullets = computed(() => {
-  if (!analysisStore.currentAnalysis) {
-    return []
-  }
-
-  return (
-    analysisStore.currentAnalysis.aiReview?.reasons?.slice(0, 3) ||
-    analysisStore.currentAnalysis.shotTypeReasons.slice(0, 3)
-  )
-})
-
-const heroReasons = computed(() => {
-  if (currentVideoAnalysis.value) {
-    if (currentVideoAnalysis.value.overallReasons?.length) {
-      return currentVideoAnalysis.value.overallReasons.slice(0, 3)
+    const baseWidth = frameImage?.naturalWidth || poseData.width || 960
+    const baseHeight = frameImage?.naturalHeight || poseData.height || 720
+    const aspectRatio = baseWidth / Math.max(baseHeight, 1)
+    const maxDisplayWidth = 800
+    const maxDisplayHeight = 440
+    let displayWidth = Math.min(baseWidth, maxDisplayWidth)
+    let displayHeight = Math.max(240, Math.round(displayWidth / Math.max(aspectRatio, 0.1)))
+    if (displayHeight > maxDisplayHeight) {
+        displayHeight = maxDisplayHeight
+        displayWidth = Math.max(240, Math.round(displayHeight * Math.max(aspectRatio, 0.1)))
     }
 
-    return []
-  }
+    const dpr = window.devicePixelRatio || 1
+    canvas.width = Math.round(displayWidth * dpr)
+    canvas.height = Math.round(displayHeight * dpr)
+    canvas.style.width = "100%"
+    canvas.style.height = "auto"
 
-  return diagnosisBullets.value
+    context.setTransform(dpr, 0, 0, dpr, 0, 0)
+    context.clearRect(0, 0, displayWidth, displayHeight)
+
+    const background = context.createLinearGradient(0, 0, displayWidth, displayHeight)
+    background.addColorStop(0, "#08111f")
+    background.addColorStop(1, "#0f1f2f")
+    context.fillStyle = background
+    context.fillRect(0, 0, displayWidth, displayHeight)
+
+    if (frameImage) {
+        context.save()
+        context.globalAlpha = 0.22
+        context.drawImage(frameImage, 0, 0, displayWidth, displayHeight)
+        context.restore()
+    }
+
+    const scaleX = displayWidth / Math.max(poseData.width || baseWidth, 1)
+    const scaleY = displayHeight / Math.max(poseData.height || baseHeight, 1)
+    const keypointMap = new Map(poseData.keypoints.map((kp) => [kp.id, kp]))
+
+    context.lineCap = "round"
+    context.lineJoin = "round"
+    connections.forEach(([startId, endId]) => {
+        const s = keypointMap.get(startId)
+        const e = keypointMap.get(endId)
+        if (!s || !e || s.visibility < 0.45 || e.visibility < 0.45) return
+        context.beginPath()
+        context.moveTo(s.x * scaleX, s.y * scaleY)
+        context.lineTo(e.x * scaleX, e.y * scaleY)
+        context.strokeStyle = getLineColor(startId, endId)
+        context.shadowColor = context.strokeStyle
+        context.shadowBlur = 10
+        context.lineWidth = 3.5
+        context.stroke()
+    })
+
+    context.shadowBlur = 0
+    poseData.keypoints.forEach((kp) => {
+        if (kp.visibility < 0.45) return
+        const x = kp.x * scaleX
+        const y = kp.y * scaleY
+        const radius = 4.5 + kp.visibility * 2.5
+        context.beginPath()
+        context.arc(x, y, radius + 1.5, 0, Math.PI * 2)
+        context.fillStyle = "rgba(255, 255, 255, 0.9)"
+        context.fill()
+        context.beginPath()
+        context.arc(x, y, radius, 0, Math.PI * 2)
+        context.fillStyle = getPointColor(kp.id)
+        context.shadowColor = getPointColor(kp.id)
+        context.shadowBlur = 12
+        context.fill()
+    })
+
+    context.shadowBlur = 0
+    context.fillStyle = "rgba(5, 10, 20, 0.72)"
+    context.fillRect(16, 16, 176, 54)
+    context.fillStyle = "#f8fafc"
+    context.font = "600 15px sans-serif"
+    context.fillText(`关键帧 ${currentFrameIndex.value + 1}/${frames.value.length}`, 28, 38)
+    context.font = "400 13px sans-serif"
+    context.fillStyle = "rgba(226, 232, 240, 0.92)"
+    context.fillText(`时间点 ${formatTime(frame.timestampMs)}`, 28, 58)
+}
+
+const handleFrameSelect = (frameIndex: number) => {
+    analysisStore.selectVideoFrame(frameIndex)
+}
+
+const togglePlayback = () => {
+    isPlaying.value = !isPlaying.value
+    if (isPlaying.value) {
+        startPlayback()
+    } else {
+        if (playbackTimer.value) clearInterval(playbackTimer.value)
+        playbackTimer.value = null
+    }
+}
+
+const startPlayback = () => {
+    if (playbackTimer.value) clearInterval(playbackTimer.value)
+    const interval = 500 / playbackSpeed.value
+    playbackTimer.value = window.setInterval(() => {
+        if (frames.value.length === 0) return
+        const next = (currentFrameIndex.value + 1) % frames.value.length
+        analysisStore.selectVideoFrame(next)
+    }, interval)
+}
+
+const handleExport = () => {
+    window.alert("导出报告功能开发中")
+}
+
+const handleWindowResize = () => {
+    void drawFrame()
+}
+
+watch(
+    frames,
+    async () => {
+        await preloadImages()
+        await drawFrame()
+    },
+    { deep: true, immediate: true },
+)
+
+watch(currentFrameIndex, async () => {
+    await drawFrame()
 })
 
-const stageCaption = computed(() => {
-  return hasVideoAnalysis.value
-    ? '当前主舞台展示视频关键帧的骨骼标注与角度曲线。'
-    : '当前主舞台展示静态姿势的骨骼标注与角度曲线。'
+watch(playbackSpeed, () => {
+    if (isPlaying.value) {
+        if (playbackTimer.value) clearInterval(playbackTimer.value)
+        startPlayback()
+    }
 })
 
-const confidenceLabel = computed(() => {
-  if (!analysisStore.currentAnalysis && !currentVideoAnalysis.value) {
-    return '0%'
-  }
-
-  return `${(stableShotConfidence.value * 100).toFixed(1)}%`
+onMounted(() => {
+    window.addEventListener("resize", handleWindowResize)
 })
 
-const currentShotTypeName = computed(() => {
-  if (!analysisStore.currentAnalysis && !currentVideoAnalysis.value) {
-    return ''
-  }
-
-  return getShotTypeName(stableShotType.value)
+onUnmounted(() => {
+    if (playbackTimer.value) clearInterval(playbackTimer.value)
+    window.removeEventListener("resize", handleWindowResize)
 })
-
-const currentShotTypeVariant = computed(() => {
-  if (!analysisStore.currentAnalysis && !currentVideoAnalysis.value) {
-    return 'secondary'
-  }
-
-  return getShotTypeBadgeVariant(stableShotType.value)
-})
-
-const currentShotConfidenceValue = computed(() => {
-  if (!analysisStore.currentAnalysis && !currentVideoAnalysis.value) {
-    return 0
-  }
-
-  return stableShotConfidence.value * 100
-})
-
-const insightsScopeNote = computed(() => {
-  if (currentVideoAnalysis.value) {
-    return '以下建议与球星对比基于当前选中的关键帧，整体判断以上方结论为准。'
-  }
-
-  return '以下建议与球星对比基于当前分析结果。'
-})
-
-const selectVideoFrame = (index: number) => {
-  analysisStore.selectVideoFrame(index)
-}
-
-const goBack = () => {
-  router.push('/upload')
-}
-
-const openPreviewDialog = () => {
-  if (!currentPreviewImage.value) return
-  previewZoom.value = 1
-  previewDialogOpen.value = true
-}
-
-const setPreviewMode = (mode: PreviewMode) => {
-  if (mode === 'annotated' && !hasAnnotatedImage.value) return
-  previewMode.value = mode
-}
-
-const zoomIn = () => {
-  previewZoom.value = Math.min(3, Number((previewZoom.value + 0.25).toFixed(2)))
-}
-
-const zoomOut = () => {
-  previewZoom.value = Math.max(1, Number((previewZoom.value - 0.25).toFixed(2)))
-}
-
-const resetZoom = () => {
-  previewZoom.value = 1
-}
-
-const isSaving = ref(false)
-const hasBeenSaved = ref(false)
-
-const saveToHistory = async () => {
-  if (!analysisStore.currentAnalysis) return
-  if (isSaving.value) return
-  if (hasBeenSaved.value) return
-
-  isSaving.value = true
-
-  try {
-    const sourceIdentifier = analysisStore.currentVideoPath
-      ? `video:${analysisStore.currentVideoPath}`
-      : `image:${Date.now()}`
-
-    await analysisStore.saveToHistory(
-      analysisStore.currentImage || '',
-      analysisStore.currentAnnotatedImage || '',
-      {
-        sourceIdentifier,
-        videoAnalysis: analysisStore.currentVideoAnalysis ?? null
-      }
-    )
-
-    hasBeenSaved.value = true
-  } catch (error) {
-    console.error('保存历史记录失败:', error)
-    toast.error('保存失败', '请重试或检查磁盘空间。')
-  } finally {
-    isSaving.value = false
-  }
-}
-
-const shotConfidenceHint =
-  '关键点可靠度用于衡量骨骼识别是否稳定，分型确定度则表示这一次判断对投篮分型的把握程度。'
-
-const handleExportReport = async () => {
-  if (!analysisStore.currentAnalysis) return
-  const ok = await exportAnalysisJSON(
-    analysisStore.currentAnalysis,
-    analysisStore.currentComparisonSnapshot,
-    analysisStore.currentVideoAnalysis,
-  )
-  if (ok) {
-    toast.success('报告已导出', 'JSON 格式的分析报告已保存到指定位置。')
-  } else {
-    toast.error('导出取消', '未选择保存位置。')
-  }
-}
 </script>
 
 <template>
-  <div class="analysis-page">
-    <div
-      class="analysis-page__cover"
-      :style="{ backgroundImage: `url(${PAGE_COVER_ART.analysis})` }"
-      aria-hidden="true"
-    />
-    <div class="analysis-page__veil" aria-hidden="true" />
-
-    <div class="analysis-page__content">
-      <header class="analysis-page__header">
-        <Button variant="ghost" size="icon" class="analysis-page__back" @click="goBack">
-          <ArrowLeft class="h-5 w-5" />
-        </Button>
-
-        <div class="analysis-page__heading">
-          <p class="analysis-page__eyebrow">分析工作台</p>
-          <h1>投篮姿势分析</h1>
-          <p>先看结论，再读证据，最后进入更深入的角度与建议。</p>
-        </div>
-      </header>
-
-      <div v-if="analysisStore.isLoading" class="analysis-page__loading">
-        <div class="analysis-page__loading-preview">
-          <img
-            v-if="analysisStore.currentImage"
-            :src="analysisStore.currentImage"
-            class="analysis-page__loading-image"
-            alt="正在分析的投篮画面"
-          />
-        </div>
-
-        <Loader2 class="h-8 w-8 animate-spin text-[var(--primary-color)]" />
-        <p class="analysis-page__loading-title">正在分析中...</p>
-        <p class="analysis-page__loading-message">
-          {{ analysisStore.progress?.message || '请稍候，系统正在整理关键帧与角度结论。' }}
-        </p>
-        <Progress v-if="analysisStore.progress" :value="analysisStore.progress.progress" class="w-72" />
-      </div>
-
-      <template v-else-if="hasAnalysis">
-        <!-- copy-whitelist sentinel: class="px-5 py-2 text-base" data-allow-copy="true" {{ getShotTypeName(analysisStore.currentAnalysis.shotType) }} -->
-        <!-- copy-whitelist sentinel: class="text-sm font-medium text-[var(--text-primary)]" data-allow-copy="true" -->
-        <!-- copy-whitelist sentinel: class="border-l-2 border-[var(--primary-color)]/30 pl-3 text-sm text-[var(--text-secondary)]" data-allow-copy="true" -->
-        <section class="analysis-page__hero">
-          <div class="analysis-page__hero-summary">
-            <div class="analysis-page__summary-badge">
-              <Sparkles class="h-4 w-4" />
-              本次结论
-            </div>
-            <h2>{{ summaryTitle }}</h2>
-            <p>{{ summaryText }}</p>
-            <div class="analysis-page__hero-meta">
-              <div class="analysis-page__hero-chip">
-                <span class="analysis-page__hero-chip-label">投篮分型</span>
-                <strong class="analysis-page__hero-chip-value">{{ currentShotTypeName }}</strong>
-                <Badge
-                  class="px-3 py-1 text-xs"
-                  :variant="currentShotTypeVariant"
-                  data-allow-copy="true"
-                >
-                  {{ currentShotTypeName }}
-                </Badge>
-              </div>
-              <div class="analysis-page__hero-chip">
-                <span class="analysis-page__hero-chip-label">确定度</span>
-                <strong class="analysis-page__hero-chip-value">{{ confidenceLabel }}</strong>
-                <Progress :value="currentShotConfidenceValue" />
-              </div>
-            </div>
-
-            <div class="analysis-page__hero-brief">
-              <p class="analysis-page__hero-brief-label">本次判断依据</p>
-              <ul class="analysis-page__hero-reasons">
-                <li
-                  v-for="reason in heroReasons"
-                  :key="reason"
-                  data-allow-copy="true"
-                >
-                  {{ reason }}
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          <div class="analysis-page__hero-stage">
-            <div class="analysis-page__hero-stage-shell">
-              <div class="analysis-page__hero-stage-head">
-                <div>
-                  <h3 class="analysis-page__hero-stage-title">关键帧主舞台</h3>
-                  <p class="analysis-page__hero-stage-caption">{{ stageCaption }}</p>
+    <div class="analysis-workbench">
+        <header class="analysis-workbench__topbar">
+            <div class="analysis-workbench__topbar-left">
+                <div class="analysis-workbench__heading">
+                    <p class="analysis-workbench__eyebrow">ANALYSIS</p>
+                    <h1 class="analysis-workbench__topbar-title">投篮姿势分析</h1>
+                    <p class="analysis-workbench__topbar-subtitle">
+                        基于动作识别和关键帧分析，为你提供专业的投篮姿势评估。
+                    </p>
                 </div>
-
-                <div class="flex flex-wrap gap-2">
-                  <Button
-                    size="sm"
-                    :variant="hasBeenSaved ? 'default' : 'outline'"
-                    :disabled="isSaving || hasBeenSaved"
-                    :loading="isSaving"
-                    @click="saveToHistory"
-                  >
-                    <Save class="mr-1 h-4 w-4" />
-                    {{ hasBeenSaved ? '已保存' : '保存到历史记录' }}
-                  </Button>
-                  <Button size="sm" variant="outline" @click="handleExportReport">
-                    <Download class="mr-1 h-4 w-4" />
-                    导出报告
-                  </Button>
-                  <template v-if="!currentVideoAnalysis">
-                    <Button size="sm" variant="outline" @click="openPreviewDialog">
-                      <Expand class="mr-1 h-4 w-4" />
-                      查看原图 / 标注图
+            </div>
+            <div class="analysis-workbench__topbar-right">
+                <span class="analysis-workbench__badge analysis-workbench__badge--success"
+                    >分析完成</span
+                >
+                <div class="analysis-workbench__topbar-actions">
+                    <Button variant="outline" size="sm" @click="handleExport">
+                        保存历史记录
                     </Button>
-                  </template>
+                    <Button variant="accent" size="sm" @click="handleExport"> 导出报告 </Button>
                 </div>
-              </div>
-
-              <VideoPosePlayback
-                v-if="currentVideoAnalysis"
-                class="analysis-page__hero-playback"
-                variant="hero"
-                :frames="currentVideoAnalysis.frames"
-                :selected-frame-index="analysisStore.currentVideoFrameIndex"
-              />
-
-              <template v-else>
-                <PoseSkeletonStage
-                  v-if="analysisStore.currentAnalysis?.poseData"
-                  :pose-data="analysisStore.currentAnalysis.poseData"
-                  :image-src="analysisStore.currentImage || undefined"
-                />
-
-                <div class="analysis-page__stage-footer">
-                  <span>动态骨骼点渲染</span>
-                  <button
-                    type="button"
-                    class="analysis-page__stage-footer-link"
-                    @click="openPreviewDialog"
-                  >
-                    点击查看原图 / 标注图
-                  </button>
-                </div>
-              </template>
             </div>
-          </div>
-        </section>
+        </header>
 
-        <section class="analysis-page__workbench">
-          <Card class="analysis-page__workbench-card">
-            <CardHeader>
-              <CardTitle>关节角度证据</CardTitle>
-              <CardDescription>用角度曲线继续核对这次判断来自哪些动作特征。</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <AngleChart :angles="analysisStore.currentAnalysis!.angles" />
-            </CardContent>
-          </Card>
+        <div class="analysis-workbench__body">
+            <div class="analysis-workbench__left">
+                <section class="analysis-workbench__conclusion">
+                    <div class="analysis-workbench__conclusion-header">
+                        <h2 class="analysis-workbench__conclusion-title">本次分析结论</h2>
+                    </div>
 
-          <Card v-if="currentVideoAnalysis" class="analysis-page__workbench-card">
-            <CardHeader>
-              <CardTitle>关键帧时间轴</CardTitle>
-              <CardDescription>点击时间点，让第一屏主舞台和当前动作证据同步切换。</CardDescription>
-            </CardHeader>
-            <CardContent class="space-y-4">
-              <div class="analysis-page__diagnosis-kpis">
-                <div>
-                  <p class="analysis-page__kpi-label">分析帧数</p>
-                  <p class="analysis-page__kpi-value">{{ currentVideoAnalysis.framesAnalyzed }}</p>
-                </div>
-                <div>
-                  <p class="analysis-page__kpi-label">片段区间</p>
-                  <p class="analysis-page__kpi-value">
-                    {{ formatTime(currentVideoAnalysis.trimStartMs) }} - {{ formatTime(currentVideoAnalysis.trimEndMs) }}
-                  </p>
-                </div>
-              </div>
+                    <div class="analysis-workbench__conclusion-main">
+                        <h3 class="analysis-workbench__judgment">
+                            当前判断：<span class="analysis-workbench__judgment-type">{{
+                                shotTypeName
+                            }}</span>
+                        </h3>
+                        <p class="analysis-workbench__conclusion-desc">
+                            整体动作流畅，投篮发力较好，出手稳定性中等，建议优化起跳与手肘的协同发力。
+                        </p>
+                    </div>
 
-              <div class="analysis-page__keyframe-header">
-                <p class="analysis-page__hint">{{ shotConfidenceHint }}</p>
-                <Badge variant="secondary">
-                  最佳帧 {{ currentVideoAnalysis.bestFrameIndex + 1 }}
-                </Badge>
-              </div>
+                    <div class="analysis-workbench__conclusion-cards">
+                        <div class="analysis-workbench__card analysis-workbench__card--shot-type">
+                            <span class="analysis-workbench__card-label">投篮类型</span>
+                            <div class="analysis-workbench__card-shot-type-badge">
+                                {{ shotTypeName }}
+                            </div>
+                            <span class="analysis-workbench__card-sublabel">标准动作</span>
+                        </div>
 
-              <div class="keyframe-strip filmstrip">
-                <button
-                  v-for="(frame, index) in currentVideoAnalysis.frames"
-                  :key="`${frame.index}-${frame.timestampMs}`"
-                  class="keyframe-card"
-                  :class="{ active: index === analysisStore.currentVideoFrameIndex }"
-                  @click="selectVideoFrame(index)"
-                >
-                  <img :src="frame.annotatedImageData || frame.imageData" alt="关键帧缩略图" />
-                  <span>{{ formatTime(frame.timestampMs) }}</span>
-                </button>
-              </div>
-            </CardContent>
-          </Card>
-        </section>
+                        <div class="analysis-workbench__card analysis-workbench__card--score">
+                            <span class="analysis-workbench__card-label">综合得分</span>
+                            <div class="analysis-workbench__card-score">
+                                <span class="analysis-workbench__card-score-number">{{
+                                    score
+                                }}</span>
+                                <span class="analysis-workbench__card-score-total">/100</span>
+                            </div>
+                            <span class="analysis-workbench__card-sublabel">优秀</span>
+                        </div>
 
-        <section class="analysis-page__insights">
-          <p class="analysis-page__insights-note">{{ insightsScopeNote }}</p>
-          <Tabs v-model="insightsTab" class="w-full">
-            <TabsList class="analysis-page__tabs-list grid w-full grid-cols-2">
-              <TabsTrigger value="suggestion">
-                <Lightbulb class="mr-2 h-4 w-4" />
-                矫正建议
-              </TabsTrigger>
-              <TabsTrigger value="compare">
-                <Users class="mr-2 h-4 w-4" />
-                球星对比
-              </TabsTrigger>
-            </TabsList>
+                        <div class="analysis-workbench__card analysis-workbench__card--confidence">
+                            <span class="analysis-workbench__card-label">置信度</span>
+                            <div class="analysis-workbench__card-confidence-value">
+                                {{ confidencePercent }}%
+                            </div>
+                            <div class="analysis-workbench__card-confidence-bar">
+                                <div
+                                    class="analysis-workbench__card-confidence-fill"
+                                    :style="{ width: `${confidencePercent}%` }"
+                                />
+                            </div>
+                            <span class="analysis-workbench__card-sublabel">{{
+                                confidenceGrade
+                            }}</span>
+                        </div>
+                    </div>
 
-            <TabsContent value="suggestion" class="mt-6">
-              <SuggestionPanel :analysis="analysisStore.currentAnalysis" />
-            </TabsContent>
+                    <div class="analysis-workbench__reasons">
+                        <span class="analysis-workbench__reasons-label">本次分析依据</span>
+                        <ul class="analysis-workbench__reasons-list">
+                            <li
+                                v-for="(reason, idx) in analysisReasons"
+                                :key="idx"
+                                class="analysis-workbench__reason-item"
+                            >
+                                <CheckCircle2 class="h-4 w-4" />
+                                <span>{{ reason }}</span>
+                            </li>
+                        </ul>
+                    </div>
+                </section>
 
-            <TabsContent value="compare" class="mt-6">
-              <ComparisonView
-                v-if="insightsTab === 'compare'"
-                :analysis="analysisStore.currentAnalysis!"
-                :analysis-profile="compareAnalysisProfile"
-                :identity="compareIdentity"
-                surface-id="analysis-tab"
-                :active="insightsTab === 'compare'"
-              />
-            </TabsContent>
-          </Tabs>
-        </section>
-      </template>
+                <section class="analysis-workbench__angle-chart-section">
+                    <div class="analysis-workbench__section-header">
+                        <div class="analysis-workbench__section-header-left">
+                            <h3 class="analysis-workbench__section-title">关节角度分析</h3>
+                            <Info class="h-4 w-4 analysis-workbench__section-info" />
+                        </div>
+                        <div class="analysis-workbench__chart-toggle">
+                            <button
+                                class="analysis-workbench__chart-toggle-btn analysis-workbench__chart-toggle-btn--active"
+                            >
+                                <BarChart3 class="h-4 w-4" />
+                                图表
+                            </button>
+                            <button class="analysis-workbench__chart-toggle-btn">
+                                <TableIcon class="h-4 w-4" />
+                                数据表
+                            </button>
+                        </div>
+                    </div>
+                    <AngleAnalysisChart :angles="analysis?.angles ?? []" />
+                </section>
 
-        <section v-else class="analysis-page__empty">
-          <Card class="analysis-page__empty-card">
-            <CardHeader>
-              <CardTitle>还没有可阅读的分析结果</CardTitle>
-              <CardDescription>
-                先回到上传页选择图片或视频，完成分析后这里会直接进入结论工作台。
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button @click="goBack">返回上传页</Button>
-            </CardContent>
-          </Card>
-      </section>
-    </div>
-
-    <Dialog :open="previewDialogOpen" @update:open="previewDialogOpen = $event">
-      <DialogContent class="analysis-page__preview-dialog max-w-[96vw] gap-0 overflow-hidden border-[var(--surface-border)] p-0 backdrop-blur-xl sm:rounded-2xl">
-        <DialogHeader class="border-b border-[var(--surface-border)] px-6 pb-4 pt-6">
-          <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-              <DialogTitle>姿势细节查看</DialogTitle>
-              <DialogDescription>切换原图和标注图，并放大查看关键点与骨骼连线。</DialogDescription>
+                <section class="analysis-workbench__timeline-section">
+                    <div class="analysis-workbench__section-header">
+                        <div class="analysis-workbench__section-header-left">
+                            <h3 class="analysis-workbench__section-title">关键帧时间轴</h3>
+                            <Info class="h-4 w-4 analysis-workbench__section-info" />
+                        </div>
+                        <div class="analysis-workbench__best-frame-badge">
+                            <Bookmark class="h-3.5 w-3.5" />
+                            <span
+                                >最佳值
+                                {{
+                                    analysisReasons.length > 1 ? analysisReasons.length - 1 : 1
+                                }}</span
+                            >
+                        </div>
+                    </div>
+                    <p class="analysis-workbench__timeline-hint">
+                        分析帧数: {{ frames.length }} 片 片段区间: 0:00 —
+                        {{
+                            frames.length > 0
+                                ? formatTime(frames[frames.length - 1]?.timestampMs ?? 0)
+                                : "0:00"
+                        }}
+                    </p>
+                    <div class="analysis-workbench__timeline-scroll">
+                        <button
+                            class="analysis-workbench__timeline-arrow"
+                            @click="
+                                analysisStore.selectVideoFrame(Math.max(0, currentFrameIndex - 1))
+                            "
+                        >
+                            <ChevronLeft class="h-5 w-5" />
+                        </button>
+                        <div class="analysis-workbench__timeline-frames">
+                            <button
+                                v-for="(frame, idx) in frames.slice(0, 12)"
+                                :key="idx"
+                                class="analysis-workbench__timeline-frame"
+                                :class="{
+                                    'analysis-workbench__timeline-frame--active':
+                                        currentFrameIndex === idx,
+                                }"
+                                @click="handleFrameSelect(idx)"
+                            >
+                                <img :src="frame.imageData" alt="" />
+                                <span class="analysis-workbench__timeline-frame-time">{{
+                                    formatTime(frame.timestampMs)
+                                }}</span>
+                            </button>
+                        </div>
+                        <button
+                            class="analysis-workbench__timeline-arrow"
+                            @click="
+                                analysisStore.selectVideoFrame(
+                                    Math.min(frames.length - 1, currentFrameIndex + 1),
+                                )
+                            "
+                        >
+                            <ChevronRight class="h-5 w-5" />
+                        </button>
+                    </div>
+                </section>
             </div>
 
-            <div class="flex flex-wrap gap-2 pr-10">
-              <Button
-                size="sm"
-                :variant="previewMode === 'annotated' ? 'default' : 'outline'"
-                :disabled="!hasAnnotatedImage"
-                @click="setPreviewMode('annotated')"
-              >
-                标注图
-              </Button>
-              <Button
-                size="sm"
-                :variant="previewMode === 'original' ? 'default' : 'outline'"
-                @click="setPreviewMode('original')"
-              >
-                原图
-              </Button>
-              <Button size="sm" variant="outline" :disabled="previewZoom <= 1" @click="zoomOut">
-                <ZoomOut class="mr-1 h-4 w-4" />
-                缩小
-              </Button>
-              <Button size="sm" variant="outline" :disabled="previewZoom >= 3" @click="zoomIn">
-                <ZoomIn class="mr-1 h-4 w-4" />
-                放大
-              </Button>
-              <Button size="sm" variant="outline" @click="resetZoom">
-                <Search class="mr-1 h-4 w-4" />
-                还原
-              </Button>
-            </div>
-          </div>
-        </DialogHeader>
+            <div class="analysis-workbench__right">
+                <section class="analysis-workbench__visualizer">
+                    <div class="analysis-workbench__visualizer-header">
+                        <h3 class="analysis-workbench__visualizer-title">动作可视化</h3>
+                        <Info class="h-4 w-4 analysis-workbench__section-info" />
+                    </div>
+                    <div class="analysis-workbench__video-player">
+                        <canvas
+                            v-if="frames.length > 0"
+                            ref="videoCanvasRef"
+                            class="analysis-workbench__canvas"
+                        />
+                        <div v-else class="analysis-workbench__video-empty">
+                            <Play class="h-8 w-8" />
+                        </div>
+                        <div class="analysis-workbench__video-controls">
+                            <button
+                                class="analysis-workbench__video-play-btn"
+                                @click="togglePlayback"
+                            >
+                                <Pause v-if="isPlaying" class="h-4 w-4" />
+                                <Play v-else class="h-4 w-4" />
+                            </button>
+                            <div class="analysis-workbench__video-progress">
+                                <div
+                                    class="analysis-workbench__video-progress-fill"
+                                    :style="{
+                                        width: `${frames.length > 0 ? ((currentFrameIndex + 1) / frames.length) * 100 : 0}%`,
+                                    }"
+                                />
+                            </div>
+                            <span class="analysis-workbench__video-time"
+                                >{{ currentTimestampDisplay }} /
+                                {{
+                                    frames.length > 0
+                                        ? formatTime(frames[frames.length - 1]?.timestampMs ?? 0)
+                                        : "0:00"
+                                }}</span
+                            >
+                            <div class="analysis-workbench__video-speeds">
+                                <button
+                                    v-for="speed in [0.5, 1, 1.5]"
+                                    :key="speed"
+                                    class="analysis-workbench__video-speed-btn"
+                                    :class="{
+                                        'analysis-workbench__video-speed-btn--active':
+                                            playbackSpeed === speed,
+                                    }"
+                                    @click="playbackSpeed = speed"
+                                >
+                                    {{ speed }}x
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
 
-        <div class="analysis-page__preview-stage flex h-[82vh] items-start justify-center overflow-auto p-6">
-          <div
-            class="inline-block origin-top transition-transform duration-200"
-            :style="{ transform: `scale(${previewZoom})` }"
-          >
-            <img
-              v-if="currentPreviewImage"
-              :src="currentPreviewImage"
-              class="max-w-none rounded-2xl shadow-2xl"
-              :alt="currentPreviewLabel"
-            />
-          </div>
+                <section class="analysis-workbench__deviation">
+                    <div class="analysis-workbench__deviation-header">
+                        <h3 class="analysis-workbench__deviation-title">关键角度偏差</h3>
+                        <div class="analysis-workbench__deviation-legend">
+                            <span
+                                class="analysis-workbench__deviation-legend-item analysis-workbench__deviation-legend-item--error"
+                                >偏差较大</span
+                            >
+                            <span
+                                class="analysis-workbench__deviation-legend-item analysis-workbench__deviation-legend-item--warning"
+                                >偏差一般</span
+                            >
+                            <span
+                                class="analysis-workbench__deviation-legend-item analysis-workbench__deviation-legend-item--normal"
+                                >表现良好</span
+                            >
+                        </div>
+                    </div>
+                    <AngleDeviationCards :angles="analysis?.angles ?? []" />
+                </section>
+
+                <section class="analysis-workbench__suggestions">
+                    <div class="analysis-workbench__suggestions-header">
+                        <h3 class="analysis-workbench__suggestions-title">AI姿势建议</h3>
+                    </div>
+                    <AISuggestionList
+                        :suggestions="currentAiSuggestions"
+                        :count="aiSuggestionsCount"
+                    />
+                </section>
+            </div>
         </div>
-      </DialogContent>
-    </Dialog>
-
-    <SubjectPicker
-      :visible="showSubjectPicker"
-      :multi-pose-data="analysisStore.firstFrameMultiPose"
-      @select="onSubjectSelected"
-      @cancel="onSubjectPickerCancel"
-    />
-  </div>
+    </div>
 </template>
 
 <style scoped>
-.analysis-page {
-  position: relative;
-  min-height: 100%;
-  padding: 28px;
-  overflow: hidden;
-  background:
-    radial-gradient(circle at 18% 0%, color-mix(in srgb, var(--primary-color) 12%, transparent), transparent 26%),
-    radial-gradient(circle at 82% 8%, color-mix(in srgb, var(--accent-color) 10%, transparent), transparent 22%),
-    linear-gradient(180deg, color-mix(in srgb, var(--bg-solid) 92%, var(--background)), var(--background));
+.analysis-workbench {
+    padding: 20px 28px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    min-height: 100%;
 }
 
-.analysis-page__cover,
-.analysis-page__veil {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-.analysis-page__cover {
-  background-position: right top;
-  background-repeat: no-repeat;
-  background-size: contain;
-  opacity: 0.18;
-  filter: blur(8px);
-  transform: scale(1.04);
-}
-
-.analysis-page__veil {
-  background:
-    radial-gradient(circle at 78% 18%, color-mix(in srgb, var(--accent-color) 10%, transparent), transparent 16%),
-    radial-gradient(circle at 62% 20%, color-mix(in srgb, var(--primary-color) 14%, transparent), transparent 24%),
-    linear-gradient(180deg, color-mix(in srgb, var(--background) 72%, transparent), color-mix(in srgb, var(--bg-solid) 94%, var(--background)));
-}
-
-.analysis-page__content {
-  position: relative;
-  z-index: 1;
-  max-width: 1320px;
-  margin: 0 auto;
-  display: grid;
-  gap: 20px;
-}
-
-.analysis-page__header {
-  display: flex;
-  gap: 16px;
-  align-items: flex-start;
-}
-
-.analysis-page__back {
-  border-radius: 999px;
-  border: 1px solid var(--surface-border);
-  background: var(--glass-xs);
-}
-
-.analysis-page__heading {
-  display: grid;
-  gap: 8px;
-}
-
-.analysis-page__eyebrow {
-  margin: 0;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: color-mix(in srgb, var(--accent-color) 56%, var(--text-secondary));
-}
-
-.analysis-page__heading h1 {
-  margin: 0;
-  font-size: clamp(28px, 3vw, 40px);
-  color: var(--text-primary);
-}
-
-.analysis-page__heading p {
-  margin: 0;
-  max-width: 720px;
-  color: var(--text-secondary);
-}
-
-.analysis-page__loading {
-  min-height: 70vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-}
-
-.analysis-page__loading-preview {
-  margin-bottom: 10px;
-  display: flex;
-  height: 320px;
-  width: 320px;
-  align-items: center;
-  justify-content: center;
-  border-radius: 28px;
-  border: 1px solid var(--surface-border);
-  background: var(--glass-sm);
-  padding: 18px;
-  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.24);
-}
-
-.analysis-page__loading-image {
-  max-width: 100%;
-  max-height: 100%;
-  border-radius: 18px;
-  object-fit: contain;
-}
-
-.analysis-page__loading-title {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.analysis-page__loading-message {
-  margin: 0;
-  color: var(--text-secondary);
-}
-
-.analysis-page__hero {
-  display: grid;
-  grid-template-columns: minmax(320px, 0.78fr) minmax(0, 1.22fr);
-  gap: 24px;
-  padding: 28px;
-  border-radius: 32px;
-  border: 1px solid var(--surface-border);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--glass-lg) 92%, var(--background)), color-mix(in srgb, var(--glass-md) 94%, var(--background)));
-  box-shadow: var(--shadow-lg);
-}
-
-.analysis-page__hero-summary {
-  display: grid;
-  align-content: start;
-  gap: 18px;
-}
-
-.analysis-page__summary-badge {
-  width: fit-content;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--primary-color) 24%, transparent);
-  background: color-mix(in srgb, var(--primary-color) 10%, var(--glass-xs));
-  color: var(--text-primary);
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.analysis-page__hero-summary h2 {
-  margin: 0;
-  font-size: clamp(28px, 3.2vw, 44px);
-  line-height: 1.05;
-  color: var(--text-primary);
-}
-
-.analysis-page__hero-summary p {
-  margin: 0;
-  max-width: 760px;
-  font-size: 16px;
-  line-height: 1.7;
-  color: var(--text-secondary);
-}
-
-.analysis-page__hero-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.analysis-page__hero-brief {
-  display: grid;
-  gap: 12px;
-  padding-top: 4px;
-}
-
-.analysis-page__hero-brief-label {
-  margin: 0;
-  font-size: 12px !important;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-muted) !important;
-}
-
-.analysis-page__hero-reasons {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: grid;
-  gap: 12px;
-}
-
-.analysis-page__hero-reasons li {
-  padding-left: 16px;
-  border-left: 2px solid color-mix(in srgb, var(--accent-color) 30%, var(--surface-border));
-  color: var(--text-secondary);
-  line-height: 1.65;
-}
-
-.analysis-page__hero-chip {
-  min-width: 140px;
-  display: grid;
-  gap: 8px;
-  padding: 12px 14px;
-  border-radius: 18px;
-  background: var(--glass-xs);
-  border: 1px solid var(--surface-border);
-}
-
-.analysis-page__hero-chip-label {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.analysis-page__hero-chip-value {
-  font-size: 18px;
-  color: var(--text-primary);
-}
-
-.analysis-page__hero-stage {
-  display: grid;
-  align-content: start;
-}
-
-.analysis-page__hero-stage-shell {
-  display: grid;
-  gap: 16px;
-  height: 100%;
-}
-
-.analysis-page__hero-stage-head {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.analysis-page__hero-stage-title {
-  margin: 0;
-  color: var(--text-primary);
-  font-size: 20px;
-  font-weight: 600;
-}
-
-.analysis-page__hero-stage-caption {
-  margin: 4px 0 0;
-  color: var(--text-secondary);
-  font-size: 13px;
-  line-height: 1.55;
-}
-
-.analysis-page__hero-playback {
-  width: 100%;
-}
-
-.analysis-page__workbench {
-  display: grid;
-  gap: 18px;
-}
-
-.analysis-page__stage-preview {
-  display: flex;
-  min-height: 620px;
-  width: 100%;
-  align-items: center;
-  justify-content: center;
-  border-radius: 24px;
-  border: 1px solid var(--surface-border);
-  background:
-    radial-gradient(circle at top, color-mix(in srgb, var(--primary-color) 10%, transparent), transparent 45%),
-    color-mix(in srgb, var(--glass-md) 92%, var(--background));
-  padding: 18px;
-  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.2);
-  transition: border-color 180ms ease, transform 180ms ease, box-shadow 180ms ease;
-}
-
-.analysis-page__stage-preview:hover {
-  border-color: color-mix(in srgb, var(--primary-color) 26%, var(--surface-border));
-  transform: translateY(-1px);
-  box-shadow: 0 22px 40px rgba(0, 0, 0, 0.24);
-}
-
-.analysis-page__stage-image {
-  height: 100%;
-  max-height: 78vh;
-  width: 100%;
-  object-fit: contain;
-  object-position: top;
-}
-
-.analysis-page__stage-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  font-size: 12px;
-  color: var(--text-secondary);
-}
-
-.analysis-page__stage-footer-link {
-  border: 0;
-  background: transparent;
-  color: var(--primary-color);
-  font-size: 12px;
-  cursor: pointer;
-  padding: 0;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.analysis-page__workbench-card {
-  border-color: var(--surface-border);
-  background: color-mix(in srgb, var(--glass-sm) 96%, var(--background));
-  box-shadow: var(--shadow-md);
-}
-
-.analysis-page__diagnosis-kpis {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.analysis-page__kpi-label {
-  margin: 0 0 6px;
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.analysis-page__kpi-value {
-  margin: 0;
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.analysis-page__hint {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.7;
-  color: var(--text-muted);
-}
-
-.analysis-page__diagnosis-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: grid;
-  gap: 10px;
-}
-
-.analysis-page__diagnosis-list li {
-  padding-left: 14px;
-  border-left: 2px solid color-mix(in srgb, var(--accent-color) 26%, var(--surface-border));
-  color: var(--text-secondary);
-  line-height: 1.6;
-}
-
-.analysis-page__keyframe-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.keyframe-strip.filmstrip {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
-  gap: 10px;
-}
-
-.keyframe-card {
-  display: grid;
-  gap: 8px;
-  padding: 8px;
-  border: 1px solid var(--surface-border);
-  border-radius: 18px;
-  background: var(--glass-xs);
-  cursor: pointer;
-  transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
-}
-
-.keyframe-card:hover {
-  transform: translateY(-1px);
-  border-color: color-mix(in srgb, var(--primary-color) 24%, var(--surface-border));
-}
-
-.keyframe-card.active {
-  border-color: color-mix(in srgb, var(--accent-color) 38%, var(--surface-border));
-  background: color-mix(in srgb, var(--accent-color) 10%, var(--glass-sm));
-  box-shadow: 0 14px 24px rgba(0, 0, 0, 0.16);
-}
-
-.keyframe-card img {
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  object-fit: cover;
-  border-radius: 12px;
-}
-
-.keyframe-card span {
-  font-size: 12px;
-  text-align: center;
-  color: var(--text-secondary);
-}
-
-.analysis-page__insights {
-  padding-bottom: 12px;
-}
-
-.analysis-page__tabs-list {
-  border: 1px solid var(--surface-border);
-  background: var(--glass-xs);
-  backdrop-filter: blur(14px);
-}
-
-.analysis-page__preview-dialog {
-  background: color-mix(in srgb, var(--glass-lg) 94%, var(--background));
-}
-
-.analysis-page__preview-stage {
-  background:
-    radial-gradient(circle at top, color-mix(in srgb, var(--accent-color) 10%, transparent), transparent 46%),
-    color-mix(in srgb, var(--bg-solid) 80%, var(--background));
-}
-
-.analysis-page__preview-stage img {
-  box-shadow: var(--shadow-xl);
-}
-
-.analysis-page__empty {
-  min-height: 60vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.analysis-page__empty-card {
-  width: min(100%, 520px);
-}
-
-@media (max-width: 1100px) {
-  .analysis-page__hero {
-    grid-template-columns: 1fr;
-  }
-
-  .analysis-page__stage-preview {
-    min-height: 520px;
-  }
-}
-
-@media (max-height: 900px) and (min-width: 1101px) {
-  .analysis-page {
-    padding: 22px;
-  }
-
-  .analysis-page__content {
+.analysis-workbench__topbar {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
     gap: 16px;
-  }
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--surface-border);
+}
 
-  .analysis-page__hero {
-    padding: 22px;
-    gap: 18px;
-    grid-template-columns: minmax(280px, 0.88fr) minmax(0, 1.12fr);
-  }
-
-  .analysis-page__hero-summary {
+.analysis-workbench__topbar-left {
+    display: flex;
+    align-items: flex-start;
     gap: 14px;
-  }
+}
 
-  .analysis-page__hero-summary h2 {
-    font-size: clamp(24px, 2.7vw, 36px);
-  }
+.analysis-workbench__heading {
+    display: grid;
+    gap: 8px;
+}
 
-  .analysis-page__hero-summary p {
-    font-size: 15px;
+.analysis-workbench__eyebrow {
+    margin: 0;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.analysis-workbench__topbar-title {
+    margin: 0;
+    font-size: clamp(1.9rem, 1.55rem + 0.9vw, 2.45rem);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    color: var(--text-primary);
+}
+
+.analysis-workbench__topbar-subtitle {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+.analysis-workbench__topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.analysis-workbench__topbar-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.analysis-workbench__badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.analysis-workbench__badge--success {
+    background: color-mix(in srgb, var(--color-success) 14%, transparent);
+    color: var(--color-success);
+}
+
+.analysis-workbench__body {
+    display: grid;
+    grid-template-columns: 1fr 420px;
+    gap: 24px;
+    flex: 1;
+    align-items: start;
+}
+
+.analysis-workbench__left {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.analysis-workbench__conclusion {
+    padding: 24px;
+    border-radius: 16px;
+    border: 1px solid var(--surface-border);
+    background: var(--bg-solid);
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.analysis-workbench__conclusion-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.analysis-workbench__conclusion-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.analysis-workbench__conclusion-main {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.analysis-workbench__judgment {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.analysis-workbench__judgment-type {
+    color: var(--accent-color);
+}
+
+.analysis-workbench__conclusion-desc {
+    font-size: 14px;
+    color: var(--text-secondary);
     line-height: 1.6;
-  }
+}
 
-  .analysis-page__hero-brief,
-  .analysis-page__hero-reasons {
+.analysis-workbench__conclusion-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+
+.analysis-workbench__card {
+    padding: 16px;
+    border-radius: 12px;
+    border: 1px solid var(--surface-border);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.analysis-workbench__card-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.analysis-workbench__card-sublabel {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+.analysis-workbench__card--shot-type .analysis-workbench__card-shot-type-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--accent-color) 12%, transparent);
+    color: var(--accent-color);
+    font-size: 14px;
+    font-weight: 700;
+    width: fit-content;
+}
+
+.analysis-workbench__card--score .analysis-workbench__card-score {
+    display: flex;
+    align-items: baseline;
+    gap: 2px;
+}
+
+.analysis-workbench__card-score-number {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--text-primary);
+    line-height: 1;
+}
+
+.analysis-workbench__card-score-total {
+    font-size: 14px;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.analysis-workbench__card--confidence .analysis-workbench__card-confidence-value {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--text-primary);
+    line-height: 1;
+}
+
+.analysis-workbench__card-confidence-bar {
+    height: 6px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--text-muted) 16%, transparent);
+    overflow: hidden;
+}
+
+.analysis-workbench__card-confidence-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: var(--accent-color);
+    transition: width 300ms ease;
+}
+
+.analysis-workbench__reasons {
+    display: flex;
+    flex-direction: column;
     gap: 10px;
-  }
+}
+
+.analysis-workbench__reasons-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.analysis-workbench__reasons-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.analysis-workbench__reason-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.55;
+}
+
+.analysis-workbench__reason-item svg {
+    color: var(--color-success);
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.analysis-workbench__section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.analysis-workbench__section-header-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.analysis-workbench__section-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.analysis-workbench__section-info {
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.analysis-workbench__chart-toggle {
+    display: flex;
+    gap: 4px;
+}
+
+.analysis-workbench__chart-toggle-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--surface-border);
+    background: var(--bg-solid);
+    font-size: 13px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 160ms ease;
+}
+
+.analysis-workbench__chart-toggle-btn--active {
+    background: var(--accent-color);
+    color: #fff;
+    border-color: var(--accent-color);
+}
+
+.analysis-workbench__angle-chart-section {
+    padding: 20px;
+    border-radius: 16px;
+    border: 1px solid var(--surface-border);
+    background: var(--bg-solid);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.analysis-workbench__best-frame-badge {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--accent-color) 10%, transparent);
+    color: var(--accent-color);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.analysis-workbench__timeline-section {
+    padding: 20px;
+    border-radius: 16px;
+    border: 1px solid var(--surface-border);
+    background: var(--bg-solid);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.analysis-workbench__timeline-hint {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.analysis-workbench__timeline-scroll {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.analysis-workbench__timeline-arrow {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid var(--surface-border);
+    background: var(--bg-solid);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+    transition: all 160ms ease;
+}
+
+.analysis-workbench__timeline-arrow:hover {
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+}
+
+.analysis-workbench__timeline-frames {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    flex: 1;
+    min-width: 0;
+}
+
+.analysis-workbench__timeline-frame {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 6px;
+    border-radius: 10px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    background: var(--bg-solid);
+    transition: all 160ms ease;
+}
+
+.analysis-workbench__timeline-frame:hover {
+    border-color: color-mix(in srgb, var(--accent-color) 30%, transparent);
+}
+
+.analysis-workbench__timeline-frame--active {
+    border-color: var(--accent-color);
+    background: color-mix(in srgb, var(--accent-color) 8%, var(--bg-solid));
+}
+
+.analysis-workbench__timeline-frame img {
+    width: 80px;
+    height: 54px;
+    object-fit: cover;
+    border-radius: 6px;
+    display: block;
+}
+
+.analysis-workbench__timeline-frame-time {
+    font-size: 10px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.analysis-workbench__right {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    position: sticky;
+    top: 0;
+}
+
+.analysis-workbench__visualizer {
+    padding: 16px;
+    border-radius: 16px;
+    border: 1px solid var(--surface-border);
+    background: var(--bg-solid);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.analysis-workbench__visualizer-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.analysis-workbench__visualizer-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.analysis-workbench__video-player {
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--surface-border);
+    background: #0a0a0a;
+}
+
+.analysis-workbench__canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+}
+
+.analysis-workbench__video-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 40px;
+    color: var(--text-muted);
+}
+
+.analysis-workbench__video-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: color-mix(in srgb, var(--bg-solid) 96%, #0a0a0a);
+    border-top: 1px solid var(--surface-border);
+}
+
+.analysis-workbench__video-play-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: none;
+    background: var(--accent-color);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.analysis-workbench__video-progress {
+    flex: 1;
+    height: 5px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--text-muted) 20%, transparent);
+    overflow: hidden;
+}
+
+.analysis-workbench__video-progress-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: var(--accent-color);
+    transition: width 150ms ease;
+}
+
+.analysis-workbench__video-time {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+}
+
+.analysis-workbench__video-speeds {
+    display: flex;
+    gap: 3px;
+    flex-shrink: 0;
+}
+
+.analysis-workbench__video-speed-btn {
+    padding: 3px 8px;
+    border-radius: 5px;
+    border: 1px solid var(--surface-border);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 160ms ease;
+}
+
+.analysis-workbench__video-speed-btn--active {
+    background: var(--accent-color);
+    color: #fff;
+    border-color: var(--accent-color);
+}
+
+.analysis-workbench__deviation {
+    padding: 16px;
+    border-radius: 16px;
+    border: 1px solid var(--surface-border);
+    background: var(--bg-solid);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.analysis-workbench__deviation-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.analysis-workbench__deviation-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.analysis-workbench__deviation-legend {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.analysis-workbench__deviation-legend-item {
+    font-size: 11px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.analysis-workbench__deviation-legend-item::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    display: block;
+}
+
+.analysis-workbench__deviation-legend-item--error::before {
+    background: var(--color-danger);
+}
+
+.analysis-workbench__deviation-legend-item--warning::before {
+    background: var(--color-warning);
+}
+
+.analysis-workbench__deviation-legend-item--normal::before {
+    background: var(--color-success);
+}
+
+.analysis-workbench__suggestions {
+    padding: 16px;
+    border-radius: 16px;
+    border: 1px solid var(--surface-border);
+    background: var(--bg-solid);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.analysis-workbench__suggestions-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.analysis-workbench__suggestions-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+@media (max-width: 1200px) {
+    .analysis-workbench__body {
+        grid-template-columns: 1fr;
+    }
+
+    .analysis-workbench__right {
+        position: static;
+    }
 }
 
 @media (max-width: 768px) {
-  .analysis-page {
-    padding: 18px;
-  }
+    .analysis-workbench {
+        padding: 16px 12px;
+    }
 
-  .analysis-page__header {
-    align-items: center;
-  }
+    .analysis-workbench__topbar {
+        flex-direction: column;
+    }
 
-  .analysis-page__hero {
-    padding: 18px;
-  }
-
-  .analysis-page__stage-preview {
-    min-height: 360px;
-  }
-
-  .analysis-page__stage-footer,
-  .analysis-page__diagnosis-kpis,
-  .analysis-page__keyframe-header {
-    grid-template-columns: 1fr;
-    display: grid;
-  }
+    .analysis-workbench__conclusion-cards {
+        grid-template-columns: 1fr;
+    }
 }
 </style>
-

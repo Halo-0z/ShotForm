@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted } from "vue"
 import { useRoute, useRouter } from "vue-router"
 import FogRouteTransition from "@/components/transition/FogRouteTransition.vue"
 import TitleBar from "@/components/TitleBar.vue"
+import AppSidebar from "@/components/AppSidebar.vue"
 import ErrorBoundary from "@/components/ErrorBoundary.vue"
 import ToastContainer from "@/components/ui/toast/Toast.vue"
 import { useTheme } from "@/composables/useTheme"
@@ -57,19 +58,22 @@ onUnmounted(() => {
             { 'immersive-home': isImmersiveChrome, 'tray-panel': isTrayPanel },
         ]"
     >
-        <TitleBar
-            v-if="!isTrayPanel"
-            :immersive="isImmersiveChrome"
-            :workbench="isWorkbenchChrome"
-        />
-        <FogRouteTransition v-if="!isTrayPanel" />
-        <div
-            class="app-content"
-            :class="{ 'immersive-home': isImmersiveChrome, 'tray-panel': isTrayPanel }"
-        >
-            <ErrorBoundary>
-                <router-view />
-            </ErrorBoundary>
+        <div class="app-body" :class="{ 'tray-panel': isTrayPanel }">
+            <AppSidebar v-if="!isTrayPanel" />
+            <div
+                class="app-content"
+                :class="{ 'immersive-home': isImmersiveChrome, 'tray-panel': isTrayPanel }"
+            >
+                <TitleBar
+                    v-if="!isTrayPanel"
+                    :immersive="isImmersiveChrome"
+                    :workbench="isWorkbenchChrome"
+                />
+                <FogRouteTransition v-if="!isTrayPanel" />
+                <ErrorBoundary>
+                    <router-view />
+                </ErrorBoundary>
+            </div>
         </div>
         <ToastContainer v-if="!isTrayPanel" :messages="messages" @remove="dismiss" />
     </div>
@@ -106,9 +110,21 @@ body,
     background: transparent;
 }
 
+.app-body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    overflow: hidden;
+}
+
+.app-body.tray-panel {
+    display: block;
+}
+
 .app-content {
     flex: 1;
     min-height: 0;
+    position: relative;
     overflow-x: hidden;
     overflow-y: auto;
     scrollbar-gutter: stable;

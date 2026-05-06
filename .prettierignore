@@ -1,0 +1,10 @@
+node_modules
+dist
+target
+src-tauri
+coverage
+.vite
+pnpm-lock.yaml
+package-lock.json
+*.min.js
+*.min.css

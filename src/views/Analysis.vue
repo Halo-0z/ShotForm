@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from "vue"
+import { useRouter } from "vue-router"
 import {
     Play,
     Pause,
@@ -10,6 +11,7 @@ import {
     BarChart3,
     Table as TableIcon,
     Bookmark,
+    GitCompareArrows,
 } from "lucide-vue-next"
 import { Button } from "@/components/ui/button"
 import { useAnalysisStore } from "@/stores/analysis"
@@ -19,9 +21,14 @@ import AngleAnalysisChart from "@/components/analysis/AngleAnalysisChart.vue"
 import AngleDeviationCards from "@/components/analysis/AngleDeviationCards.vue"
 import AISuggestionList from "@/components/analysis/AISuggestionList.vue"
 
+const router = useRouter()
 const analysisStore = useAnalysisStore()
 
 const analysis = computed(() => analysisStore.currentAnalysis)
+
+const goToCompare = () => {
+    router.push("/compare")
+}
 const videoAnalysis = computed(() => analysisStore.currentVideoAnalysis)
 const currentFrameIndex = computed(() => analysisStore.currentVideoFrameIndex)
 const frames = computed(() => videoAnalysis.value?.frames ?? [])
@@ -367,6 +374,10 @@ onUnmounted(() => {
                         保存历史记录
                     </Button>
                     <Button variant="accent" size="sm" @click="handleExport"> 导出报告 </Button>
+                    <Button v-if="analysis" variant="outline" size="sm" @click="goToCompare">
+                        <GitCompareArrows class="h-4 w-4" />
+                        球星对比
+                    </Button>
                 </div>
             </div>
         </header>

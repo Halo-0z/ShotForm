@@ -29,7 +29,7 @@ const isPlaying = ref(false)
 const currentTimeMs = ref(0)
 const videoRef = ref<HTMLVideoElement | null>(null)
 const timelineCaptureVideoRef = ref<HTMLVideoElement | null>(null)
-const timelineRailEl = ref<HTMLElement | null>(null)
+const trimRailRef = ref<HTMLElement | null>(null)
 const timelineFrames = ref<string[]>([])
 const isGeneratingFrames = ref(false)
 const timelineRailWidth = ref(0)
@@ -64,6 +64,65 @@ const clipEndMaskStyle = computed(() => ({
     left: `${trimEndPercent.value}%`,
     width: `${Math.max(0, 100 - trimEndPercent.value)}%`,
 }))
+
+const isDraggingTrim = ref(false)
+const dragTarget = ref<"start" | "end" | null>(null)
+const DRAG_HIT_TARGET_PX = 22
+
+const clampTrimStart = (value: number) =>
+    Math.round(Math.max(0, Math.min(value, Math.max(0, trimEndMs.value - minClipMs))))
+
+const clampTrimEnd = (value: number) =>
+    Math.round(Math.min(sliderMaxMs.value, Math.max(value, trimStartMs.value + minClipMs)))
+
+const onTrimPointerDown = (e: PointerEvent) => {
+    const rail = trimRailRef.value
+    if (!rail || durationMs.value <= 0) return
+
+    const rect = rail.getBoundingClientRect()
+    const clickPx = e.clientX - rect.left
+    const clickMs = (clickPx / rect.width) * sliderMaxMs.value
+
+    const startPx = (trimStartPercent.value / 100) * rect.width
+    const endPx = (trimEndPercent.value / 100) * rect.width
+
+    if (Math.abs(clickPx - startPx) <= DRAG_HIT_TARGET_PX) {
+        dragTarget.value = "start"
+    } else if (Math.abs(clickPx - endPx) <= DRAG_HIT_TARGET_PX) {
+        dragTarget.value = "end"
+    } else if (clickPx < startPx) {
+        trimStartMs.value = clampTrimStart(clickMs)
+        return
+    } else {
+        trimEndMs.value = clampTrimEnd(clickMs)
+        return
+    }
+
+    isDraggingTrim.value = true
+    rail.setPointerCapture(e.pointerId)
+    e.preventDefault()
+}
+
+const onTrimPointerMove = (e: PointerEvent) => {
+    if (!isDraggingTrim.value || !trimRailRef.value) return
+
+    const rect = trimRailRef.value.getBoundingClientRect()
+    const clickPx = e.clientX - rect.left
+    const clickMs = (clickPx / rect.width) * sliderMaxMs.value
+
+    if (dragTarget.value === "start") {
+        trimStartMs.value = clampTrimStart(clickMs)
+    } else if (dragTarget.value === "end") {
+        trimEndMs.value = clampTrimEnd(clickMs)
+    }
+}
+
+const onTrimPointerUp = (e: PointerEvent) => {
+    if (!isDraggingTrim.value) return
+    isDraggingTrim.value = false
+    dragTarget.value = null
+    trimRailRef.value?.releasePointerCapture(e.pointerId)
+}
 
 const formatTime = (ms: number) => {
     const totalSeconds = Math.max(0, Math.round(ms / 1000))
@@ -252,6 +311,11 @@ const onVideoLoadedMetadata = () => {
 const onVideoTimeUpdate = () => {
     if (!videoRef.value) return
     currentTimeMs.value = Math.round(videoRef.value.currentTime * 1000)
+
+    const clipEndSec = trimEndMs.value / 1000
+    if (videoRef.value.currentTime >= clipEndSec && isPlaying.value) {
+        videoRef.value.currentTime = trimStartMs.value / 1000
+    }
 }
 
 const onVideoPlay = () => {
@@ -264,20 +328,15 @@ const onVideoPause = () => {
 const togglePlay = () => {
     if (!videoRef.value) return
     if (videoRef.value.paused) {
-        videoRef.value.play()
+        const clipStartSec = trimStartMs.value / 1000
+        const clipEndSec = trimEndMs.value / 1000
+        if (videoRef.value.currentTime < clipStartSec || videoRef.value.currentTime > clipEndSec) {
+            videoRef.value.currentTime = clipStartSec
+        }
+        void videoRef.value.play()
     } else {
         videoRef.value.pause()
     }
-}
-
-const updateTrimStart = (event: Event) => {
-    const next = Number((event.target as HTMLInputElement).value)
-    trimStartMs.value = Math.min(next, Math.max(0, trimEndMs.value - minClipMs))
-}
-
-const updateTrimEnd = (event: Event) => {
-    const next = Number((event.target as HTMLInputElement).value)
-    trimEndMs.value = Math.max(next, trimStartMs.value + minClipMs)
 }
 
 const handleImageLoaded = async (imageData: string) => {
@@ -383,7 +442,7 @@ const seekOffscreenVideo = async (video: HTMLVideoElement, timeInSeconds: number
 }
 
 const syncTimelineRailWidth = () => {
-    timelineRailWidth.value = Math.round(timelineRailEl.value?.clientWidth || 0)
+    timelineRailWidth.value = Math.round(trimRailRef.value?.clientWidth || 0)
 }
 
 const generateTimelineFrames = async () => {
@@ -582,7 +641,14 @@ onUnmounted(() => {
                             <p class="upload-workbench__trim-label">
                                 选择需要分析的片段（建议 2 到 6 秒）
                             </p>
-                            <div ref="timelineRailEl" class="upload-workbench__trim-rail">
+                            <div
+                                ref="trimRailRef"
+                                class="upload-workbench__trim-rail"
+                                @pointerdown="onTrimPointerDown"
+                                @pointermove="onTrimPointerMove"
+                                @pointerup="onTrimPointerUp"
+                                @pointercancel="onTrimPointerUp"
+                            >
                                 <div class="upload-workbench__trim-filmstrip">
                                     <template v-if="timelineFrames.length">
                                         <div
@@ -620,24 +686,6 @@ onUnmounted(() => {
                                     class="upload-workbench__trim-window"
                                     :style="clipSelectionStyle"
                                 ></div>
-                                <input
-                                    class="upload-workbench__trim-input-start"
-                                    type="range"
-                                    min="0"
-                                    :max="sliderMaxMs"
-                                    step="10"
-                                    :value="trimStartMs"
-                                    @input="updateTrimStart"
-                                />
-                                <input
-                                    class="upload-workbench__trim-input-end"
-                                    type="range"
-                                    min="0"
-                                    :max="sliderMaxMs"
-                                    step="10"
-                                    :value="trimEndMs"
-                                    @input="updateTrimEnd"
-                                />
                             </div>
                             <div class="upload-workbench__trim-times">
                                 <span>{{ formatPreciseTime(trimStartMs) }}</span>
@@ -945,69 +993,6 @@ onUnmounted(() => {
     border-top: 1px solid color-mix(in srgb, var(--accent-color) 38%, white);
     border-bottom: 1px solid color-mix(in srgb, var(--accent-color) 24%, transparent);
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-color) 14%, transparent);
-}
-
-.upload-workbench__trim-input-start,
-.upload-workbench__trim-input-end {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    margin: 0;
-    appearance: none;
-    background: transparent;
-    outline: none;
-}
-
-.upload-workbench__trim-input-start::-webkit-slider-runnable-track {
-    height: 56px;
-    background: transparent;
-}
-.upload-workbench__trim-input-start::-webkit-slider-thumb {
-    appearance: none;
-    width: 1.85rem;
-    height: 56px;
-    border: none;
-    background: transparent;
-    cursor: ew-resize;
-}
-.upload-workbench__trim-input-end::-webkit-slider-runnable-track {
-    height: 56px;
-    background: transparent;
-}
-.upload-workbench__trim-input-end::-webkit-slider-thumb {
-    appearance: none;
-    width: 1.85rem;
-    height: 56px;
-    border: none;
-    background: transparent;
-    cursor: ew-resize;
-}
-.upload-workbench__trim-input-start::-moz-range-track {
-    height: 56px;
-    background: transparent;
-    border: none;
-}
-.upload-workbench__trim-input-start::-moz-range-thumb {
-    width: 1.85rem;
-    height: 56px;
-    border: none;
-    border-radius: 0;
-    background: transparent;
-    cursor: ew-resize;
-}
-.upload-workbench__trim-input-end::-moz-range-track {
-    height: 56px;
-    background: transparent;
-    border: none;
-}
-.upload-workbench__trim-input-end::-moz-range-thumb {
-    width: 1.85rem;
-    height: 56px;
-    border: none;
-    border-radius: 0;
-    background: transparent;
-    cursor: ew-resize;
 }
 
 .upload-workbench__trim-times {

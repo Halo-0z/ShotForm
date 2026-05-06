@@ -357,73 +357,137 @@ onUnmounted(() => {
 
         <div class="analysis-workbench__body">
             <div class="analysis-workbench__left">
-                <section class="analysis-workbench__conclusion">
-                    <div class="analysis-workbench__conclusion-header">
-                        <h2 class="analysis-workbench__conclusion-title">本次分析结论</h2>
-                    </div>
-
-                    <div class="analysis-workbench__conclusion-main">
-                        <h3 class="analysis-workbench__judgment">
-                            当前判断：<span class="analysis-workbench__judgment-type">{{
-                                shotTypeName
-                            }}</span>
-                        </h3>
-                        <p class="analysis-workbench__conclusion-desc">
-                            整体动作流畅，投篮发力较好，出手稳定性中等，建议优化起跳与手肘的协同发力。
-                        </p>
-                    </div>
-
-                    <div class="analysis-workbench__conclusion-cards">
-                        <div class="analysis-workbench__card analysis-workbench__card--shot-type">
-                            <span class="analysis-workbench__card-label">投篮类型</span>
-                            <div class="analysis-workbench__card-shot-type-badge">
-                                {{ shotTypeName }}
-                            </div>
-                            <span class="analysis-workbench__card-sublabel">标准动作</span>
+                <div class="analysis-workbench__top-row">
+                    <section class="analysis-workbench__conclusion">
+                        <div class="analysis-workbench__conclusion-header">
+                            <h2 class="analysis-workbench__conclusion-title">本次分析结论</h2>
                         </div>
 
-                        <div class="analysis-workbench__card analysis-workbench__card--score">
-                            <span class="analysis-workbench__card-label">综合得分</span>
-                            <div class="analysis-workbench__card-score">
-                                <span class="analysis-workbench__card-score-number">{{
-                                    score
+                        <div class="analysis-workbench__conclusion-main">
+                            <h3 class="analysis-workbench__judgment">
+                                当前判断：<span class="analysis-workbench__judgment-type">{{
+                                    shotTypeName
                                 }}</span>
-                                <span class="analysis-workbench__card-score-total">/100</span>
-                            </div>
-                            <span class="analysis-workbench__card-sublabel">优秀</span>
+                            </h3>
+                            <p class="analysis-workbench__conclusion-desc">
+                                整体动作流畅，投篮发力较好，出手稳定性中等，建议优化起跳与手肘的协同发力。
+                            </p>
                         </div>
 
-                        <div class="analysis-workbench__card analysis-workbench__card--confidence">
-                            <span class="analysis-workbench__card-label">置信度</span>
-                            <div class="analysis-workbench__card-confidence-value">
-                                {{ confidencePercent }}%
-                            </div>
-                            <div class="analysis-workbench__card-confidence-bar">
-                                <div
-                                    class="analysis-workbench__card-confidence-fill"
-                                    :style="{ width: `${confidencePercent}%` }"
-                                />
-                            </div>
-                            <span class="analysis-workbench__card-sublabel">{{
-                                confidenceGrade
-                            }}</span>
-                        </div>
-                    </div>
-
-                    <div class="analysis-workbench__reasons">
-                        <span class="analysis-workbench__reasons-label">本次分析依据</span>
-                        <ul class="analysis-workbench__reasons-list">
-                            <li
-                                v-for="(reason, idx) in analysisReasons"
-                                :key="idx"
-                                class="analysis-workbench__reason-item"
+                        <div class="analysis-workbench__conclusion-cards">
+                            <div
+                                class="analysis-workbench__card analysis-workbench__card--shot-type"
                             >
-                                <CheckCircle2 class="h-4 w-4" />
-                                <span>{{ reason }}</span>
-                            </li>
-                        </ul>
-                    </div>
-                </section>
+                                <span class="analysis-workbench__card-label">投篮类型</span>
+                                <div class="analysis-workbench__card-shot-type-badge">
+                                    {{ shotTypeName }}
+                                </div>
+                                <span class="analysis-workbench__card-sublabel">标准动作</span>
+                            </div>
+
+                            <div class="analysis-workbench__card analysis-workbench__card--score">
+                                <span class="analysis-workbench__card-label">综合得分</span>
+                                <div class="analysis-workbench__card-score">
+                                    <span class="analysis-workbench__card-score-number">{{
+                                        score
+                                    }}</span>
+                                    <span class="analysis-workbench__card-score-total">/100</span>
+                                </div>
+                                <span class="analysis-workbench__card-sublabel">优秀</span>
+                            </div>
+
+                            <div
+                                class="analysis-workbench__card analysis-workbench__card--confidence"
+                            >
+                                <span class="analysis-workbench__card-label">置信度</span>
+                                <div class="analysis-workbench__card-confidence-value">
+                                    {{ confidencePercent }}%
+                                </div>
+                                <div class="analysis-workbench__card-confidence-bar">
+                                    <div
+                                        class="analysis-workbench__card-confidence-fill"
+                                        :style="{ width: `${confidencePercent}%` }"
+                                    />
+                                </div>
+                                <span class="analysis-workbench__card-sublabel">{{
+                                    confidenceGrade
+                                }}</span>
+                            </div>
+                        </div>
+
+                        <div class="analysis-workbench__reasons">
+                            <span class="analysis-workbench__reasons-label">本次分析依据</span>
+                            <ul class="analysis-workbench__reasons-list">
+                                <li
+                                    v-for="(reason, idx) in analysisReasons"
+                                    :key="idx"
+                                    class="analysis-workbench__reason-item"
+                                >
+                                    <CheckCircle2 class="h-4 w-4" />
+                                    <span>{{ reason }}</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </section>
+
+                    <section class="analysis-workbench__visualizer">
+                        <div class="analysis-workbench__visualizer-header">
+                            <h3 class="analysis-workbench__visualizer-title">动作可视化</h3>
+                            <Info class="h-4 w-4 analysis-workbench__section-info" />
+                        </div>
+                        <div class="analysis-workbench__video-player">
+                            <canvas
+                                v-if="frames.length > 0"
+                                ref="videoCanvasRef"
+                                class="analysis-workbench__canvas"
+                            />
+                            <div v-else class="analysis-workbench__video-empty">
+                                <Play class="h-8 w-8" />
+                            </div>
+                            <div class="analysis-workbench__video-controls">
+                                <button
+                                    class="analysis-workbench__video-play-btn"
+                                    @click="togglePlayback"
+                                >
+                                    <Pause v-if="isPlaying" class="h-4 w-4" />
+                                    <Play v-else class="h-4 w-4" />
+                                </button>
+                                <div class="analysis-workbench__video-progress">
+                                    <div
+                                        class="analysis-workbench__video-progress-fill"
+                                        :style="{
+                                            width: `${frames.length > 0 ? ((currentFrameIndex + 1) / frames.length) * 100 : 0}%`,
+                                        }"
+                                    />
+                                </div>
+                                <span class="analysis-workbench__video-time"
+                                    >{{ currentTimestampDisplay }} /
+                                    {{
+                                        frames.length > 0
+                                            ? formatTime(
+                                                  frames[frames.length - 1]?.timestampMs ?? 0,
+                                              )
+                                            : "0:00"
+                                    }}</span
+                                >
+                                <div class="analysis-workbench__video-speeds">
+                                    <button
+                                        v-for="speed in [0.5, 1, 1.5]"
+                                        :key="speed"
+                                        class="analysis-workbench__video-speed-btn"
+                                        :class="{
+                                            'analysis-workbench__video-speed-btn--active':
+                                                playbackSpeed === speed,
+                                        }"
+                                        @click="playbackSpeed = speed"
+                                    >
+                                        {{ speed }}x
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
 
                 <section class="analysis-workbench__angle-chart-section">
                     <div class="analysis-workbench__section-header">
@@ -691,6 +755,12 @@ onUnmounted(() => {
 .analysis-workbench__left {
     display: flex;
     flex-direction: column;
+    gap: 24px;
+}
+
+.analysis-workbench__top-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: 24px;
 }
 

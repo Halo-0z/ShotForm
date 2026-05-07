@@ -113,6 +113,7 @@ const analysisReasons = computed(() => {
 })
 
 const isPlaying = ref(false)
+const chartAnalysis = ref(displayAnalysis.value)
 const playbackSpeed = ref(1)
 const videoCanvasRef = ref<HTMLCanvasElement | null>(null)
 const playbackTimer = ref<number | null>(null)
@@ -212,7 +213,7 @@ const drawFrame = async () => {
     const baseHeight = frameImage?.naturalHeight || poseData.height || 720
     const aspectRatio = baseWidth / Math.max(baseHeight, 1)
     const maxDisplayWidth = 800
-    const maxDisplayHeight = 440
+    const maxDisplayHeight = 500
     let displayWidth = Math.min(baseWidth, maxDisplayWidth)
     let displayHeight = Math.max(240, Math.round(displayWidth / Math.max(aspectRatio, 0.1)))
     if (displayHeight > maxDisplayHeight) {
@@ -224,7 +225,7 @@ const drawFrame = async () => {
     canvas.width = Math.round(displayWidth * dpr)
     canvas.height = Math.round(displayHeight * dpr)
     canvas.style.width = "100%"
-    canvas.style.height = "auto"
+    canvas.style.height = `${displayHeight}px`
 
     context.setTransform(dpr, 0, 0, dpr, 0, 0)
     context.clearRect(0, 0, displayWidth, displayHeight)
@@ -293,6 +294,7 @@ const drawFrame = async () => {
 
 const handleFrameSelect = (frameIndex: number) => {
     analysisStore.selectVideoFrame(frameIndex)
+    chartAnalysis.value = analysis.value
 }
 
 const togglePlayback = () => {
@@ -328,6 +330,9 @@ watch(
     async () => {
         await preloadImages()
         await drawFrame()
+        if (videoAnalysis.value && !chartAnalysis.value) {
+            chartAnalysis.value = displayAnalysis.value
+        }
     },
     { deep: true, immediate: true },
 )
@@ -536,7 +541,7 @@ onUnmounted(() => {
                             </button>
                         </div>
                     </div>
-                    <AngleAnalysisChart :angles="analysis?.angles ?? []" />
+                    <AngleAnalysisChart :angles="chartAnalysis?.angles ?? []" />
                 </section>
 
                 <section class="analysis-workbench__timeline-section">
@@ -622,7 +627,7 @@ onUnmounted(() => {
                             >
                         </div>
                     </div>
-                    <AngleDeviationCards :angles="analysis?.angles ?? []" />
+                    <AngleDeviationCards :angles="chartAnalysis?.angles ?? []" />
                 </section>
 
                 <section class="analysis-workbench__suggestions">
@@ -1092,8 +1097,8 @@ onUnmounted(() => {
 .analysis-workbench__canvas {
     display: block;
     width: 100%;
-    height: auto;
-    aspect-ratio: 16 / 9;
+    min-height: 280px;
+    max-height: 500px;
 }
 
 .analysis-workbench__video-empty {

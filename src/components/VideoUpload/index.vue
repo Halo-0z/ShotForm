@@ -63,7 +63,7 @@ export const getVideoAnalysisCtaState = ({
 </script>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch, type ComponentPublicInstance } from "vue"
+import { computed, onUnmounted, ref, watch } from "vue"
 import { open } from "@tauri-apps/plugin-dialog"
 import { readFile } from "@tauri-apps/plugin-fs"
 import { basename } from "@tauri-apps/api/path"
@@ -79,6 +79,8 @@ import {
     VolumeX,
     Maximize2,
 } from "lucide-vue-next"
+import { formatTime } from "@/lib/analysis-utils"
+import VideoTrimFilmstrip from "./VideoTrimFilmstrip.vue"
 
 const props = withDefaults(
     defineProps<{
@@ -115,19 +117,8 @@ const trimStartMs = ref(0)
 const trimEndMs = ref(0)
 const loadingVideo = ref(false)
 const videoRef = ref<HTMLVideoElement | null>(null)
-const timelineCaptureVideoRef = ref<HTMLVideoElement | null>(null)
-const timelineFilmstripRef = ref<HTMLElement | null>(null)
 const isClipPreviewing = ref(false)
-const timelineFrames = ref<string[]>([])
-const isGeneratingTimelineFrames = ref(false)
-const timelineGenerationError = ref("")
-const timelineRailWidth = ref(0)
 const minClipMs = 300
-const targetTimelineFrameWidth = 36
-const targetTimelineFrameHeight = 68
-const videoEventTimeoutMs = 5000
-let timelineGenerationId = 0
-let timelineResizeObserver: ResizeObserver | null = null
 let controlsTimer: number | null = null
 const isControlsVisible = ref(true)
 const isMuted = ref(false)
@@ -142,104 +133,6 @@ const hasVideo = computed(() =>
     }),
 )
 const clipDurationMs = computed(() => Math.max(0, trimEndMs.value - trimStartMs.value))
-const sliderMaxMs = computed(() => Math.max(minClipMs, durationMs.value))
-const trimStartPercent = computed(() =>
-    sliderMaxMs.value <= 0 ? 0 : (trimStartMs.value / sliderMaxMs.value) * 100,
-)
-const trimEndPercent = computed(() =>
-    sliderMaxMs.value <= 0 ? 100 : (trimEndMs.value / sliderMaxMs.value) * 100,
-)
-const timelinePlaceholderFrames = computed(() => Array.from({ length: 9 }, (_, index) => index))
-const clipSelectionStyle = computed(() => ({
-    left: `${trimStartPercent.value}%`,
-    width: `${Math.max(0.75, trimEndPercent.value - trimStartPercent.value)}%`,
-}))
-const clipStartHandleStyle = computed(() => ({
-    left: `${trimStartPercent.value}%`,
-}))
-const clipEndHandleStyle = computed(() => ({
-    left: `${trimEndPercent.value}%`,
-}))
-const clipStartMaskStyle = computed(() => ({
-    width: `${Math.max(0, trimStartPercent.value)}%`,
-}))
-const clipEndMaskStyle = computed(() => ({
-    left: `${trimEndPercent.value}%`,
-    width: `${Math.max(0, 100 - trimEndPercent.value)}%`,
-}))
-const stageRef = ref<HTMLElement | null>(null)
-const isDraggingTrim = ref(false)
-const dragTarget = ref<"start" | "end" | "window" | null>(null)
-const dragWindowWidthMs = ref(0)
-const dragLastPointerX = ref(0)
-const DRAG_HIT_TARGET_PX = 22
-
-const clampTrimStart = (value: number) =>
-    Math.max(0, Math.min(value, Math.max(0, trimEndMs.value - minClipMs)))
-
-const clampTrimEnd = (value: number) =>
-    Math.min(sliderMaxMs.value, Math.max(value, trimStartMs.value + minClipMs))
-
-const onTrimPointerDown = (e: PointerEvent) => {
-    const stage = stageRef.value
-    if (!stage || durationMs.value <= 0) return
-
-    const rect = stage.getBoundingClientRect()
-    const clickPx = e.clientX - rect.left
-    const clickMs = (clickPx / rect.width) * sliderMaxMs.value
-
-    const startPx = (trimStartPercent.value / 100) * rect.width
-    const endPx = (trimEndPercent.value / 100) * rect.width
-
-    if (Math.abs(clickPx - startPx) <= DRAG_HIT_TARGET_PX) {
-        dragTarget.value = "start"
-    } else if (Math.abs(clickPx - endPx) <= DRAG_HIT_TARGET_PX) {
-        dragTarget.value = "end"
-    } else if (clickPx > startPx && clickPx < endPx) {
-        dragTarget.value = "window"
-        dragWindowWidthMs.value = trimEndMs.value - trimStartMs.value
-    } else if (clickPx < startPx) {
-        trimStartMs.value = clampTrimStart(clickMs)
-        return
-    } else {
-        trimEndMs.value = clampTrimEnd(clickMs)
-        return
-    }
-
-    isDraggingTrim.value = true
-    dragLastPointerX.value = e.clientX
-    stage.setPointerCapture(e.pointerId)
-    e.preventDefault()
-}
-
-const onTrimPointerMove = (e: PointerEvent) => {
-    if (!isDraggingTrim.value || !stageRef.value) return
-
-    const rect = stageRef.value.getBoundingClientRect()
-    const deltaPx = e.clientX - dragLastPointerX.value
-    dragLastPointerX.value = e.clientX
-    const deltaMs = (deltaPx / rect.width) * sliderMaxMs.value
-
-    if (dragTarget.value === "start") {
-        trimStartMs.value = clampTrimStart(trimStartMs.value + deltaMs)
-    } else if (dragTarget.value === "end") {
-        trimEndMs.value = clampTrimEnd(trimEndMs.value + deltaMs)
-    } else if (dragTarget.value === "window") {
-        const newStart = Math.max(
-            0,
-            Math.min(trimStartMs.value + deltaMs, sliderMaxMs.value - dragWindowWidthMs.value),
-        )
-        trimStartMs.value = newStart
-        trimEndMs.value = newStart + dragWindowWidthMs.value
-    }
-}
-
-const onTrimPointerUp = (e: PointerEvent) => {
-    if (!isDraggingTrim.value) return
-    isDraggingTrim.value = false
-    dragTarget.value = null
-    stageRef.value?.releasePointerCapture(e.pointerId)
-}
 const uploadWorkspaceClass = computed(() =>
     props.compact ? "space-y-3 animate-slide-up" : "space-y-4 animate-slide-up",
 )
@@ -261,11 +154,6 @@ const summaryPanelClass = computed(() =>
     props.compact
         ? "rounded-2xl border border-[color-mix(in_srgb,var(--surface-border)_84%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--surface-color)_90%,transparent),color-mix(in_srgb,var(--bg-solid)_94%,transparent))] p-3.5 shadow-[0_10px_22px_rgba(24,29,38,0.06),inset_0_1px_0_color-mix(in_srgb,var(--border-light)_52%,transparent)]"
         : "rounded-2xl border border-[color-mix(in_srgb,var(--surface-border)_84%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--surface-color)_88%,transparent),color-mix(in_srgb,var(--bg-solid)_92%,transparent))] p-4 shadow-[0_12px_26px_rgba(24,29,38,0.07),inset_0_1px_0_color-mix(in_srgb,var(--border-light)_54%,transparent)]",
-)
-const previewPanelClass = computed(() =>
-    props.compact
-        ? "rounded-2xl border border-[color-mix(in_srgb,var(--surface-border)_82%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--card-bg)_94%,var(--background)),color-mix(in_srgb,var(--surface-color)_88%,var(--bg-solid)))] p-3.5 shadow-[0_10px_22px_rgba(24,29,38,0.05),inset_0_1px_0_color-mix(in_srgb,var(--border-light)_48%,transparent)]"
-        : "rounded-2xl border border-[color-mix(in_srgb,var(--surface-border)_82%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--card-bg)_94%,var(--background)),color-mix(in_srgb,var(--surface-color)_86%,var(--bg-solid)))] p-4 shadow-[0_12px_26px_rgba(24,29,38,0.06),inset_0_1px_0_color-mix(in_srgb,var(--border-light)_50%,transparent)]",
 )
 const helperNoteClass = computed(() =>
     props.compact
@@ -292,13 +180,6 @@ const analysisCtaState = computed(() =>
     }),
 )
 
-const formatTime = (milliseconds: number) => {
-    const totalSeconds = Math.max(0, Math.round(milliseconds / 1000))
-    const minutes = Math.floor(totalSeconds / 60)
-    const seconds = totalSeconds % 60
-    return `${minutes}:${seconds.toString().padStart(2, "0")}`
-}
-
 const formatPreciseTime = (milliseconds: number) => {
     const safeMilliseconds = Math.max(0, Number(milliseconds) || 0)
     const totalCentiseconds = Math.round(safeMilliseconds / 10)
@@ -323,217 +204,6 @@ const revokePreviewUrl = () => {
     }
 }
 
-const resetTimelineFrames = () => {
-    timelineGenerationId += 1
-    isGeneratingTimelineFrames.value = false
-    timelineGenerationError.value = ""
-    timelineFrames.value = []
-}
-
-const syncTimelineRailWidth = () => {
-    timelineRailWidth.value = Math.round(timelineFilmstripRef.value?.clientWidth || 0)
-}
-
-const bindTimelineFilmstrip = (element: Element | ComponentPublicInstance | null) => {
-    const nextElement = element instanceof HTMLElement ? element : null
-    if (timelineResizeObserver) {
-        timelineResizeObserver.disconnect()
-        timelineResizeObserver = null
-    }
-
-    timelineFilmstripRef.value = nextElement
-    syncTimelineRailWidth()
-
-    if (nextElement && typeof ResizeObserver !== "undefined") {
-        timelineResizeObserver = new ResizeObserver(() => {
-            const nextWidth = Math.round(nextElement.clientWidth || 0)
-            if (nextWidth !== timelineRailWidth.value) {
-                timelineRailWidth.value = nextWidth
-            }
-        })
-        timelineResizeObserver.observe(nextElement)
-    }
-}
-
-const waitForVideoEvent = (video: HTMLVideoElement, eventName: "loadeddata" | "seeked") =>
-    new Promise<void>((resolve, reject) => {
-        const timeoutId = window.setTimeout(() => {
-            cleanup()
-            reject(new Error(`video ${eventName} timed out`))
-        }, videoEventTimeoutMs)
-
-        const cleanup = () => {
-            window.clearTimeout(timeoutId)
-            video.removeEventListener(eventName, handleResolve)
-            video.removeEventListener("error", handleError)
-        }
-
-        const handleResolve = () => {
-            cleanup()
-            resolve()
-        }
-
-        const handleError = () => {
-            cleanup()
-            reject(new Error(`video ${eventName} failed`))
-        }
-
-        video.addEventListener(eventName, handleResolve, { once: true })
-        video.addEventListener("error", handleError, { once: true })
-    })
-
-const waitForRenderedVideoFrame = (video: HTMLVideoElement) =>
-    new Promise<void>((resolve) => {
-        if (typeof video.requestVideoFrameCallback === "function") {
-            video.requestVideoFrameCallback(() => resolve())
-            return
-        }
-
-        if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
-            window.requestAnimationFrame(() => {
-                window.requestAnimationFrame(() => resolve())
-            })
-            return
-        }
-
-        window.setTimeout(resolve, 34)
-    })
-
-const seekOffscreenVideo = async (video: HTMLVideoElement, timeInSeconds: number) => {
-    if (Math.abs(video.currentTime - timeInSeconds) < 0.01) {
-        await waitForRenderedVideoFrame(video)
-        return
-    }
-
-    const seeked = waitForVideoEvent(video, "seeked")
-    video.currentTime = timeInSeconds
-    await seeked
-    await waitForRenderedVideoFrame(video)
-}
-
-const generateTimelineFrames = async () => {
-    if (
-        !previewUrl.value ||
-        durationMs.value <= 0 ||
-        timelineRailWidth.value <= 0 ||
-        typeof document === "undefined"
-    ) {
-        timelineGenerationError.value = ""
-        timelineFrames.value = []
-        return
-    }
-
-    const generationId = ++timelineGenerationId
-    isGeneratingTimelineFrames.value = true
-    timelineGenerationError.value = ""
-
-    const captureVideo = timelineCaptureVideoRef.value
-
-    if (!captureVideo) {
-        timelineFrames.value = []
-        timelineGenerationError.value = "timeline capture video unavailable"
-        isGeneratingTimelineFrames.value = false
-        return
-    }
-
-    try {
-        if (!captureVideo.src) {
-            captureVideo.src = previewUrl.value
-        }
-
-        if (captureVideo.readyState < 2) {
-            const loaded = waitForVideoEvent(captureVideo, "loadeddata")
-            captureVideo.load()
-            await loaded
-        }
-
-        await waitForRenderedVideoFrame(captureVideo)
-
-        const captureCount = Math.min(
-            48,
-            Math.max(18, Math.ceil(timelineRailWidth.value / targetTimelineFrameWidth) + 4),
-        )
-        const durationSeconds = durationMs.value / 1000
-        const safeDuration = Math.max(durationSeconds, 0.1)
-        const canvas = document.createElement("canvas")
-        const context = canvas.getContext("2d")
-
-        if (!context) {
-            timelineFrames.value = []
-            return
-        }
-
-        const renderScale = Math.max(
-            2,
-            typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1,
-        )
-        canvas.width = Math.max(48, Math.round(targetTimelineFrameWidth * renderScale))
-        canvas.height = Math.max(68, Math.round(targetTimelineFrameHeight * renderScale))
-        context.imageSmoothingEnabled = true
-        context.imageSmoothingQuality = "high"
-
-        const videoWidth = captureVideo.videoWidth || 16
-        const videoHeight = captureVideo.videoHeight || 9
-        const timelineAspectRatio = canvas.width / canvas.height
-        const videoAspectRatio = videoWidth / videoHeight
-        let sourceWidth = videoWidth
-        let sourceHeight = videoHeight
-        let sourceX = 0
-        let sourceY = 0
-
-        if (videoAspectRatio > timelineAspectRatio) {
-            sourceWidth = videoHeight * timelineAspectRatio
-            sourceX = (videoWidth - sourceWidth) / 2
-        } else {
-            sourceHeight = videoWidth / timelineAspectRatio
-            sourceY = (videoHeight - sourceHeight) / 2
-        }
-
-        const frames: string[] = []
-
-        for (let index = 0; index < captureCount; index += 1) {
-            const progress = captureCount === 1 ? 0.5 : index / (captureCount - 1)
-            const targetTime = Math.min(
-                Math.max(progress * safeDuration, 0),
-                Math.max(0, safeDuration - 0.05),
-            )
-            await seekOffscreenVideo(captureVideo, targetTime)
-            context.clearRect(0, 0, canvas.width, canvas.height)
-            context.fillStyle = "rgba(15, 23, 42, 1)"
-            context.fillRect(0, 0, canvas.width, canvas.height)
-            context.drawImage(
-                captureVideo,
-                sourceX,
-                sourceY,
-                sourceWidth,
-                sourceHeight,
-                0,
-                0,
-                canvas.width,
-                canvas.height,
-            )
-            frames.push(canvas.toDataURL("image/png"))
-        }
-
-        if (generationId === timelineGenerationId) {
-            timelineFrames.value = frames
-        }
-    } catch (error) {
-        if (generationId === timelineGenerationId) {
-            const message =
-                error instanceof Error ? error.message : "timeline frame generation failed"
-            timelineFrames.value = []
-            timelineGenerationError.value = message
-        }
-    } finally {
-        captureVideo.pause()
-
-        if (generationId === timelineGenerationId) {
-            isGeneratingTimelineFrames.value = false
-        }
-    }
-}
-
 const seekToTrimStart = () => {
     if (!videoRef.value) return
     videoRef.value.currentTime = trimStartMs.value / 1000
@@ -548,7 +218,6 @@ const stopClipPreview = (pauseVideo = true) => {
 
 const clearVideo = () => {
     stopClipPreview()
-    resetTimelineFrames()
     revokePreviewUrl()
     videoPath.value = ""
     videoName.value = ""
@@ -562,7 +231,6 @@ const applySelectedVideoFile = (file: File, path = "") => {
     previewUrl.value = URL.createObjectURL(file)
     videoPath.value = path
     videoName.value = file.name
-    resetTimelineFrames()
     durationMs.value = 0
     trimStartMs.value = 0
     trimEndMs.value = 0
@@ -624,7 +292,6 @@ const onLoadedMetadata = () => {
     trimStartMs.value = 0
     trimEndMs.value = duration
     seekToTrimStart()
-    void generateTimelineFrames()
 }
 
 const toggleClipPreview = async () => {
@@ -752,12 +419,6 @@ const updateBuffered = () => {
     bufferedPercent.value = end / Math.max(video.duration, 1)
 }
 
-watch(timelineRailWidth, (nextWidth, previousWidth) => {
-    if (!previewUrl.value || durationMs.value <= 0 || nextWidth <= 0 || nextWidth === previousWidth)
-        return
-    void generateTimelineFrames()
-})
-
 watch([trimStartMs, trimEndMs], () => {
     if (!videoRef.value || durationMs.value <= 0) return
 
@@ -777,15 +438,8 @@ watch([trimStartMs, trimEndMs], () => {
     }
 })
 
-onMounted(() => {
-    syncTimelineRailWidth()
-})
-
 onUnmounted(() => {
-    timelineResizeObserver?.disconnect()
-    timelineResizeObserver = null
     stopClipPreview()
-    resetTimelineFrames()
     revokePreviewUrl()
 })
 </script>
@@ -872,17 +526,6 @@ onUnmounted(() => {
                                 @play="isPlaying = true"
                                 @click="togglePlay"
                             ></video>
-                            <video
-                                ref="timelineCaptureVideoRef"
-                                :src="previewUrl"
-                                muted
-                                playsinline
-                                preload="auto"
-                                tabindex="-1"
-                                aria-hidden="true"
-                                class="pointer-events-none fixed -left-[9999px] top-0 h-auto w-[240px] max-w-none opacity-0"
-                            ></video>
-
                             <!-- Custom Controls Overlay -->
                             <div
                                 class="absolute inset-0 flex flex-col justify-end transition-opacity duration-300"
@@ -1017,198 +660,32 @@ onUnmounted(() => {
                                                 <p
                                                     class="mt-1 text-xs text-[var(--text-secondary)]"
                                                 >
-                                                    拖动两端控制点，只保留真正要分析的那段动作。
+                                                    拖动两端控制点，只保留举球到出手的动作片段。
                                                 </p>
                                             </div>
                                             <p
-                                                class="rounded-full border border-[color-mix(in_srgb,var(--accent-color)_26%,transparent)] bg-[color-mix(in_srgb,var(--accent-color)_10%,transparent)] px-3 py-1 text-xs font-medium text-[var(--text-primary)]"
+                                                class="rounded-lg border border-[color-mix(in_srgb,var(--surface-border)_82%,transparent)] bg-[color-mix(in_srgb,var(--card-bg)_92%,var(--surface-color))] px-3 py-1.5 text-xs font-semibold text-[var(--text-primary)] tabular-nums"
                                             >
                                                 {{ formatPreciseTime(trimStartMs) }} -
                                                 {{ formatPreciseTime(trimEndMs) }}
                                             </p>
                                         </div>
 
-                                        <div class="clip-range-rail mt-5">
-                                            <div
-                                                ref="stageRef"
-                                                class="clip-range-stage"
-                                                @pointerdown="onTrimPointerDown"
-                                                @pointermove="onTrimPointerMove"
-                                                @pointerup="onTrimPointerUp"
-                                                @pointercancel="onTrimPointerUp"
-                                            >
-                                                <div
-                                                    :ref="bindTimelineFilmstrip"
-                                                    class="clip-range-filmstrip"
-                                                >
-                                                    <div
-                                                        class="clip-range-thumbnails"
-                                                        :class="{
-                                                            'clip-range-thumbnails-loading':
-                                                                isGeneratingTimelineFrames,
-                                                        }"
-                                                    >
-                                                        <template v-if="timelineFrames.length">
-                                                            <div
-                                                                v-for="(
-                                                                    frame, index
-                                                                ) in timelineFrames"
-                                                                :key="`${frame}-${index}`"
-                                                                class="clip-range-frame"
-                                                            >
-                                                                <img
-                                                                    :src="frame"
-                                                                    alt=""
-                                                                    class="clip-range-frame-image"
-                                                                />
-                                                            </div>
-                                                        </template>
-                                                        <template
-                                                            v-else-if="isGeneratingTimelineFrames"
-                                                        >
-                                                            <div
-                                                                v-for="placeholder in timelinePlaceholderFrames"
-                                                                :key="`placeholder-${placeholder}`"
-                                                                class="clip-range-frame clip-range-frame-placeholder"
-                                                            ></div>
-                                                        </template>
-                                                        <template
-                                                            v-else-if="timelineGenerationError"
-                                                        >
-                                                            <div class="clip-range-error">
-                                                                <p class="clip-range-error-title">
-                                                                    缩略帧生成失败
-                                                                </p>
-                                                                <button
-                                                                    type="button"
-                                                                    class="clip-range-error-retry"
-                                                                    @click="generateTimelineFrames"
-                                                                >
-                                                                    重新生成时间轴
-                                                                </button>
-                                                            </div>
-                                                        </template>
-                                                        <template v-else>
-                                                            <div
-                                                                v-for="placeholder in timelinePlaceholderFrames"
-                                                                :key="`placeholder-idle-${placeholder}`"
-                                                                class="clip-range-frame clip-range-frame-placeholder"
-                                                            ></div>
-                                                        </template>
-                                                    </div>
-                                                    <div
-                                                        class="clip-range-mask clip-range-mask-start"
-                                                        :style="clipStartMaskStyle"
-                                                    ></div>
-                                                    <div
-                                                        class="clip-range-mask clip-range-mask-end"
-                                                        :style="clipEndMaskStyle"
-                                                    ></div>
-                                                    <div
-                                                        class="clip-range-window"
-                                                        :style="clipSelectionStyle"
-                                                    ></div>
-                                                </div>
-
-                                                <div
-                                                    class="clip-range-grip clip-range-grip-start"
-                                                    :style="clipStartHandleStyle"
-                                                ></div>
-                                                <div
-                                                    class="clip-range-grip clip-range-grip-end"
-                                                    :style="clipEndHandleStyle"
-                                                ></div>
-                                            </div>
-                                        </div>
-
-                                        <div
-                                            :class="
-                                                props.compact
-                                                    ? 'mt-3 flex items-center justify-between gap-4 text-xs text-[var(--text-secondary)]'
-                                                    : 'mt-4 flex items-center justify-between gap-4 text-xs text-[var(--text-secondary)]'
-                                            "
-                                        >
-                                            <div class="space-y-1">
-                                                <p
-                                                    class="uppercase tracking-[0.22em] text-[var(--text-muted)]"
-                                                >
-                                                    起点
-                                                </p>
-                                                <p
-                                                    class="text-sm font-semibold text-[var(--text-primary)]"
-                                                >
-                                                    {{ formatPreciseTime(trimStartMs) }}
-                                                </p>
-                                            </div>
-                                            <div class="text-center">
-                                                <p
-                                                    class="uppercase tracking-[0.22em] text-[var(--text-muted)]"
-                                                >
-                                                    片段
-                                                </p>
-                                                <p
-                                                    class="text-sm font-semibold text-[var(--text-primary)]"
-                                                >
-                                                    {{ formatPreciseTime(clipDurationMs) }}
-                                                </p>
-                                            </div>
-                                            <div class="space-y-1 text-right">
-                                                <p
-                                                    class="uppercase tracking-[0.22em] text-[var(--text-muted)]"
-                                                >
-                                                    终点
-                                                </p>
-                                                <p
-                                                    class="text-sm font-semibold text-[var(--text-primary)]"
-                                                >
-                                                    {{ formatPreciseTime(trimEndMs) }}
-                                                </p>
-                                            </div>
-                                        </div>
+                                        <VideoTrimFilmstrip
+                                            v-model:trim-start-ms="trimStartMs"
+                                            v-model:trim-end-ms="trimEndMs"
+                                            class="mt-4"
+                                            :preview-url="previewUrl"
+                                            :duration-ms="durationMs"
+                                            :min-clip-ms="minClipMs"
+                                            :compact="props.compact"
+                                            :disabled="isBusy"
+                                            :is-previewing="isClipPreviewing"
+                                            :current-time-ms="currentTimeMs"
+                                            @preview="toggleClipPreview"
+                                        />
                                     </div>
                                 </div>
-
-                                <template v-if="!props.compact">
-                                    <div
-                                        :class="[
-                                            previewPanelClass,
-                                            props.compact ? 'mt-3' : 'mt-4',
-                                        ]"
-                                    >
-                                        <div
-                                            class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
-                                        >
-                                            <div>
-                                                <p
-                                                    class="text-sm font-medium text-[var(--text-primary)]"
-                                                >
-                                                    预览当前裁剪片段
-                                                </p>
-                                                <p
-                                                    class="mt-1 text-xs text-[var(--text-secondary)]"
-                                                >
-                                                    会在 {{ formatPreciseTime(trimStartMs) }} 到
-                                                    {{
-                                                        formatPreciseTime(trimEndMs)
-                                                    }}
-                                                    之间循环播放，方便先确认分析区间。
-                                                </p>
-                                            </div>
-                                            <Button
-                                                variant="outline"
-                                                :disabled="isBusy || durationMs <= 0"
-                                                @click="toggleClipPreview"
-                                            >
-                                                <Pause
-                                                    v-if="isClipPreviewing"
-                                                    class="mr-2 h-4 w-4"
-                                                />
-                                                <Play v-else class="mr-2 h-4 w-4" />
-                                                {{ isClipPreviewing ? "停止预览" : "预览裁剪片段" }}
-                                            </Button>
-                                        </div>
-                                    </div>
-                                </template>
                             </div>
 
                             <div v-if="!props.compact" :class="helperNoteClass">
@@ -1219,16 +696,6 @@ onUnmounted(() => {
                             </p>
 
                             <div :class="actionRowClass">
-                                <Button
-                                    v-if="props.compact"
-                                    variant="outline"
-                                    :disabled="isBusy || durationMs <= 0"
-                                    @click="toggleClipPreview"
-                                >
-                                    <Pause v-if="isClipPreviewing" class="mr-2 h-4 w-4" />
-                                    <Play v-else class="mr-2 h-4 w-4" />
-                                    {{ props.compact ? "预览片段" : "预览裁剪片段" }}
-                                </Button>
                                 <Button
                                     data-analysis-cta="video"
                                     :disabled="analysisCtaState.disabled"
@@ -1288,192 +755,6 @@ onUnmounted(() => {
         0 18px 34px rgba(24, 29, 38, 0.13);
 }
 
-.clip-range-rail {
-    position: relative;
-    height: 5rem;
-    border-radius: 1.35rem;
-    overflow: hidden;
-    background: color-mix(in srgb, var(--bg-solid) 84%, black);
-    box-shadow:
-        inset 0 0 0 1px color-mix(in srgb, var(--surface-border) 70%, transparent),
-        0 10px 22px rgba(24, 29, 38, 0.08);
-}
-
-.clip-range-stage {
-    position: absolute;
-    inset: var(--clip-range-vertical-gutter) var(--clip-range-gutter);
-    touch-action: none;
-    cursor: default;
-    user-select: none;
-}
-
-.clip-range-filmstrip {
-    position: absolute;
-    inset: 0;
-    border-radius: 1rem;
-    overflow: hidden;
-    background: color-mix(in srgb, var(--bg-solid) 88%, black);
-    pointer-events: none;
-}
-
-.clip-range-thumbnails {
-    display: grid;
-    grid-auto-flow: column;
-    grid-auto-columns: var(--clip-frame-width);
-    justify-content: start;
-    height: 100%;
-}
-
-.clip-range-thumbnails-loading {
-    opacity: 1;
-}
-
-.clip-range-frame {
-    position: relative;
-    overflow: hidden;
-    border-inline-end: 1px solid color-mix(in srgb, var(--surface-border) 62%, transparent);
-    background: color-mix(in srgb, var(--bg-solid) 92%, black);
-}
-
-.clip-range-frame-placeholder::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background:
-        linear-gradient(
-            135deg,
-            color-mix(in srgb, var(--accent-color) 16%, transparent),
-            transparent 40%,
-            rgba(24, 29, 38, 0.22)
-        ),
-        linear-gradient(
-            180deg,
-            color-mix(in srgb, var(--border-light) 28%, transparent),
-            transparent 58%
-        );
-}
-
-.clip-range-frame-image {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: center;
-    display: block;
-}
-
-.clip-range-error {
-    display: grid;
-    height: 100%;
-    place-items: center;
-    gap: 0.45rem;
-    padding: 0.9rem;
-    text-align: center;
-    background: color-mix(in srgb, var(--bg-solid) 90%, black);
-}
-
-.clip-range-error-title {
-    font-size: 0.82rem;
-    font-weight: 600;
-    color: var(--text-primary);
-}
-
-.clip-range-error-retry {
-    border: 1px solid color-mix(in srgb, var(--accent-color) 26%, transparent);
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--accent-color) 10%, transparent);
-    color: var(--text-primary);
-    font-size: 0.75rem;
-    line-height: 1;
-    padding: 0.5rem 0.9rem;
-}
-
-.clip-range-mask,
-.clip-range-window {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    pointer-events: none;
-}
-
-.clip-range-mask {
-    background: linear-gradient(180deg, rgba(19, 23, 29, 0.62), rgba(19, 23, 29, 0.54));
-}
-
-.clip-range-window {
-    border-top: 1px solid color-mix(in srgb, var(--accent-color) 38%, white);
-    border-bottom: 1px solid color-mix(in srgb, var(--accent-color) 24%, transparent);
-    box-shadow:
-        inset 0 0 0 1px color-mix(in srgb, var(--accent-color) 14%, transparent),
-        0 0 0 1px color-mix(in srgb, var(--accent-color) 8%, transparent);
-}
-
-.clip-range-grip {
-    position: absolute;
-    top: 50%;
-    width: 0.62rem;
-    height: calc(100% - 0.3rem);
-    transform: translate(-50%, -50%);
-    border-radius: 999px;
-    border: 1px solid color-mix(in srgb, var(--accent-color) 36%, white);
-    background: linear-gradient(
-        180deg,
-        color-mix(in srgb, var(--card-bg) 94%, var(--surface-color)),
-        color-mix(in srgb, var(--surface-color) 88%, var(--bg-solid))
-    );
-    box-shadow:
-        0 12px 26px rgba(24, 29, 38, 0.2),
-        0 0 0 6px color-mix(in srgb, var(--accent-color) 8%, transparent);
-    pointer-events: none;
-}
-
-.clip-range-input {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    margin: 0;
-    appearance: none;
-    background: transparent;
-    outline: none;
-}
-
-.clip-range-input::-webkit-slider-runnable-track {
-    height: calc(5rem - (var(--clip-range-vertical-gutter) * 2));
-    background: transparent;
-}
-
-.clip-range-input::-webkit-slider-thumb {
-    appearance: none;
-    width: 1.85rem;
-    height: calc(5rem - (var(--clip-range-vertical-gutter) * 2));
-    border: none;
-    background: transparent;
-    cursor: ew-resize;
-}
-
-.clip-range-input::-moz-range-track {
-    height: calc(5rem - (var(--clip-range-vertical-gutter) * 2));
-    background: transparent;
-    border: none;
-}
-
-.clip-range-input::-moz-range-thumb {
-    width: 1.85rem;
-    height: calc(5rem - (var(--clip-range-vertical-gutter) * 2));
-    border: none;
-    border-radius: 0;
-    background: transparent;
-    cursor: ew-resize;
-}
-
-.clip-range-input-start {
-    z-index: 3;
-}
-
-.clip-range-input-end {
-    z-index: 4;
-}
-
 .video-action-divider {
     width: 1px;
     height: 24px;
@@ -1487,10 +768,6 @@ onUnmounted(() => {
         --clip-range-vertical-gutter: 0.36rem;
         --clip-frame-width: 2rem;
         padding-inline: 0.85rem;
-    }
-
-    .clip-range-rail {
-        height: 4.4rem;
     }
 }
 </style>

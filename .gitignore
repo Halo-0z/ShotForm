@@ -7,9 +7,11 @@ dist-ssr
 .DS_Store
 Thumbs.db
 *.log
+.codex-*.png
 __pycache__/
 *.pyc
 src-tauri/target
+.uploads/
 .tmp/
 .trae/
 .vscode/
@@ -24,3 +26,10 @@ tmp-qa-hero/
 tmp_*.py
 tmp_*.png
 tmp_*.mp4
+*.db
+*.sqlite
+*.sqlite3
+*.dump
+*.bak
+*.sql
+!docs/**/*.sql

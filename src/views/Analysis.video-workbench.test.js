@@ -1,45 +1,57 @@
-﻿import test from 'node:test'
-import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import test from "node:test"
+import assert from "node:assert/strict"
+import { readFileSync } from "node:fs"
 
-const source = readFileSync(new URL('./Analysis.vue', import.meta.url), 'utf8')
+const source = readFileSync(new URL("./Analysis.vue", import.meta.url), "utf8")
 
-test('analysis page promotes video pose playback into the hero evidence stage for video analyses', () => {
-  assert.match(source, /import VideoPosePlayback from '@\/components\/VideoPosePlayback\.vue'/)
-  assert.match(source, /const currentVideoAnalysis = computed\(\(\) => analysisStore\.currentVideoAnalysis\)/)
-  assert.match(source, /class="analysis-page__hero-stage"[\s\S]*<VideoPosePlayback[\s\S]*v-if="currentVideoAnalysis"[\s\S]*variant="hero"[\s\S]*:frames="currentVideoAnalysis\.frames"[\s\S]*:selected-frame-index="analysisStore\.currentVideoFrameIndex"/)
-  assert.doesNotMatch(source, /@update:selected-frame-index=/)
-  assert.doesNotMatch(source, /<Badge v-if="currentVideoAnalysis && currentVideoFrame" variant="secondary">/)
+test("analysis video visualizer defaults to playing and starts when keyframes are available", () => {
+    assert.match(source, /const isPlaying = ref\(true\)/)
+    assert.match(source, /const startPlayback = \(\) => \{[\s\S]*if \(frames\.value\.length <= 1\)/)
+    assert.match(
+        source,
+        /watch\(\s*frames,[\s\S]*if \(isPlaying\.value\) \{[\s\S]*startPlayback\(\)/,
+    )
+    assert.match(
+        source,
+        /onMounted\(\(\) => \{[\s\S]*if \(isPlaying\.value\) \{[\s\S]*startPlayback\(\)/,
+    )
 })
 
-test('analysis page keeps the detailed evidence workbench below the hero for keyframe and angle review', () => {
-  assert.match(source, /const selectVideoFrame = \(index: number\) => \{/)
-  assert.match(source, /analysisStore\.selectVideoFrame\(index\)/)
-  assert.match(source, /<section class="analysis-page__workbench">[\s\S]*<AngleChart :angles="analysisStore\.currentAnalysis!\.angles"/)
-  assert.match(source, /class="keyframe-strip filmstrip"/)
-  assert.match(source, /v-for="\(frame, index\) in currentVideoAnalysis\.frames"/)
-  assert.match(source, /:class="\{ active: index === analysisStore\.currentVideoFrameIndex \}"/)
-  assert.match(source, /@click="selectVideoFrame\(index\)"/)
+test("analysis video visualizer keeps manual pause and speed controls", () => {
+    assert.match(source, /const hasPlayableFrames = computed\(\(\) => frames\.value\.length > 1\)/)
+    assert.match(source, /const togglePlayback = \(\) => \{/)
+    assert.match(
+        source,
+        /<button class="analysis-workbench__video-play-btn" @click="togglePlayback">/,
+    )
+    assert.match(source, /<Pause v-if="isPlaying && hasPlayableFrames"/)
+    assert.match(source, /<Play v-else/)
+    assert.match(source, /v-for="speed in \[0\.5, 1, 1\.5\]"/)
+    assert.match(source, /@click="playbackSpeed = speed"/)
 })
 
-test('autoplaying hero playback no longer drags the evidence workbench with it', () => {
-  assert.doesNotMatch(source, /@update:selected-frame-index=/)
-  assert.match(source, /variant="hero"/)
+test("analysis timeline selection updates the inspected frame without owning autoplay", () => {
+    assert.match(source, /const playbackFrameIndex = ref\(0\)/)
+    assert.match(source, /const handleFrameSelect = \(frameIndex: number\) => \{/)
+    assert.match(source, /analysisStore\.selectVideoFrame\(frameIndex\)/)
+    assert.match(source, /playbackFrameIndex\.value = clampFrameIndex\(frameIndex\)/)
+    assert.match(source, /@click="handleFrameSelect\(idx\)"/)
+    assert.match(
+        source,
+        /playbackFrameIndex\.value = \(playbackFrameIndex\.value \+ 1\) % frames\.value\.length/,
+    )
+    assert.doesNotMatch(
+        source,
+        /const next = \(currentFrameIndex\.value \+ 1\) % frames\.value\.length/,
+    )
+    assert.doesNotMatch(source, /@update:selected-frame-index=/)
 })
 
-test('video analysis summary stays anchored to the overall video verdict instead of the autoplaying frame analysis', () => {
-  assert.match(source, /currentVideoAnalysis\.value\.overallShotType/)
-  assert.match(source, /currentVideoAnalysis\.value\.overallShotTypeConfidence/)
-  assert.match(source, /currentVideoAnalysis\.value\.overallReasons\?\.length/)
-  assert.match(source, /return `当前判断：\$\{getShotTypeName\(currentVideoAnalysis\.value\.overallShotType\)\}`/)
-  assert.match(source, /if \(currentVideoAnalysis\.value\) \{[\s\S]*return currentVideoAnalysis\.value\.overallReasons\.slice\(0, 3\)[\s\S]*return \[\]/)
-  assert.match(source, /const insightsScopeNote = computed\(\(\) => \{/)
-  assert.match(source, /以下建议与球星对比基于当前选中的关键帧，整体判断以上方结论为准。/)
+test("analysis video defaults inspection to the best frame while playback advances independently", () => {
+    assert.match(
+        source,
+        /const bestFrameIndex = videoAnalysis\.value\?\.bestFrameIndex \?\? currentFrameIndex\.value/,
+    )
+    assert.match(source, /playbackFrameIndex\.value = clampFrameIndex\(bestFrameIndex\)/)
+    assert.match(source, /最佳帧 \{\{ \(videoAnalysis\?\.bestFrameIndex \?\? 0\) \+ 1 \}\}/)
 })
-
-test('analysis page only mounts the embedded compare workbench when the compare tab is active', () => {
-  assert.match(source, /<TabsContent value="compare" class="mt-6">[\s\S]*<ComparisonView/)
-  assert.match(source, /v-if="insightsTab === 'compare'"/)
-  assert.match(source, /:active="insightsTab === 'compare'"/)
-})
-

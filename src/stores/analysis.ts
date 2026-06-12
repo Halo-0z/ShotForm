@@ -1,5 +1,5 @@
 import { defineStore } from "pinia"
-import { ref } from "vue"
+import { computed, reactive, ref } from "vue"
 import { invoke } from "@tauri-apps/api/core"
 import { listen } from "@tauri-apps/api/event"
 import {
@@ -28,6 +28,24 @@ export interface AnalysisProgress {
     message: string
 }
 
+type CoachingSourceState = "idle" | "loading" | "done" | "error"
+
+interface CoachingSource {
+    data: CorrectionSuggestion[]
+    summary: string
+    state: CoachingSourceState
+    error: string
+    timestamp: number | null
+}
+
+const emptyCoachingSource = (): CoachingSource => ({
+    data: [],
+    summary: "",
+    state: "idle",
+    error: "",
+    timestamp: null,
+})
+
 type AiCoachingSource = "idle" | "rules" | "ai" | "cache"
 type ComparisonInput = ComparisonWorkbenchSnapshot | ComparisonResult | null | undefined
 
@@ -43,9 +61,10 @@ export const useAnalysisStore = defineStore("analysis", () => {
     const currentHistoryId = ref<number | null>(null)
     const currentComparison = ref<ComparisonResult | null>(null)
     const currentComparisonSnapshot = ref<ComparisonWorkbenchSnapshot | null>(null)
-    const currentAiCoachingSummary = ref("")
-    const currentAiCoachingSuggestions = ref<CorrectionSuggestion[]>([])
-    const currentAiCoachingSource = ref<AiCoachingSource>("idle")
+    const coachingSources = reactive({
+        rule: emptyCoachingSource(),
+        ai: emptyCoachingSource(),
+    })
     const autoAiAnalysisEnabled = ref(false)
     const isLoading = ref(false)
     const progress = ref<AnalysisProgress | null>(null)
@@ -205,14 +224,37 @@ export const useAnalysisStore = defineStore("analysis", () => {
         suggestions: CorrectionSuggestion[] | null | undefined,
         source: AiCoachingSource,
     ) => {
-        currentAiCoachingSummary.value = summary ?? ""
-        currentAiCoachingSuggestions.value = suggestions ?? []
-        currentAiCoachingSource.value = summary || suggestions?.length ? source : "idle"
+        if (source === "ai" || source === "cache") {
+            coachingSources.ai.data = suggestions ?? []
+            coachingSources.ai.summary = summary ?? ""
+            coachingSources.ai.state = "done"
+            coachingSources.ai.timestamp = Date.now()
+        } else if (source === "rules") {
+            coachingSources.rule.data = suggestions ?? []
+            coachingSources.rule.summary = summary ?? ""
+            coachingSources.rule.state = "done"
+            coachingSources.rule.timestamp = Date.now()
+        }
     }
 
     const clearAiCoachingCache = () => {
-        setAiCoachingCache("", [], "idle")
+        coachingSources.rule = emptyCoachingSource()
+        coachingSources.ai = emptyCoachingSource()
     }
+
+    const clearCoachingSources = () => {
+        coachingSources.rule = emptyCoachingSource()
+        coachingSources.ai = emptyCoachingSource()
+    }
+
+    // 向后兼容（SuggestionPanel adapter）
+    const currentAiCoachingSummary = computed(() => coachingSources.ai.summary)
+    const currentAiCoachingSuggestions = computed(() => coachingSources.ai.data)
+    const currentAiCoachingSource = computed<AiCoachingSource>(() => {
+        if (coachingSources.ai.state === "done") return "ai"
+        if (coachingSources.rule.state === "done") return "rules"
+        return "idle"
+    })
 
     const setCurrentComparison = (comparison: ComparisonResult | null) => {
         if (!comparison) {
@@ -238,7 +280,8 @@ export const useAnalysisStore = defineStore("analysis", () => {
         currentImage.value = frame.imageData
         currentAnnotatedImage.value = frame.annotatedImageData || frame.imageData
         clearCurrentComparisonState()
-        clearAiCoachingCache()
+        coachingSources.ai = emptyCoachingSource()
+        void loadRuleSuggestions(currentAnalysis.value)
     }
 
     const syncCurrentAnalysisAiReview = (review: AiShotReview, sourceTimestamp?: number) => {
@@ -344,6 +387,88 @@ export const useAnalysisStore = defineStore("analysis", () => {
         return normalizedReview
     }
 
+    const loadRuleSuggestions = async (analysis: ShotAnalysis | null) => {
+        if (!analysis) return
+
+        coachingSources.rule.state = "loading"
+        coachingSources.rule.error = ""
+
+        try {
+            const suggestions = await invoke<CorrectionSuggestion[]>("get_correction_suggestions", {
+                analysis,
+            })
+            coachingSources.rule.data = suggestions
+            coachingSources.rule.summary = buildRuleSummary(suggestions)
+            coachingSources.rule.state = "done"
+            coachingSources.rule.timestamp = Date.now()
+        } catch (error) {
+            coachingSources.rule.state = "error"
+            coachingSources.rule.error = error instanceof Error ? error.message : String(error)
+        }
+    }
+
+    const generateAiCoaching = async (options?: {
+        analysis?: ShotAnalysis | null
+        imageData?: string | null
+        annotatedImageData?: string | null
+        force?: boolean
+    }) => {
+        const analysis = options?.analysis ?? currentAnalysis.value
+        if (!analysis) {
+            return
+        }
+
+        if (
+            coachingSources.ai.state === "done" &&
+            coachingSources.ai.data.length > 0 &&
+            !options?.force
+        ) {
+            return
+        }
+
+        coachingSources.ai.state = "loading"
+        coachingSources.ai.error = ""
+
+        try {
+            const response = await invoke<{ summary: string; suggestions: CorrectionSuggestion[] }>(
+                "get_ai_correction_suggestions",
+                {
+                    analysis,
+                    imageData: options?.imageData ?? (currentImage.value || null),
+                    annotatedImageData:
+                        options?.annotatedImageData ?? (currentAnnotatedImage.value || null),
+                },
+            )
+
+            coachingSources.ai.data = response.suggestions
+            coachingSources.ai.summary = response.summary
+            coachingSources.ai.state = "done"
+            coachingSources.ai.timestamp = Date.now()
+
+            if (currentHistoryId.value) {
+                await updateHistoryAiCoaching(
+                    currentHistoryId.value,
+                    response.summary,
+                    response.suggestions,
+                )
+            }
+        } catch (error) {
+            coachingSources.ai.state = "error"
+            coachingSources.ai.error = error instanceof Error ? error.message : String(error)
+        }
+    }
+
+    const buildRuleSummary = (suggestions: CorrectionSuggestion[]): string => {
+        if (!suggestions.length) {
+            return "当前姿态未检测到明显偏差，整体表现良好。"
+        }
+        const focus = suggestions
+            .slice(0, 2)
+            .map((s) => s.bodyPart)
+            .join("、")
+        return `从本地规则分析看，主要需要关注 ${focus} 的配合。建议先调整这些部位，再结合 AI 深度分析获取更细致的动作指导。`
+    }
+
     const analyzeImage = async (imageData: string): Promise<ShotAnalysis> => {
         isLoading.value = true
         progress.value = { stage: "starting", progress: 0, message: "开始分析..." }
@@ -371,6 +496,8 @@ export const useAnalysisStore = defineStore("analysis", () => {
             }
 
             currentAnalysis.value = normalizedResult
+
+            void loadRuleSuggestions(normalizedResult)
 
             if (shouldAutoGenerateAiReview(autoAiAnalysisEnabled.value, normalizedResult)) {
                 void generateAiReview({
@@ -421,7 +548,7 @@ export const useAnalysisStore = defineStore("analysis", () => {
             const result = await invoke<VideoShotAnalysis>("analyze_video", invokeArgs)
             const normalizedResult = normalizeVideoAnalysis(result)
             currentVideoAnalysis.value = normalizedResult
-            applyVideoFrameSelection(normalizedResult, 0)
+            applyVideoFrameSelection(normalizedResult, normalizedResult.bestFrameIndex ?? 0)
 
             if (
                 normalizedResult.firstFrameMultiPose &&
@@ -469,18 +596,23 @@ export const useAnalysisStore = defineStore("analysis", () => {
         if (normalizedRecord.videoAnalysis) {
             currentVideoAnalysis.value = normalizedRecord.videoAnalysis
             currentVideoPath.value = normalizedRecord.videoAnalysis.videoPath
-            currentVideoFrameIndex.value = 0
+            applyVideoFrameSelection(
+                normalizedRecord.videoAnalysis,
+                normalizedRecord.videoAnalysis.bestFrameIndex ?? 0,
+            )
         } else {
             clearVideoState()
         }
 
-        setAiCoachingCache(
-            normalizedRecord.aiCoachingSummary,
-            normalizedRecord.aiCoachingSuggestions,
-            normalizedRecord.aiCoachingSummary || normalizedRecord.aiCoachingSuggestions?.length
-                ? "cache"
-                : "idle",
-        )
+        // 恢复 AI 建议（如果有缓存）
+        if (normalizedRecord.aiCoachingSummary || normalizedRecord.aiCoachingSuggestions?.length) {
+            coachingSources.ai.data = normalizedRecord.aiCoachingSuggestions ?? []
+            coachingSources.ai.summary = normalizedRecord.aiCoachingSummary ?? ""
+            coachingSources.ai.state = "done"
+            coachingSources.ai.timestamp = Date.now()
+        } else {
+            coachingSources.ai = emptyCoachingSource()
+        }
     }
 
     const updateHistoryAiCoaching = async (
@@ -570,6 +702,7 @@ export const useAnalysisStore = defineStore("analysis", () => {
         currentHistoryId,
         currentComparison,
         currentComparisonSnapshot,
+        coachingSources,
         currentAiCoachingSummary,
         currentAiCoachingSuggestions,
         currentAiCoachingSource,
@@ -582,11 +715,14 @@ export const useAnalysisStore = defineStore("analysis", () => {
         analyzeVideo,
         selectVideoFrame,
         generateAiReview,
+        generateAiCoaching,
+        loadRuleSuggestions,
         setCurrentAnalysis,
         setCurrentHistoryRecord,
         setCurrentComparison,
         setAiCoachingCache,
         clearAiCoachingCache,
+        clearCoachingSources,
         loadPreferences,
         setAutoAiAnalysisEnabled,
         updateHistoryAiCoaching,

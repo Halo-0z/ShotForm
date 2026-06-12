@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue"
 import { useRouter } from "vue-router"
-import { GitCompareArrows } from "lucide-vue-next"
+import { ArrowLeft, GitCompareArrows } from "lucide-vue-next"
 import ComparisonView from "@/components/ComparisonView/index.vue"
 import { Button } from "@/components/ui/button"
 import { type ComparisonIdentity } from "@/lib/comparison-service"
@@ -35,6 +35,14 @@ const compareAnalysisProfile = computed(() => {
     return analysisStore.currentVideoAnalysis?.templateProfile ?? null
 })
 
+const goBack = () => {
+    if (analysisStore.currentAnalysis) {
+        router.push("/analysis")
+        return
+    }
+    router.push("/upload")
+}
+
 const goToUpload = () => {
     router.push("/upload")
 }
@@ -55,6 +63,17 @@ const goToTemplates = () => {
 
         <div class="compare-page__content">
             <header class="compare-page__header">
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    class="compare-page__back"
+                    aria-label="返回分析结果"
+                    title="返回分析结果"
+                    @click="goBack"
+                >
+                    <ArrowLeft class="h-5 w-5" />
+                </Button>
+
                 <div class="compare-page__heading">
                     <p class="compare-page__eyebrow">COMPARISON</p>
                     <h1 class="compare-page__title">球星对比</h1>

@@ -32,8 +32,7 @@ const goToCompare = () => {
 const videoAnalysis = computed(() => analysisStore.currentVideoAnalysis)
 const currentFrameIndex = computed(() => analysisStore.currentVideoFrameIndex)
 const frames = computed(() => videoAnalysis.value?.frames ?? [])
-const currentAiSuggestions = computed(() => analysisStore.currentAiCoachingSuggestions)
-const aiSuggestionsCount = computed(() => analysisStore.currentAiCoachingSuggestions.length)
+const hasPlayableFrames = computed(() => frames.value.length > 1)
 
 const shotTypeName = computed(() => {
     if (videoAnalysis.value) {
@@ -50,41 +49,6 @@ const displayAnalysis = computed(() => {
         return va.frames[va.bestFrameIndex]?.analysis ?? analysis.value
     }
     return analysis.value
-})
-
-const score = computed(() => {
-    const analysisToScore = displayAnalysis.value
-    if (!analysisToScore) return 86
-    const angles = analysisToScore.angles
-    const scoreMap = new Map<string, number>()
-    for (const angle of angles) {
-        if (!angle.value || angle.value <= 0) continue
-        const idealRanges: Record<string, [number, number]> = {
-            left_elbow_angle: [90, 120],
-            right_elbow_angle: [90, 120],
-            left_shoulder_angle: [140, 170],
-            right_shoulder_angle: [140, 170],
-            left_knee_angle: [140, 165],
-            right_knee_angle: [140, 165],
-            trunk_tilt: [80, 100],
-        }
-        const range = idealRanges[angle.name]
-        if (range) {
-            const [min, max] = range
-            if (angle.value >= min && angle.value <= max) {
-                scoreMap.set(angle.name, 95)
-            } else {
-                const deviation = Math.min(Math.abs(angle.value - min), Math.abs(angle.value - max))
-                scoreMap.set(angle.name, Math.max(40, 95 - deviation * 1.2))
-            }
-        }
-    }
-    if (scoreMap.size === 0) return 86
-    let total = 0
-    for (const s of scoreMap.values()) {
-        total += s
-    }
-    return Math.round(total / scoreMap.size)
 })
 
 const confidencePercent = computed(() => {
@@ -112,22 +76,28 @@ const analysisReasons = computed(() => {
     return analysis.value.shotTypeReasons
 })
 
-const isPlaying = ref(false)
+const isPlaying = ref(true)
 const chartAnalysis = ref(displayAnalysis.value)
 const playbackSpeed = ref(1)
+const playbackFrameIndex = ref(0)
 const videoCanvasRef = ref<HTMLCanvasElement | null>(null)
 const playbackTimer = ref<number | null>(null)
 const imageCache = new Map<string, HTMLImageElement>()
 let drawRequestId = 0
 
-const activeFrame = computed(() => {
+const clampFrameIndex = (frameIndex: number) => {
+    if (frames.value.length === 0) return 0
+    return Math.min(Math.max(frameIndex, 0), frames.value.length - 1)
+}
+
+const playbackFrame = computed(() => {
     if (frames.value.length === 0) return null
-    return frames.value[currentFrameIndex.value] ?? frames.value[0]
+    return frames.value[playbackFrameIndex.value] ?? frames.value[0]
 })
 
 const currentTimestampDisplay = computed(() => {
     if (frames.value.length === 0) return "0:00"
-    const frame = frames.value[currentFrameIndex.value]
+    const frame = frames.value[playbackFrameIndex.value]
     return formatTime(frame?.timestampMs ?? 0)
 })
 
@@ -191,10 +161,11 @@ const getLineColor = (startId: number, endId: number) => {
 }
 
 const drawFrame = async () => {
-    const frame = activeFrame.value
+    const frame = playbackFrame.value
     const canvas = videoCanvasRef.value
     if (!frame || !canvas) return
     const requestId = ++drawRequestId
+    const frameIndex = playbackFrameIndex.value
     const poseData = frame.analysis.poseData
     const context = canvas.getContext("2d")
     if (!context) return
@@ -286,7 +257,7 @@ const drawFrame = async () => {
     context.fillRect(16, 16, 176, 54)
     context.fillStyle = "#f8fafc"
     context.font = "600 15px sans-serif"
-    context.fillText(`关键帧 ${currentFrameIndex.value + 1}/${frames.value.length}`, 28, 38)
+    context.fillText(`关键帧 ${frameIndex + 1}/${frames.value.length}`, 28, 38)
     context.font = "400 13px sans-serif"
     context.fillStyle = "rgba(226, 232, 240, 0.92)"
     context.fillText(`时间点 ${formatTime(frame.timestampMs)}`, 28, 58)
@@ -294,7 +265,9 @@ const drawFrame = async () => {
 
 const handleFrameSelect = (frameIndex: number) => {
     analysisStore.selectVideoFrame(frameIndex)
+    playbackFrameIndex.value = clampFrameIndex(frameIndex)
     chartAnalysis.value = analysis.value
+    void drawFrame()
 }
 
 const togglePlayback = () => {
@@ -309,16 +282,26 @@ const togglePlayback = () => {
 
 const startPlayback = () => {
     if (playbackTimer.value) clearInterval(playbackTimer.value)
+    if (frames.value.length <= 1) {
+        playbackTimer.value = null
+        return
+    }
     const interval = 500 / playbackSpeed.value
     playbackTimer.value = window.setInterval(() => {
         if (frames.value.length === 0) return
-        const next = (currentFrameIndex.value + 1) % frames.value.length
-        analysisStore.selectVideoFrame(next)
+        playbackFrameIndex.value = (playbackFrameIndex.value + 1) % frames.value.length
     }, interval)
 }
 
 const handleExport = () => {
     window.alert("导出报告功能开发中")
+}
+
+const handleGenerateAiCoaching = async () => {
+    if (analysisStore.coachingSources.ai.state === "loading" || !analysis.value) {
+        return
+    }
+    await analysisStore.generateAiCoaching({ force: true })
 }
 
 const handleWindowResize = () => {
@@ -328,16 +311,30 @@ const handleWindowResize = () => {
 watch(
     frames,
     async () => {
+        const bestFrameIndex = videoAnalysis.value?.bestFrameIndex ?? currentFrameIndex.value
+        playbackFrameIndex.value = clampFrameIndex(bestFrameIndex)
         await preloadImages()
         await drawFrame()
         if (videoAnalysis.value && !chartAnalysis.value) {
             chartAnalysis.value = displayAnalysis.value
         }
+        if (isPlaying.value) {
+            startPlayback()
+        } else if (playbackTimer.value && frames.value.length <= 1) {
+            clearInterval(playbackTimer.value)
+            playbackTimer.value = null
+        }
     },
     { deep: true, immediate: true },
 )
 
-watch(currentFrameIndex, async () => {
+watch(playbackFrameIndex, async () => {
+    await drawFrame()
+})
+
+watch(currentFrameIndex, async (frameIndex) => {
+    chartAnalysis.value = analysis.value
+    playbackFrameIndex.value = clampFrameIndex(frameIndex)
     await drawFrame()
 })
 
@@ -350,6 +347,9 @@ watch(playbackSpeed, () => {
 
 onMounted(() => {
     window.addEventListener("resize", handleWindowResize)
+    if (isPlaying.value) {
+        startPlayback()
+    }
 })
 
 onUnmounted(() => {
@@ -418,17 +418,6 @@ onUnmounted(() => {
                                 <span class="analysis-workbench__card-sublabel">标准动作</span>
                             </div>
 
-                            <div class="analysis-workbench__card analysis-workbench__card--score">
-                                <span class="analysis-workbench__card-label">综合得分</span>
-                                <div class="analysis-workbench__card-score">
-                                    <span class="analysis-workbench__card-score-number">{{
-                                        score
-                                    }}</span>
-                                    <span class="analysis-workbench__card-score-total">/100</span>
-                                </div>
-                                <span class="analysis-workbench__card-sublabel">优秀</span>
-                            </div>
-
                             <div
                                 class="analysis-workbench__card analysis-workbench__card--confidence"
                             >
@@ -482,14 +471,14 @@ onUnmounted(() => {
                                     class="analysis-workbench__video-play-btn"
                                     @click="togglePlayback"
                                 >
-                                    <Pause v-if="isPlaying" class="h-4 w-4" />
+                                    <Pause v-if="isPlaying && hasPlayableFrames" class="h-4 w-4" />
                                     <Play v-else class="h-4 w-4" />
                                 </button>
                                 <div class="analysis-workbench__video-progress">
                                     <div
                                         class="analysis-workbench__video-progress-fill"
                                         :style="{
-                                            width: `${frames.length > 0 ? ((currentFrameIndex + 1) / frames.length) * 100 : 0}%`,
+                                            width: `${frames.length > 0 ? ((playbackFrameIndex + 1) / frames.length) * 100 : 0}%`,
                                         }"
                                     />
                                 </div>
@@ -552,12 +541,7 @@ onUnmounted(() => {
                         </div>
                         <div class="analysis-workbench__best-frame-badge">
                             <Bookmark class="h-3.5 w-3.5" />
-                            <span
-                                >最佳值
-                                {{
-                                    analysisReasons.length > 1 ? analysisReasons.length - 1 : 1
-                                }}</span
-                            >
+                            <span>最佳帧 {{ (videoAnalysis?.bestFrameIndex ?? 0) + 1 }}</span>
                         </div>
                     </div>
                     <p class="analysis-workbench__timeline-hint">
@@ -571,9 +555,7 @@ onUnmounted(() => {
                     <div class="analysis-workbench__timeline-scroll">
                         <button
                             class="analysis-workbench__timeline-arrow"
-                            @click="
-                                analysisStore.selectVideoFrame(Math.max(0, currentFrameIndex - 1))
-                            "
+                            @click="handleFrameSelect(Math.max(0, currentFrameIndex - 1))"
                         >
                             <ChevronLeft class="h-5 w-5" />
                         </button>
@@ -597,7 +579,7 @@ onUnmounted(() => {
                         <button
                             class="analysis-workbench__timeline-arrow"
                             @click="
-                                analysisStore.selectVideoFrame(
+                                handleFrameSelect(
                                     Math.min(frames.length - 1, currentFrameIndex + 1),
                                 )
                             "
@@ -635,8 +617,9 @@ onUnmounted(() => {
                         <h3 class="analysis-workbench__suggestions-title">AI姿势建议</h3>
                     </div>
                     <AISuggestionList
-                        :suggestions="currentAiSuggestions"
-                        :count="aiSuggestionsCount"
+                        :rule-source="analysisStore.coachingSources.rule"
+                        :ai-source="analysisStore.coachingSources.ai"
+                        @generate="handleGenerateAiCoaching"
                     />
                 </section>
             </div>
@@ -787,7 +770,7 @@ onUnmounted(() => {
 
 .analysis-workbench__conclusion-cards {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
 }
 
@@ -821,25 +804,6 @@ onUnmounted(() => {
     font-size: 14px;
     font-weight: 700;
     width: fit-content;
-}
-
-.analysis-workbench__card--score .analysis-workbench__card-score {
-    display: flex;
-    align-items: baseline;
-    gap: 2px;
-}
-
-.analysis-workbench__card-score-number {
-    font-size: 28px;
-    font-weight: 800;
-    color: var(--text-primary);
-    line-height: 1;
-}
-
-.analysis-workbench__card-score-total {
-    font-size: 14px;
-    color: var(--text-muted);
-    font-weight: 500;
 }
 
 .analysis-workbench__card--confidence .analysis-workbench__card-confidence-value {

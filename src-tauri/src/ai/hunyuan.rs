@@ -2,9 +2,9 @@ use crate::models::{
     AiAnalysisPayload, AiCoachingResponse, AiShotReview, CorrectionSuggestion, ShotType,
 };
 use serde::{Deserialize, Serialize};
-const DEFAULT_BASE_URL: &str = "https://api.hunyuan.cloud.tencent.com/v1";
-const DEFAULT_MODEL: &str = "hunyuan-turbos-latest";
-const DEFAULT_VISION_MODEL: &str = "hunyuan-turbos-vision-20250619";
+const DEFAULT_BASE_URL: &str = "https://tokenhub.tencentmaas.com/v1";
+const DEFAULT_MODEL: &str = "hy3-preview";
+const DEFAULT_VISION_MODEL: &str = "hy3-preview";
 pub async fn generate_shot_review(
     payload: &AiAnalysisPayload,
     image_data: Option<&str>,
@@ -483,13 +483,13 @@ mod tests {
     }
     #[test]
     fn detects_vision_models() {
-        assert!(model_supports_vision("hunyuan-turbos-vision-20250619"));
+        assert!(model_supports_vision("hy3-preview"));
         assert!(model_supports_vision("hunyuan-vl-plus"));
-        assert!(!model_supports_vision("hunyuan-turbos-latest"));
+        assert!(!model_supports_vision("hy3-preview"));
     }
     #[test]
     fn prefers_vision_model_when_image_is_present() {
-        std::env::set_var("HUNYUAN_MODEL", "hunyuan-turbos-latest");
+        std::env::set_var("HUNYUAN_MODEL", "hy3-preview");
         std::env::remove_var("HUNYUAN_VISION_MODEL");
         let models = resolve_candidate_models(true);
         assert_eq!(
@@ -498,7 +498,7 @@ mod tests {
         );
         assert_eq!(
             models.get(1).map(String::as_str),
-            Some("hunyuan-turbos-latest")
+            Some("hy3-preview")
         );
     }
     #[test]
@@ -523,7 +523,7 @@ mod tests {
     #[test]
     fn rewrites_rate_limit_provider_errors_to_friendly_message() {
         let message = format_api_error_message(
-            "hunyuan-turbos-latest",
+            "hy3-preview",
             reqwest::StatusCode::BAD_REQUEST,
             r#"{"error":{"message":"请求限频，请稍后重试","code":"2003"}}"#,
         );

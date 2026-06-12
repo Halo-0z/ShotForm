@@ -20,12 +20,14 @@ const props = withDefaults(
         compact?: boolean
         disabled?: boolean
         isPreviewing?: boolean
+        currentTimeMs?: number
     }>(),
     {
         minClipMs: 300,
         compact: false,
         disabled: false,
         isPreviewing: false,
+        currentTimeMs: 0,
     },
 )
 
@@ -52,6 +54,7 @@ const configuredMinClipMs = computed(() => Math.max(0, props.minClipMs || 0))
 const sliderMaxMs = computed(() => Math.max(0, props.durationMs))
 const effectiveMinClipMs = computed(() => Math.min(configuredMinClipMs.value, sliderMaxMs.value))
 const safeTrimEndMs = computed(() => Math.min(Math.max(0, props.trimEndMs), sliderMaxMs.value))
+const clipDurationMs = computed(() => Math.max(0, safeTrimEndMs.value - props.trimStartMs))
 const trimStartPercent = computed(() =>
     sliderMaxMs.value <= 0 ? 0 : (props.trimStartMs / sliderMaxMs.value) * 100,
 )
@@ -59,9 +62,15 @@ const trimEndPercent = computed(() =>
     sliderMaxMs.value <= 0 ? 100 : (safeTrimEndMs.value / sliderMaxMs.value) * 100,
 )
 const trimMidpointPercent = computed(() => (trimStartPercent.value + trimEndPercent.value) / 2)
+const playheadPercent = computed(() =>
+    sliderMaxMs.value <= 0
+        ? 0
+        : (Math.min(Math.max(0, props.currentTimeMs), sliderMaxMs.value) / sliderMaxMs.value) * 100,
+)
 const filmstripOverlayStyle = computed(() => ({
     "--clip-start-percent": `${Math.max(0, Math.min(100, trimStartPercent.value))}%`,
     "--clip-end-percent": `${Math.max(0, Math.min(100, trimEndPercent.value))}%`,
+    "--clip-playhead-percent": `${Math.max(0, Math.min(100, playheadPercent.value))}%`,
 }))
 const clipStartHandleStyle = computed(() => ({
     left: `${Math.max(0, Math.min(100, trimStartPercent.value))}%`,
@@ -78,6 +87,36 @@ const clipEndInputStyle = computed(() => ({
 const previewButtonLabel = computed(() =>
     props.isPreviewing ? "停止预览裁剪片段" : "预览裁剪片段",
 )
+const formatPreciseTime = (milliseconds: number) => {
+    const safeMilliseconds = Math.max(0, Number(milliseconds) || 0)
+    const totalCentiseconds = Math.round(safeMilliseconds / 10)
+    const minutes = Math.floor(totalCentiseconds / 6000)
+    const seconds = Math.floor((totalCentiseconds % 6000) / 100)
+    const centiseconds = totalCentiseconds % 100
+    return `${minutes}:${seconds.toString().padStart(2, "0")}.${centiseconds.toString().padStart(2, "0")}`
+}
+const clipQuality = computed(() => {
+    const duration = clipDurationMs.value
+    if (duration < 2000) {
+        return {
+            className: "video-trim-filmstrip__status--warning",
+            label: "片段偏短",
+            detail: "建议包含完整举球到出手",
+        }
+    }
+    if (duration > 6000) {
+        return {
+            className: "video-trim-filmstrip__status--long",
+            label: "片段偏长",
+            detail: "可收紧到出手主动作",
+        }
+    }
+    return {
+        className: "video-trim-filmstrip__status--ready",
+        label: "适合分析",
+        detail: "动作区间清晰",
+    }
+})
 
 let filmstripRenderId = 0
 let timelineResizeObserver: ResizeObserver | null = null
@@ -523,6 +562,14 @@ const updateTrimEnd = (event: Event) => {
     emit("update:trimEndMs", clampTrimEndMs(nextValue))
 }
 
+const setTrimStartFromPlayhead = () => {
+    emit("update:trimStartMs", clampTrimStartMs(props.currentTimeMs, props.trimEndMs))
+}
+
+const setTrimEndFromPlayhead = () => {
+    emit("update:trimEndMs", clampTrimEndMs(props.currentTimeMs, props.trimStartMs))
+}
+
 const emitPreview = () => {
     if (props.disabled || props.durationMs <= 0) return
     emit("preview")
@@ -591,6 +638,32 @@ onUnmounted(() => {
             class="video-trim-filmstrip__capture-video"
         ></video>
 
+        <div class="video-trim-filmstrip__header">
+            <div class="video-trim-filmstrip__status" :class="clipQuality.className">
+                <span class="video-trim-filmstrip__status-dot"></span>
+                <span>{{ clipQuality.label }}</span>
+                <small>{{ clipQuality.detail }}</small>
+            </div>
+            <div class="video-trim-filmstrip__actions">
+                <button
+                    type="button"
+                    class="video-trim-filmstrip__mark-button"
+                    :disabled="disabled || durationMs <= 0"
+                    @click="setTrimStartFromPlayhead"
+                >
+                    设为起点
+                </button>
+                <button
+                    type="button"
+                    class="video-trim-filmstrip__mark-button"
+                    :disabled="disabled || durationMs <= 0"
+                    @click="setTrimEndFromPlayhead"
+                >
+                    设为终点
+                </button>
+            </div>
+        </div>
+
         <div class="video-trim-filmstrip__rail">
             <div class="video-trim-filmstrip__ios-strip">
                 <button
@@ -644,6 +717,11 @@ onUnmounted(() => {
                             class="video-trim-filmstrip__inactive-regions"
                             :style="filmstripOverlayStyle"
                         ></div>
+                        <div
+                            class="video-trim-filmstrip__playhead"
+                            :style="filmstripOverlayStyle"
+                            aria-hidden="true"
+                        ></div>
                     </div>
 
                     <div class="video-trim-filmstrip__interaction-layer">
@@ -691,6 +769,21 @@ onUnmounted(() => {
                 </div>
             </div>
         </div>
+
+        <div class="video-trim-filmstrip__readout">
+            <div>
+                <span>起点</span>
+                <strong>{{ formatPreciseTime(trimStartMs) }}</strong>
+            </div>
+            <div>
+                <span>片段</span>
+                <strong>{{ formatPreciseTime(clipDurationMs) }}</strong>
+            </div>
+            <div>
+                <span>终点</span>
+                <strong>{{ formatPreciseTime(safeTrimEndMs) }}</strong>
+            </div>
+        </div>
     </div>
 </template>
 
@@ -698,9 +791,85 @@ onUnmounted(() => {
 .video-trim-filmstrip {
     --clip-range-gutter: 1.55rem;
     --clip-range-vertical-gutter: 0.56rem;
-    --clip-control-bg: color-mix(in srgb, #b6b7bb 84%, var(--surface-color));
-    --clip-control-separator: rgba(255, 255, 255, 0.72);
-    --clip-handle-color: #fbfbfb;
+    --clip-control-bg: color-mix(in srgb, var(--surface-color) 82%, #9fa4ac);
+    --clip-control-separator: color-mix(in srgb, var(--border-light) 72%, transparent);
+    --clip-handle-color: #f8f5ef;
+    display: grid;
+    gap: 0.75rem;
+}
+
+.video-trim-filmstrip__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.9rem;
+}
+
+.video-trim-filmstrip__status {
+    display: inline-flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-primary);
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.video-trim-filmstrip__status small {
+    color: var(--text-secondary);
+    font-size: 0.76rem;
+    font-weight: 500;
+}
+
+.video-trim-filmstrip__status-dot {
+    width: 0.48rem;
+    height: 0.48rem;
+    border-radius: 999px;
+    background: var(--clip-status-color, var(--accent-color));
+    box-shadow: 0 0 0 4px
+        color-mix(in srgb, var(--clip-status-color, var(--accent-color)) 16%, transparent);
+}
+
+.video-trim-filmstrip__status--ready {
+    --clip-status-color: var(--accent-color);
+}
+
+.video-trim-filmstrip__status--warning,
+.video-trim-filmstrip__status--long {
+    --clip-status-color: var(--warning-color, #d9a441);
+}
+
+.video-trim-filmstrip__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.video-trim-filmstrip__mark-button {
+    min-height: 2rem;
+    border: 1px solid color-mix(in srgb, var(--surface-border) 84%, transparent);
+    border-radius: 0.5rem;
+    background: color-mix(in srgb, var(--card-bg) 92%, var(--surface-color));
+    color: var(--text-primary);
+    cursor: pointer;
+    font-size: 0.76rem;
+    font-weight: 700;
+    padding: 0.42rem 0.68rem;
+    transition:
+        background-color 140ms ease,
+        border-color 140ms ease,
+        color 140ms ease;
+}
+
+.video-trim-filmstrip__mark-button:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--primary-color) 42%, var(--surface-border));
+    background: color-mix(in srgb, var(--primary-color) 9%, var(--card-bg));
+    color: var(--primary-color);
+}
+
+.video-trim-filmstrip__mark-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.52;
 }
 
 .video-trim-filmstrip__capture-video {
@@ -716,9 +885,9 @@ onUnmounted(() => {
 
 .video-trim-filmstrip__rail {
     position: relative;
-    height: 5.75rem;
+    height: 5.9rem;
     overflow: hidden;
-    border-radius: 1rem;
+    border-radius: 0.9rem;
     background: var(--clip-control-bg);
     box-shadow:
         inset 0 0 0 1px color-mix(in srgb, var(--surface-border) 42%, transparent),
@@ -748,7 +917,7 @@ onUnmounted(() => {
     place-items: center;
     border: 0;
     border-inline-end: 2px solid var(--clip-control-separator);
-    background: color-mix(in srgb, var(--clip-control-bg) 92%, #8e9095);
+    background: color-mix(in srgb, var(--clip-control-bg) 86%, #767c86);
     color: #ffffff;
     cursor: pointer;
     transition:
@@ -758,7 +927,7 @@ onUnmounted(() => {
 
 .video-trim-filmstrip__play-pane:hover:not(:disabled),
 .video-trim-filmstrip__play-pane--active {
-    background: color-mix(in srgb, var(--clip-control-bg) 76%, #7d8086);
+    background: color-mix(in srgb, var(--primary-color) 28%, #717783);
 }
 
 .video-trim-filmstrip__play-pane:focus-visible {
@@ -838,9 +1007,9 @@ onUnmounted(() => {
     position: absolute;
     inset: var(--clip-range-vertical-gutter) var(--clip-range-gutter);
     overflow: hidden;
-    border-radius: 0.24rem;
+    border-radius: 0.34rem;
     background: #10141d;
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.26);
 }
 
 .video-trim-filmstrip__canvas {
@@ -899,13 +1068,39 @@ onUnmounted(() => {
     pointer-events: none;
     background: linear-gradient(
         to right,
-        rgba(10, 13, 18, 0.18) 0%,
-        rgba(10, 13, 18, 0.18) var(--clip-start-percent),
+        rgba(10, 13, 18, 0.34) 0%,
+        rgba(10, 13, 18, 0.34) var(--clip-start-percent),
         transparent var(--clip-start-percent),
         transparent var(--clip-end-percent),
-        rgba(10, 13, 18, 0.18) var(--clip-end-percent),
-        rgba(10, 13, 18, 0.18) 100%
+        rgba(10, 13, 18, 0.34) var(--clip-end-percent),
+        rgba(10, 13, 18, 0.34) 100%
     );
+}
+
+.video-trim-filmstrip__playhead {
+    position: absolute;
+    top: -0.18rem;
+    bottom: -0.18rem;
+    left: var(--clip-playhead-percent);
+    z-index: 9;
+    width: 2px;
+    transform: translateX(-50%);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--primary-color) 86%, white);
+    box-shadow: 0 0 0 1px rgba(248, 245, 239, 0.82);
+    pointer-events: none;
+}
+
+.video-trim-filmstrip__playhead::before {
+    content: "";
+    position: absolute;
+    top: -0.12rem;
+    left: 50%;
+    width: 0.55rem;
+    height: 0.55rem;
+    transform: translateX(-50%) rotate(45deg);
+    border-radius: 0.12rem;
+    background: color-mix(in srgb, var(--primary-color) 86%, white);
 }
 
 .video-trim-filmstrip__interaction-layer {
@@ -926,7 +1121,7 @@ onUnmounted(() => {
     bottom: 0;
     left: var(--clip-start-percent);
     right: calc(100% - var(--clip-end-percent));
-    border-block: 3px solid var(--clip-handle-color);
+    border-block: 3px solid color-mix(in srgb, var(--clip-handle-color) 94%, var(--accent-color));
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.5),
         0 1px 4px rgba(10, 13, 18, 0.16);
@@ -936,10 +1131,19 @@ onUnmounted(() => {
     position: absolute;
     top: -0.18rem;
     bottom: -0.18rem;
-    width: 0.64rem;
+    width: 0.82rem;
     transform: translateX(-50%);
     border-radius: 999px;
-    background: var(--clip-handle-color);
+    background:
+        linear-gradient(
+            90deg,
+            transparent 32%,
+            rgba(20, 25, 34, 0.18) 32% 40%,
+            transparent 40% 60%,
+            rgba(20, 25, 34, 0.18) 60% 68%,
+            transparent 68%
+        ),
+        var(--clip-handle-color);
     box-shadow:
         0 1px 6px rgba(10, 13, 18, 0.24),
         inset 0 0 0 1px rgba(10, 13, 18, 0.08);
@@ -955,6 +1159,39 @@ onUnmounted(() => {
     transform: translate(-50%, -50%);
     border-radius: 999px;
     background: rgba(20, 25, 34, 0.25);
+}
+
+.video-trim-filmstrip__readout {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.video-trim-filmstrip__readout div {
+    display: grid;
+    gap: 0.18rem;
+}
+
+.video-trim-filmstrip__readout div:nth-child(2) {
+    justify-items: center;
+}
+
+.video-trim-filmstrip__readout div:nth-child(3) {
+    justify-items: end;
+}
+
+.video-trim-filmstrip__readout span {
+    color: var(--text-muted);
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+}
+
+.video-trim-filmstrip__readout strong {
+    color: var(--text-primary);
+    font-size: 0.94rem;
+    font-variant-numeric: tabular-nums;
+    font-weight: 800;
 }
 
 .video-trim-filmstrip__edge-handle--end {

@@ -6,12 +6,12 @@ This app reads Tencent Hunyuan credentials from environment variables.
 
 The backend default model is:
 
-`hunyuan-turbos-latest`
+`hy3-preview`
 
 You can override it with:
 
 ```powershell
-setx HUNYUAN_MODEL "hunyuan-turbos-latest"
+setx HUNYUAN_MODEL "hy3-preview"
 ```
 
 ## API key
@@ -29,5 +29,5 @@ After running `setx`, fully close and reopen the Tauri app so the new environmen
 Only set this if you need a custom endpoint:
 
 ```powershell
-setx HUNYUAN_BASE_URL "https://api.hunyuan.cloud.tencent.com/v1"
+setx HUNYUAN_BASE_URL "https://tokenhub.tencentmaas.com/v1"
 ```

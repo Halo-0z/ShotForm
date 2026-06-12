@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from "vue"
+import { computed, onUnmounted, ref, watch } from "vue"
 import { useRouter } from "vue-router"
 import { open } from "@tauri-apps/plugin-dialog"
 import { readFile } from "@tauri-apps/plugin-fs"
@@ -8,7 +8,9 @@ import { Film, Upload as UploadIcon, Play, Pause, AlertCircle, Trash2 } from "lu
 import { Button } from "@/components/ui/button"
 import { navigateWithFogTransition } from "@/composables/useFogRouteTransition"
 import { useAnalysisStore } from "@/stores/analysis"
+import { formatTime } from "@/lib/analysis-utils"
 import { hasTauriRuntime } from "@/lib/tauri-runtime"
+import VideoTrimFilmstrip from "@/components/VideoUpload/VideoTrimFilmstrip.vue"
 
 const router = useRouter()
 const analysisStore = useAnalysisStore()
@@ -28,11 +30,6 @@ const trimEndMs = ref(0)
 const isPlaying = ref(false)
 const currentTimeMs = ref(0)
 const videoRef = ref<HTMLVideoElement | null>(null)
-const timelineCaptureVideoRef = ref<HTMLVideoElement | null>(null)
-const trimRailRef = ref<HTMLElement | null>(null)
-const timelineFrames = ref<string[]>([])
-const isGeneratingFrames = ref(false)
-const timelineRailWidth = ref(0)
 const isDragOver = ref(false)
 const handoffError = ref("")
 const browserFileInputRef = ref<HTMLInputElement | null>(null)
@@ -48,97 +45,6 @@ const isBusy = computed(
         uploadState.value === "uploading",
 )
 const hasVideo = computed(() => Boolean(previewUrl.value))
-const sliderMaxMs = computed(() => Math.max(minClipMs, durationMs.value))
-const trimStartPercent = computed(() =>
-    sliderMaxMs.value <= 0 ? 0 : (trimStartMs.value / sliderMaxMs.value) * 100,
-)
-const trimEndPercent = computed(() =>
-    sliderMaxMs.value <= 0 ? 100 : (trimEndMs.value / sliderMaxMs.value) * 100,
-)
-const clipSelectionStyle = computed(() => ({
-    left: `${trimStartPercent.value}%`,
-    width: `${Math.max(0.75, trimEndPercent.value - trimStartPercent.value)}%`,
-}))
-const clipStartMaskStyle = computed(() => ({ width: `${Math.max(0, trimStartPercent.value)}%` }))
-const clipEndMaskStyle = computed(() => ({
-    left: `${trimEndPercent.value}%`,
-    width: `${Math.max(0, 100 - trimEndPercent.value)}%`,
-}))
-
-const isDraggingTrim = ref(false)
-const dragTarget = ref<"start" | "end" | null>(null)
-const DRAG_HIT_TARGET_PX = 22
-
-const clampTrimStart = (value: number) =>
-    Math.round(Math.max(0, Math.min(value, Math.max(0, trimEndMs.value - minClipMs))))
-
-const clampTrimEnd = (value: number) =>
-    Math.round(Math.min(sliderMaxMs.value, Math.max(value, trimStartMs.value + minClipMs)))
-
-const onTrimPointerDown = (e: PointerEvent) => {
-    const rail = trimRailRef.value
-    if (!rail || durationMs.value <= 0) return
-
-    const rect = rail.getBoundingClientRect()
-    const clickPx = e.clientX - rect.left
-    const clickMs = (clickPx / rect.width) * sliderMaxMs.value
-
-    const startPx = (trimStartPercent.value / 100) * rect.width
-    const endPx = (trimEndPercent.value / 100) * rect.width
-
-    if (Math.abs(clickPx - startPx) <= DRAG_HIT_TARGET_PX) {
-        dragTarget.value = "start"
-    } else if (Math.abs(clickPx - endPx) <= DRAG_HIT_TARGET_PX) {
-        dragTarget.value = "end"
-    } else if (clickPx < startPx) {
-        trimStartMs.value = clampTrimStart(clickMs)
-        return
-    } else {
-        trimEndMs.value = clampTrimEnd(clickMs)
-        return
-    }
-
-    isDraggingTrim.value = true
-    rail.setPointerCapture(e.pointerId)
-    e.preventDefault()
-}
-
-const onTrimPointerMove = (e: PointerEvent) => {
-    if (!isDraggingTrim.value || !trimRailRef.value) return
-
-    const rect = trimRailRef.value.getBoundingClientRect()
-    const clickPx = e.clientX - rect.left
-    const clickMs = (clickPx / rect.width) * sliderMaxMs.value
-
-    if (dragTarget.value === "start") {
-        trimStartMs.value = clampTrimStart(clickMs)
-    } else if (dragTarget.value === "end") {
-        trimEndMs.value = clampTrimEnd(clickMs)
-    }
-}
-
-const onTrimPointerUp = (e: PointerEvent) => {
-    if (!isDraggingTrim.value) return
-    isDraggingTrim.value = false
-    dragTarget.value = null
-    trimRailRef.value?.releasePointerCapture(e.pointerId)
-}
-
-const formatTime = (ms: number) => {
-    const totalSeconds = Math.max(0, Math.round(ms / 1000))
-    const minutes = Math.floor(totalSeconds / 60)
-    const seconds = totalSeconds % 60
-    return `${minutes}:${seconds.toString().padStart(2, "0")}`
-}
-
-const formatPreciseTime = (ms: number) => {
-    const safe = Math.max(0, Number(ms) || 0)
-    const totalCs = Math.round(safe / 10)
-    const minutes = Math.floor(totalCs / 6000)
-    const seconds = Math.floor((totalCs % 6000) / 100)
-    const cs = totalCs % 100
-    return `${minutes}:${seconds.toString().padStart(2, "0")}.${cs.toString().padStart(2, "0")}`
-}
 
 const formatFileSize = (bytes: number) => {
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
@@ -171,7 +77,6 @@ const resetAll = () => {
     trimEndMs.value = 0
     currentTimeMs.value = 0
     isPlaying.value = false
-    timelineFrames.value = []
     handoffError.value = ""
     uploadState.value = "empty"
 }
@@ -305,7 +210,6 @@ const onVideoLoadedMetadata = () => {
     trimEndMs.value = duration
     videoResolution.value = `${videoRef.value?.videoWidth || 0}x${videoRef.value?.videoHeight || 0}`
     uploadState.value = "ready"
-    void generateTimelineFrames()
 }
 
 const onVideoTimeUpdate = () => {
@@ -392,145 +296,6 @@ const handleStartAnalysis = async () => {
     }
 }
 
-const waitForVideoEvent = (video: HTMLVideoElement, eventName: "loadeddata" | "seeked") =>
-    new Promise<void>((resolve, reject) => {
-        const timeoutId = window.setTimeout(() => {
-            cleanup()
-            reject(new Error(`video ${eventName} timed out`))
-        }, 5000)
-        const cleanup = () => {
-            window.clearTimeout(timeoutId)
-            video.removeEventListener(eventName, handleResolve)
-            video.removeEventListener("error", handleError)
-        }
-        const handleResolve = () => {
-            cleanup()
-            resolve()
-        }
-        const handleError = () => {
-            cleanup()
-            reject(new Error(`video ${eventName} failed`))
-        }
-        video.addEventListener(eventName, handleResolve, { once: true })
-        video.addEventListener("error", handleError, { once: true })
-    })
-
-const waitForRenderedVideoFrame = (video: HTMLVideoElement) =>
-    new Promise<void>((resolve) => {
-        if (typeof video.requestVideoFrameCallback === "function") {
-            video.requestVideoFrameCallback(() => resolve())
-            return
-        }
-        if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
-            window.requestAnimationFrame(() => {
-                window.requestAnimationFrame(() => resolve())
-                return
-            })
-        }
-        window.setTimeout(resolve, 34)
-    })
-
-const seekOffscreenVideo = async (video: HTMLVideoElement, timeInSeconds: number) => {
-    if (Math.abs(video.currentTime - timeInSeconds) < 0.01) {
-        await waitForRenderedVideoFrame(video)
-        return
-    }
-    const seeked = waitForVideoEvent(video, "seeked")
-    video.currentTime = timeInSeconds
-    await seeked
-    await waitForRenderedVideoFrame(video)
-}
-
-const syncTimelineRailWidth = () => {
-    timelineRailWidth.value = Math.round(trimRailRef.value?.clientWidth || 0)
-}
-
-const generateTimelineFrames = async () => {
-    if (
-        !previewUrl.value ||
-        durationMs.value <= 0 ||
-        timelineRailWidth.value <= 0 ||
-        typeof document === "undefined"
-    ) {
-        timelineFrames.value = []
-        return
-    }
-    isGeneratingFrames.value = true
-    const captureVideo = timelineCaptureVideoRef.value
-    if (!captureVideo) {
-        timelineFrames.value = []
-        isGeneratingFrames.value = false
-        return
-    }
-    try {
-        if (!captureVideo.src) captureVideo.src = previewUrl.value
-        if (captureVideo.readyState < 2) {
-            const loaded = waitForVideoEvent(captureVideo, "loadeddata")
-            captureVideo.load()
-            await loaded
-        }
-        await waitForRenderedVideoFrame(captureVideo)
-        const captureCount = Math.min(48, Math.max(18, Math.ceil(timelineRailWidth.value / 36) + 4))
-        const durationSeconds = durationMs.value / 1000
-        const safeDuration = Math.max(durationSeconds, 0.1)
-        const canvas = document.createElement("canvas")
-        const ctx = canvas.getContext("2d")
-        if (!ctx) {
-            timelineFrames.value = []
-            return
-        }
-        const renderScale = Math.max(
-            2,
-            typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1,
-        )
-        canvas.width = Math.max(48, Math.round(36 * renderScale))
-        canvas.height = Math.max(68, Math.round(68 * renderScale))
-        ctx.imageSmoothingEnabled = true
-        ctx.imageSmoothingQuality = "high"
-        const vW = captureVideo.videoWidth || 16
-        const vH = captureVideo.videoHeight || 9
-        const ratio = canvas.width / canvas.height
-        const vRatio = vW / vH
-        let sW = vW
-        let sH = vH
-        let sX = 0
-        let sY = 0
-        if (vRatio > ratio) {
-            sW = vH * ratio
-            sX = (vW - sW) / 2
-        } else {
-            sH = vW / ratio
-            sY = (vH - sH) / 2
-        }
-        const frames: string[] = []
-        for (let i = 0; i < captureCount; i += 1) {
-            const progress = captureCount === 1 ? 0.5 : i / (captureCount - 1)
-            const targetTime = Math.min(
-                Math.max(progress * safeDuration, 0),
-                Math.max(0, safeDuration - 0.05),
-            )
-            await seekOffscreenVideo(captureVideo, targetTime)
-            ctx.clearRect(0, 0, canvas.width, canvas.height)
-            ctx.fillStyle = "rgba(15, 23, 42, 1)"
-            ctx.fillRect(0, 0, canvas.width, canvas.height)
-            ctx.drawImage(captureVideo, sX, sY, sW, sH, 0, 0, canvas.width, canvas.height)
-            frames.push(canvas.toDataURL("image/png"))
-        }
-        timelineFrames.value = frames
-    } catch {
-        timelineFrames.value = []
-    } finally {
-        captureVideo.pause()
-        isGeneratingFrames.value = false
-    }
-}
-
-watch(timelineRailWidth, (nextWidth, prevWidth) => {
-    if (!previewUrl.value || durationMs.value <= 0 || nextWidth <= 0 || nextWidth === prevWidth)
-        return
-    void generateTimelineFrames()
-})
-
 watch([trimStartMs, trimEndMs], () => {
     if (!videoRef.value || durationMs.value <= 0) return
     const clipStart = trimStartMs.value / 1000
@@ -538,10 +303,6 @@ watch([trimStartMs, trimEndMs], () => {
     if (videoRef.value.currentTime < clipStart || videoRef.value.currentTime > clipEnd) {
         videoRef.value.currentTime = clipStart
     }
-})
-
-onMounted(() => {
-    syncTimelineRailWidth()
 })
 
 onUnmounted(() => {
@@ -612,18 +373,6 @@ onUnmounted(() => {
                             </button>
                         </div>
                     </div>
-                    <video
-                        v-if="uploadMode === 'video'"
-                        ref="timelineCaptureVideoRef"
-                        :src="previewUrl"
-                        muted
-                        playsinline
-                        preload="auto"
-                        tabindex="-1"
-                        aria-hidden="true"
-                        class="upload-workbench__timeline-capture"
-                    />
-
                     <div class="upload-workbench__info-panel">
                         <div class="upload-workbench__info-header">
                             <div class="upload-workbench__info-filename">
@@ -641,57 +390,18 @@ onUnmounted(() => {
                             <p class="upload-workbench__trim-label">
                                 选择需要分析的片段（建议 2 到 6 秒）
                             </p>
-                            <div
-                                ref="trimRailRef"
-                                class="upload-workbench__trim-rail"
-                                @pointerdown="onTrimPointerDown"
-                                @pointermove="onTrimPointerMove"
-                                @pointerup="onTrimPointerUp"
-                                @pointercancel="onTrimPointerUp"
-                            >
-                                <div class="upload-workbench__trim-filmstrip">
-                                    <template v-if="timelineFrames.length">
-                                        <div
-                                            v-for="(frame, idx) in timelineFrames"
-                                            :key="`tf-${idx}`"
-                                            class="upload-workbench__trim-frame"
-                                        >
-                                            <img :src="frame" alt="" />
-                                        </div>
-                                    </template>
-                                    <template v-else-if="isGeneratingFrames">
-                                        <div
-                                            v-for="p in 9"
-                                            :key="`pl-${p}`"
-                                            class="upload-workbench__trim-frame upload-workbench__trim-frame--placeholder"
-                                        ></div>
-                                    </template>
-                                    <template v-else>
-                                        <div
-                                            v-for="p in 9"
-                                            :key="`pi-${p}`"
-                                            class="upload-workbench__trim-frame upload-workbench__trim-frame--placeholder"
-                                        ></div>
-                                    </template>
-                                </div>
-                                <div
-                                    class="upload-workbench__trim-mask-start"
-                                    :style="clipStartMaskStyle"
-                                ></div>
-                                <div
-                                    class="upload-workbench__trim-mask-end"
-                                    :style="clipEndMaskStyle"
-                                ></div>
-                                <div
-                                    class="upload-workbench__trim-window"
-                                    :style="clipSelectionStyle"
-                                ></div>
-                            </div>
-                            <div class="upload-workbench__trim-times">
-                                <span>{{ formatPreciseTime(trimStartMs) }}</span>
-                                <span>—</span>
-                                <span>{{ formatPreciseTime(trimEndMs) }}</span>
-                            </div>
+                            <VideoTrimFilmstrip
+                                v-if="uploadMode === 'video'"
+                                v-model:trim-start-ms="trimStartMs"
+                                v-model:trim-end-ms="trimEndMs"
+                                :preview-url="previewUrl"
+                                :duration-ms="durationMs"
+                                :min-clip-ms="minClipMs"
+                                :disabled="isBusy"
+                                :is-previewing="isPlaying"
+                                :current-time-ms="currentTimeMs"
+                                @preview="togglePlay"
+                            />
                         </div>
                     </div>
                 </div>
@@ -877,16 +587,6 @@ onUnmounted(() => {
     transform: scale(1.08);
 }
 
-.upload-workbench__timeline-capture {
-    position: fixed;
-    left: -9999px;
-    top: 0;
-    width: 240px;
-    height: auto;
-    opacity: 0;
-    pointer-events: none;
-}
-
 .upload-workbench__info-panel {
     display: flex;
     flex-direction: column;
@@ -929,80 +629,6 @@ onUnmounted(() => {
     font-size: 13px;
     font-weight: 600;
     color: var(--text-secondary);
-}
-
-.upload-workbench__trim-rail {
-    position: relative;
-    height: 56px;
-    border-radius: 12px;
-    overflow: hidden;
-    background: color-mix(in srgb, var(--bg-solid) 88%, black);
-    box-shadow: inset 0 0 0 1px var(--surface-border);
-}
-
-.upload-workbench__trim-filmstrip {
-    position: absolute;
-    inset: 0;
-    display: grid;
-    grid-auto-flow: column;
-    grid-auto-columns: 36px;
-    justify-content: start;
-    height: 100%;
-    overflow: hidden;
-}
-
-.upload-workbench__trim-frame {
-    position: relative;
-    overflow: hidden;
-    border-right: 1px solid color-mix(in srgb, var(--surface-border) 62%, transparent);
-}
-
-.upload-workbench__trim-frame img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-}
-
-.upload-workbench__trim-frame--placeholder::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(
-        135deg,
-        color-mix(in srgb, var(--accent-color) 16%, transparent),
-        transparent 40%,
-        rgba(24, 29, 38, 0.18)
-    );
-}
-
-.upload-workbench__trim-mask-start,
-.upload-workbench__trim-mask-end {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    pointer-events: none;
-    background: rgba(19, 23, 29, 0.58);
-}
-
-.upload-workbench__trim-window {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    pointer-events: none;
-    border-top: 1px solid color-mix(in srgb, var(--accent-color) 38%, white);
-    border-bottom: 1px solid color-mix(in srgb, var(--accent-color) 24%, transparent);
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-color) 14%, transparent);
-}
-
-.upload-workbench__trim-times {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--text-muted);
-    font-variant-numeric: tabular-nums;
 }
 
 .upload-workbench__footer {

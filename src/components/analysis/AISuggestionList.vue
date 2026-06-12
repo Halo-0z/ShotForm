@@ -1,34 +1,23 @@
 <script setup lang="ts">
-import { computed } from "vue"
 import type { CorrectionSuggestion } from "@/types"
-import { AlertTriangle } from "lucide-vue-next"
+import { AlertTriangle, Sparkles } from "lucide-vue-next"
 
-interface Props {
-    suggestions: CorrectionSuggestion[]
-    count: number
+interface CoachingSource {
+    data: CorrectionSuggestion[]
+    summary: string
+    state: "idle" | "loading" | "done" | "error"
+    error: string
 }
 
-const props = defineProps<Props>()
+interface Props {
+    ruleSource: CoachingSource
+    aiSource: CoachingSource
+}
 
-const displaySuggestions = computed(() => {
-    if (props.suggestions && props.suggestions.length > 0) {
-        return props.suggestions
-    }
-    return [
-        {
-            bodyPart: "躯干",
-            issue: "躯干前倾偏大",
-            suggestion: "适当收紧核心，保持躯干直立稳定。",
-            priority: "high" as const,
-        },
-        {
-            bodyPart: "手肘",
-            issue: "手肘偏外",
-            suggestion: "投篮时手肘尽量对准篮筐，提升投篮一致性。",
-            priority: "medium" as const,
-        },
-    ]
-})
+defineProps<Props>()
+const emit = defineEmits<{
+    (e: "generate"): void
+}>()
 
 const getPriorityLabel = (priority: string) => {
     if (priority === "high") return "高优先级"
@@ -36,37 +25,103 @@ const getPriorityLabel = (priority: string) => {
     return "低优先级"
 }
 
-const getPriorityClass = (priority: string) => {
-    if (priority === "high") return "analysis-suggestion--high"
-    if (priority === "medium") return "analysis-suggestion--medium"
-    return "analysis-suggestion--low"
+const getPriorityClass = (priority: string, prefix = "analysis-suggestion") => {
+    if (priority === "high") return `${prefix}--high`
+    if (priority === "medium") return `${prefix}--medium`
+    return `${prefix}--low`
 }
 </script>
 
 <template>
     <div class="analysis-suggestion-list">
-        <div
-            v-for="(suggestion, idx) in displaySuggestions"
-            :key="idx"
-            class="analysis-suggestion"
-            :class="getPriorityClass(suggestion.priority)"
-        >
-            <div class="analysis-suggestion__header">
-                <div class="analysis-suggestion__body-part">
-                    <AlertTriangle class="h-4 w-4" />
-                    <span>{{ suggestion.bodyPart }}</span>
+        <!-- 本地规则分析 -->
+        <div v-if="ruleSource.state === 'loading'" class="analysis-suggestion__section-label">
+            正在加载规则分析...
+        </div>
+        <template v-if="ruleSource.data.length > 0">
+            <div class="analysis-suggestion__section-header">
+                <AlertTriangle class="h-4 w-4" />
+                <span>本地规则分析</span>
+            </div>
+            <p v-if="ruleSource.summary" class="analysis-suggestion__section-summary">
+                {{ ruleSource.summary }}
+            </p>
+            <div
+                v-for="(suggestion, idx) in ruleSource.data"
+                :key="'rule-' + idx"
+                class="analysis-suggestion"
+                :class="getPriorityClass(suggestion.priority)"
+            >
+                <div class="analysis-suggestion__header">
+                    <div class="analysis-suggestion__body-part">
+                        <span>{{ suggestion.bodyPart }}</span>
+                    </div>
+                    <span class="analysis-suggestion__priority-label">{{
+                        getPriorityLabel(suggestion.priority)
+                    }}</span>
                 </div>
-                <span class="analysis-suggestion__priority-label">{{
-                    getPriorityLabel(suggestion.priority)
-                }}</span>
+                <div class="analysis-suggestion__issue">问题：{{ suggestion.issue }}</div>
+                <div class="analysis-suggestion__suggestion-text">
+                    建议：{{ suggestion.suggestion }}
+                </div>
             </div>
-            <div class="analysis-suggestion__issue">问题：{{ suggestion.issue }}</div>
-            <div class="analysis-suggestion__suggestion-text">
-                建议：{{ suggestion.suggestion }}
-            </div>
+        </template>
+        <div v-else-if="ruleSource.state === 'done'" class="analysis-suggestion__empty">
+            当前姿态未检测到明显偏差，整体表现良好。
         </div>
 
-        <button class="analysis-suggestion__generate-btn">生成完整 AI 报告</button>
+        <!-- AI 深度分析 -->
+        <template v-if="aiSource.state === 'done' && aiSource.data.length > 0">
+            <div
+                class="analysis-suggestion__section-header analysis-suggestion__section-header--ai"
+            >
+                <Sparkles class="h-4 w-4" />
+                <span>AI 深度分析</span>
+            </div>
+            <p
+                v-if="aiSource.summary"
+                class="analysis-suggestion__section-summary analysis-suggestion__section-summary--ai"
+            >
+                {{ aiSource.summary }}
+            </p>
+            <div
+                v-for="(suggestion, idx) in aiSource.data"
+                :key="'ai-' + idx"
+                class="analysis-suggestion analysis-suggestion--ai"
+                :class="getPriorityClass(suggestion.priority, 'analysis-suggestion--ai')"
+            >
+                <div class="analysis-suggestion__header">
+                    <div class="analysis-suggestion__body-part">
+                        <span>{{ suggestion.bodyPart }}</span>
+                    </div>
+                    <span class="analysis-suggestion__priority-label">{{
+                        getPriorityLabel(suggestion.priority)
+                    }}</span>
+                </div>
+                <div class="analysis-suggestion__issue">问题：{{ suggestion.issue }}</div>
+                <div class="analysis-suggestion__suggestion-text">
+                    建议：{{ suggestion.suggestion }}
+                </div>
+            </div>
+        </template>
+
+        <!-- AI 错误提示 -->
+        <div v-if="aiSource.state === 'error'" class="analysis-suggestion__error">
+            AI 分析失败：{{ aiSource.error }}
+        </div>
+
+        <!-- 生成按钮 -->
+        <button
+            v-if="aiSource.state !== 'done'"
+            class="analysis-suggestion__generate-btn"
+            :disabled="aiSource.state === 'loading'"
+            @click="emit('generate')"
+        >
+            {{ aiSource.state === "loading" ? "生成中..." : "生成完整 AI 报告" }}
+        </button>
+        <button v-else class="analysis-suggestion__generate-btn" @click="emit('generate')">
+            重新生成 AI 报告
+        </button>
     </div>
 </template>
 
@@ -75,6 +130,36 @@ const getPriorityClass = (priority: string) => {
     display: flex;
     flex-direction: column;
     gap: 10px;
+}
+
+.analysis-suggestion__section-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding-top: 4px;
+}
+
+.analysis-suggestion__section-header--ai {
+    color: var(--accent-color);
+}
+
+.analysis-suggestion__section-summary {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin: 0;
+}
+
+.analysis-suggestion__section-summary--ai {
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--accent-color) 6%, var(--bg-solid));
+    border-left: 3px solid var(--accent-color);
 }
 
 .analysis-suggestion {
@@ -100,6 +185,23 @@ const getPriorityClass = (priority: string) => {
     border-color: var(--surface-border);
 }
 
+/* AI 建议卡片样式 */
+.analysis-suggestion--ai {
+    border-left: 3px solid var(--accent-color);
+}
+
+.analysis-suggestion--ai.analysis-suggestion--ai--high {
+    background: color-mix(in srgb, var(--accent-color) 4%, var(--bg-solid));
+    border-color: color-mix(in srgb, var(--accent-color) 20%, var(--surface-border));
+    border-left: 3px solid var(--accent-color);
+}
+
+.analysis-suggestion--ai.analysis-suggestion--ai--medium {
+    background: color-mix(in srgb, var(--accent-color) 3%, var(--bg-solid));
+    border-color: color-mix(in srgb, var(--accent-color) 14%, var(--surface-border));
+    border-left: 3px solid var(--accent-color);
+}
+
 .analysis-suggestion__header {
     display: flex;
     align-items: center;
@@ -113,10 +215,6 @@ const getPriorityClass = (priority: string) => {
     font-size: 13px;
     font-weight: 700;
     color: var(--text-primary);
-}
-
-.analysis-suggestion__body-part svg {
-    color: var(--color-warning);
 }
 
 .analysis-suggestion__priority-label {
@@ -136,6 +234,20 @@ const getPriorityClass = (priority: string) => {
     line-height: 1.55;
 }
 
+.analysis-suggestion__empty {
+    font-size: 12px;
+    color: var(--text-muted);
+    padding: 8px 0;
+}
+
+.analysis-suggestion__error {
+    font-size: 12px;
+    color: var(--color-danger);
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--color-danger) 6%, var(--bg-solid));
+}
+
 .analysis-suggestion__generate-btn {
     display: flex;
     align-items: center;
@@ -153,5 +265,10 @@ const getPriorityClass = (priority: string) => {
 .analysis-suggestion__generate-btn:hover {
     border-color: var(--accent-color);
     color: var(--accent-color);
+}
+
+.analysis-suggestion__generate-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
 }
 </style>

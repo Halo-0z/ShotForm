@@ -25,7 +25,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' asset: https://asset.localhost data: blob:; connect-src ipc://localhost https://ipc.localhost https://api.hunyuan.cloud.tencent.com"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' asset: https://asset.localhost data: blob:; connect-src ipc://localhost https://ipc.localhost https://tokenhub.tencentmaas.com"
     }
   },
   "bundle": {

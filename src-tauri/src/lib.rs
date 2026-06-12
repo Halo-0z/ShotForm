@@ -13,7 +13,7 @@ use tauri::Manager;
 
 const TRAY_WINDOW_LABEL: &str = "tray-menu";
 const TRAY_WINDOW_WIDTH: f64 = 376.0;
-const TRAY_WINDOW_HEIGHT: f64 = 492.0;
+const TRAY_WINDOW_HEIGHT: f64 = 380.0;
 const TRAY_DEBOUNCE_MS: i64 = 400;
 
 static TRAY_LAST_CLICK_MS: AtomicI64 = AtomicI64::new(0);
@@ -127,18 +127,15 @@ pub fn run() {
             .skip_taskbar(true)
             .focused(false)
             .visible(false)
-            .effects(
-                tauri::window::EffectsBuilder::new()
-                    .effect(tauri::window::Effect::Acrylic)
-                    .color(tauri::utils::config::Color(246, 242, 235, 184))
-                    .build(),
-            )
             .build()?;
 
             let tray_window_clone = tray_window.clone();
             tray_window.on_window_event(move |event| match event {
                 tauri::WindowEvent::CloseRequested { api, .. } => {
                     api.prevent_close();
+                    let _ = tray_window_clone.hide();
+                }
+                tauri::WindowEvent::Focused(false) => {
                     let _ = tray_window_clone.hide();
                 }
                 _ => {}

@@ -196,3 +196,41 @@ Python stderr、推理 JSON 均输出实际模型 backend/name/sha256/fallback_r
 - 本轮保留已有技术框架，暂不打里程碑 tag。桌面核心数据闭环已实测，但不把上述补充场景或整个毕设实验写成完成。
 
 提交前逐文件审查并执行非改写 ESLint、完整构建与各层测试。提交时禁用会自动执行 `eslint --fix` / `prettier --write` 的 Husky 钩子，避免它改写已经验证的文件及分组暂存内容；这不表示跳过上述实际测试。Tauri 自动生成的四份 schema 停止跟踪并加入忽略，磁盘文件保留；源码 capabilities/default.json 正常提交。
+
+## 2026-11-15 Python daemon 超时与回收补修
+
+范围仅为 daemon 通信截止时间、进程回收与相应回归，不新增功能、不换模型、不调用付费 AI API、不打 tag。
+
+### 实现与验证方法
+
+- stdin 写入、stdout 按行读取移到独立工作线程，调用方通过 channel 的 `recv_timeout` 等待。ready 使用 10 秒绝对截止时间，请求使用 15 秒绝对截止时间，包含等待写入；状态行、空行不会重置计时。即使 Python 不输出换行或不读取 stdin，也不会阻塞调用线程的截止判断。
+- ready/请求超时或通信失败后，关闭旧会话通道、终止并回收旧 Child，同时从 `PoseDetector` 清除失效 handle。下一次分析使用新进程和新通道，旧响应不能进入新会话。保留原有文件模式回退。
+- shutdown 非阻塞发送退出命令，最多给子进程 2 秒主动退出时间，之后 kill 并 wait 回收；重复 shutdown/Drop 幂等。仅 join 已结束的管道线程，避免异常继承管道的后代使退出无限等待。
+
+Rust 新增 7 项回归，使用真实 Python 子进程及可控协议脚本，不使用 MediaPipe、前端 mock 或付费接口：
+
+| 场景 | 行为检查 |
+|---|---|
+| 永不发送 ready | 超时失败、进程已回收、通道已清空 |
+| 无响应且不读 stdin | 4 MiB 请求超过管道容量，仍按请求时限失败并清理；旧 handle 不可再次请求 |
+| ready 延迟 12 秒 | 使用生产默认 10 秒限制，拒绝迟到成功 |
+| 响应延迟 17 秒 | 使用生产默认 15 秒限制，拒绝迟到结果 |
+| 持续发送 working 状态行 | 状态流不能延长请求截止时间 |
+| 忽略 shutdown | 超过退出宽限后 kill、回收，重复关闭不挂起 |
+| 失败后下一次分析 | 首次超时走原有文件回退；下一次文件/base64 分析来自新 daemon，不能返回旧会话的标记结果 |
+
+快速故障用例注入 200 ms 请求/退出超时；两项迟到用例保留完整生产 10/15 秒时间。最初恢复用例的脚本只向 stdout 输出，未实现 Windows 的 `--output-file` 协议，因此第一次测试失败；补齐测试脚本的真实协议后重新跑全套，未删除行为断言或跳过用例。
+
+### 本轮实际检查
+
+- 完整 Rust：94 项通过，0 失败、0 忽略；main/doc 各 0 项。命令：`cargo test --manifest-path src-tauri/Cargo.toml --offline -- --nocapture`。最后一轮测试耗时 15.15 s；默认 ready 超时实测 **10.0063605 s**，默认请求超时 **15.0180688 s**，均拒绝迟到响应并完成子进程回收。
+- Python/SQL/模型：`python -m unittest discover -s tests -p 'test_*.py' -v`，项目 `.venv` 中 11 项通过（6.596 s），包含 Heavy/Lite 真实本地推理。
+- 修复后原生 Tauri 图片分析通过：原生文件对话框选择 `public/hero/kobe-shot.png`，展示姿态图和角度；stderr 确认实际 Heavy、SHA-256 为 `64437af838a65d18e5ba7a0d39b465540069bc8aae8308de3e318aad31fcbc7b`、无回退。日志记录 daemon 正常 shutdown，分析后进程枚举没有残留 pose_detect Python。
+- **托盘正常退出通过**：用户协助右键展开系统托盘菜单（自动化工具无法直接定位系统托盘区域），随后自动化读取真实 ShotForm 托盘窗口并点击“退出 ShotForm”。窗口枚举确认主窗口、托盘窗口均消失；系统进程枚举确认应用 PID 21888 已退出，且没有残留 `pose_detect` Python。没有调用模拟退出接口或使用强制结束进程代替这一步。退出后日志有 WebView2 `Failed to unregister class Chrome_WidgetWin_0. Error = 1412` 提示，未阻止进程退出；未另行定位此 WebView2 提示。
+- 启动阶段一次构建因旧测试实例占用 EXE 报“拒绝访问 (os error 5)”，清理该旧实例后构建、启动成功。此准备动作与上述正常托盘退出分开记录。
+- `rustfmt --edition 2021 --check src-tauri/src/pose/detector.rs` 与 `git diff --check` 通过。
+- 本轮没有改前端，未重跑前端 227/浏览器 18/生产构建；这些数字属于前轮实际结果及用户独立复核，不作为本轮新执行次数。
+
+### 验证边界
+
+本轮修复的是 daemon 超时，不是整个分析任务的总时限。原有文件模式回退、视频子进程仍使用同步 `Command::output`，未纳入此次超时改造；操作系统拒绝 kill、异常后代继承管道以及分析进行中强行退出等场景未做故障注入。托盘正常退出已补验，但本轮未重新执行保存、退出后重启恢复、视频分析及导出整套流程，前轮结果保留原有验证方式说明。真实素材精度实验、付费 AI 和其他待验收项目仍按前述状态记录。

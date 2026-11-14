@@ -3,9 +3,10 @@ use anyhow::Result;
 use image::{DynamicImage, ImageFormat, RgbImage};
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
-use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
-use std::sync::{Arc, Mutex};
+use std::process::{Child, Command, Stdio};
+use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
+use std::time::{Duration, Instant};
 
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
@@ -15,6 +16,24 @@ const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 const DAEMON_READY_TIMEOUT_MS: u64 = 10000;
 const DAEMON_REQUEST_TIMEOUT_MS: u64 = 15000;
+const DAEMON_SHUTDOWN_TIMEOUT_MS: u64 = 2000;
+
+#[derive(Clone, Copy)]
+struct DaemonTimeouts {
+    ready: Duration,
+    request: Duration,
+    shutdown: Duration,
+}
+
+impl Default for DaemonTimeouts {
+    fn default() -> Self {
+        Self {
+            ready: Duration::from_millis(DAEMON_READY_TIMEOUT_MS),
+            request: Duration::from_millis(DAEMON_REQUEST_TIMEOUT_MS),
+            shutdown: Duration::from_millis(DAEMON_SHUTDOWN_TIMEOUT_MS),
+        }
+    }
+}
 
 pub struct PoseDetector {
     python_path: String,
@@ -22,12 +41,16 @@ pub struct PoseDetector {
     video_script_path: String,
     daemon: Arc<Mutex<Option<DaemonHandle>>>,
     daemon_enabled: bool,
+    daemon_timeouts: DaemonTimeouts,
 }
 
 struct DaemonHandle {
     process: Child,
-    stdin: ChildStdin,
-    stdout_reader: BufReader<ChildStdout>,
+    requests: Option<mpsc::Sender<String>>,
+    responses: Option<mpsc::Receiver<std::result::Result<String, String>>>,
+    workers: Vec<thread::JoinHandle<()>>,
+    timeouts: DaemonTimeouts,
+    stopped: bool,
 }
 
 #[derive(serde::Deserialize)]
@@ -99,7 +122,7 @@ pub struct VideoPoseResult {
 }
 
 impl DaemonHandle {
-    fn start(python_path: &str, script_path: &str) -> Result<Self> {
+    fn start(python_path: &str, script_path: &str, timeouts: DaemonTimeouts) -> Result<Self> {
         let mut command = Command::new(python_path);
         command
             .arg(script_path)
@@ -107,112 +130,183 @@ impl DaemonHandle {
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
-
         #[cfg(windows)]
         command.creation_flags(CREATE_NO_WINDOW);
-
         let mut process = command.spawn()?;
-        let stdin = process
-            .stdin
-            .take()
-            .ok_or_else(|| anyhow::anyhow!("Failed to take stdin"))?;
-        let stdout_raw = process
-            .stdout
-            .take()
-            .ok_or_else(|| anyhow::anyhow!("Failed to take stdout"))?;
-        let stdout_reader = BufReader::new(stdout_raw);
-
-        // The handle is the sole owner of Child. Drain stderr independently so model
-        // diagnostics cannot fill its pipe and stall the JSON protocol.
-        if let Some(stderr) = process.stderr.take() {
-            thread::spawn(move || {
-                for line in BufReader::new(stderr).lines().map_while(Result::ok) {
-                    eprintln!("[pose-daemon] {line}");
+        // All three streams are guaranteed by Stdio::piped above.
+        let mut stdin = process.stdin.take().expect("piped stdin");
+        let stdout = process.stdout.take().expect("piped stdout");
+        let stderr = process.stderr.take().expect("piped stderr");
+        let (request_tx, request_rx) = mpsc::channel::<String>();
+        let (response_tx, response_rx) = mpsc::channel();
+        let write_errors = response_tx.clone();
+        let writer = thread::spawn(move || {
+            for request in request_rx {
+                if let Err(error) = stdin
+                    .write_all(request.as_bytes())
+                    .and_then(|_| stdin.flush())
+                {
+                    let _ = write_errors.send(Err(format!("Daemon stdin failed: {error}")));
+                    break;
                 }
-            });
-        }
-
+            }
+        });
+        let reader = thread::spawn(move || {
+            let mut stdout = BufReader::new(stdout);
+            loop {
+                let mut line = String::new();
+                let message = match stdout.read_line(&mut line) {
+                    Ok(0) => Err("Daemon stdout closed before completing protocol".into()),
+                    Ok(_) => Ok(line),
+                    Err(error) => Err(format!("Daemon stdout failed: {error}")),
+                };
+                let failed = message.is_err();
+                if response_tx.send(message).is_err() || failed {
+                    break;
+                }
+            }
+        });
+        let diagnostics = thread::spawn(move || {
+            for line in BufReader::new(stderr).lines().map_while(Result::ok) {
+                eprintln!("[pose-daemon] {line}");
+            }
+        });
         Ok(Self {
             process,
-            stdin,
-            stdout_reader,
+            requests: Some(request_tx),
+            responses: Some(response_rx),
+            workers: vec![writer, reader, diagnostics],
+            timeouts,
+            stopped: false,
         })
     }
 
-    fn wait_for_ready(&mut self) -> Result<()> {
-        let deadline =
-            std::time::Instant::now() + std::time::Duration::from_millis(DAEMON_READY_TIMEOUT_MS);
-        let mut line = String::new();
-
-        while std::time::Instant::now() < deadline {
-            line.clear();
-            let bytes_read = self.stdout_reader.read_line(&mut line)?;
-            if bytes_read == 0 {
-                anyhow::bail!("Daemon process exited before sending ready signal");
-            }
-
-            if line.trim().is_empty() {
-                continue;
-            }
-
-            if let Ok(response) = serde_json::from_str::<serde_json::Value>(&line) {
-                if response.get("status").and_then(|s| s.as_str()) == Some("ready") {
-                    return Ok(());
+    fn read_response(&self, deadline: Instant, ready: bool) -> Result<String> {
+        let phase = if ready { "ready signal" } else { "response" };
+        let receiver = self
+            .responses
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Daemon communication has been closed"))?;
+        loop {
+            // One absolute deadline: blank/log/status lines cannot extend the timeout.
+            let remaining = deadline
+                .checked_duration_since(Instant::now())
+                .ok_or_else(|| anyhow::anyhow!("Timed out waiting for daemon {phase}"))?;
+            let line = match receiver.recv_timeout(remaining) {
+                Ok(Ok(line)) => line,
+                Ok(Err(error)) => anyhow::bail!(error),
+                Err(mpsc::RecvTimeoutError::Timeout) => {
+                    anyhow::bail!("Timed out waiting for daemon {phase}")
                 }
-                if let Some(error) = response.get("error").and_then(|e| e.as_str()) {
-                    anyhow::bail!("Daemon startup failed: {}", error);
+                Err(mpsc::RecvTimeoutError::Disconnected) => {
+                    anyhow::bail!("Daemon response channel disconnected")
+                }
+            };
+            if Instant::now() >= deadline {
+                anyhow::bail!("Timed out waiting for daemon {phase}");
+            }
+            if let Ok(response) = serde_json::from_str::<serde_json::Value>(&line) {
+                if ready {
+                    if response.get("status").and_then(|s| s.as_str()) == Some("ready") {
+                        return Ok(line);
+                    }
+                    if let Some(error) = response.get("error").and_then(|e| e.as_str()) {
+                        anyhow::bail!("Daemon startup failed: {error}");
+                    }
+                } else if response.get("status").is_none() {
+                    return Ok(line.trim().to_string());
                 }
             }
         }
+    }
 
-        anyhow::bail!(
-            "Timed out waiting for daemon ready signal ({}ms)",
-            DAEMON_READY_TIMEOUT_MS
-        );
+    fn wait_for_ready(&mut self) -> Result<()> {
+        let result = self
+            .read_response(Instant::now() + self.timeouts.ready, true)
+            .map(|_| ());
+        if result.is_err() {
+            self.stop(false);
+        }
+        result
     }
 
     fn send_request(&mut self, method: &str, payload: &str) -> Result<String> {
-        let request = format!("{{\"method\":\"{}\",{}}}\n", method, payload);
-        self.stdin.write_all(request.as_bytes())?;
-        self.stdin.flush()?;
-
-        let deadline =
-            std::time::Instant::now() + std::time::Duration::from_millis(DAEMON_REQUEST_TIMEOUT_MS);
-        let mut line = String::new();
-
-        while std::time::Instant::now() < deadline {
-            line.clear();
-            let bytes_read = self.stdout_reader.read_line(&mut line)?;
-            if bytes_read == 0 {
-                anyhow::bail!("Daemon process exited while waiting for response");
-            }
-
-            if line.trim().is_empty() {
-                continue;
-            }
-
-            if let Ok(response) = serde_json::from_str::<serde_json::Value>(&line) {
-                if response.get("status").is_some() {
-                    continue;
-                }
-                return Ok(line.trim().to_string());
-            }
+        // Include pipe writing in the deadline; a daemon that stops reading cannot hang us.
+        let deadline = Instant::now() + self.timeouts.request;
+        let result = (|| {
+            let sender = self
+                .requests
+                .as_ref()
+                .ok_or_else(|| anyhow::anyhow!("Daemon communication has been closed"))?;
+            sender.send(format!("{{\"method\":\"{}\",{}}}\n", method, payload))?;
+            self.read_response(deadline, false)
+        })();
+        if result.is_err() {
+            self.stop(false);
         }
-
-        anyhow::bail!(
-            "Timed out waiting for daemon response ({}ms)",
-            DAEMON_REQUEST_TIMEOUT_MS
-        );
+        result
     }
 
     fn is_healthy(&mut self) -> bool {
-        matches!(self.process.try_wait(), Ok(None))
+        !self.stopped && matches!(self.process.try_wait(), Ok(None))
+    }
+
+    fn stop(&mut self, graceful: bool) {
+        if self.stopped {
+            return;
+        }
+        self.stopped = true;
+        if graceful {
+            if let Some(sender) = self.requests.as_ref() {
+                let _ = sender.send("{\"method\":\"shutdown\"}\n".into());
+            }
+        }
+        // Never share a failed session's queued or late responses with a new process.
+        self.requests.take();
+        self.responses.take();
+        let deadline = Instant::now()
+            + if graceful {
+                self.timeouts.shutdown
+            } else {
+                Duration::ZERO
+            };
+        loop {
+            match self.process.try_wait() {
+                Ok(Some(_)) => break, // try_wait also reaps the child.
+                Ok(None) if Instant::now() < deadline => thread::sleep(Duration::from_millis(10)),
+                _ => {
+                    match self.process.kill() {
+                        Ok(()) => {
+                            if let Err(error) = self.process.wait() {
+                                eprintln!("[pose-daemon] failed to reap killed child: {error}");
+                            }
+                        }
+                        Err(error) => {
+                            eprintln!("[pose-daemon] kill failed: {error}");
+                            let _ = self.process.try_wait();
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+        // Reaped Python closes its pipe ends. Join only finished workers so inherited
+        // handles in an unexpected descendant cannot make shutdown unbounded.
+        for worker in self.workers.drain(..) {
+            if worker.is_finished() {
+                let _ = worker.join();
+            }
+        }
     }
 
     fn shutdown(&mut self) {
-        let _ = self.stdin.write_all(b"{\"method\":\"shutdown\"}\n");
-        let _ = self.stdin.flush();
-        let _ = self.process.wait();
+        self.stop(true);
+    }
+}
+
+impl Drop for DaemonHandle {
+    fn drop(&mut self) {
+        self.shutdown();
     }
 }
 
@@ -231,6 +325,7 @@ impl PoseDetector {
             video_script_path,
             daemon: Arc::new(Mutex::new(None)),
             daemon_enabled,
+            daemon_timeouts: DaemonTimeouts::default(),
         }
     }
 
@@ -239,28 +334,34 @@ impl PoseDetector {
             return Ok(());
         }
 
-        let needs_restart = {
-            let mut daemon_guard = self.daemon.lock().unwrap();
-            match daemon_guard.as_mut() {
-                Some(handle) => !handle.is_healthy(),
-                None => true,
-            }
-        };
-
-        if !needs_restart {
+        let mut daemon_guard = self.daemon.lock().unwrap();
+        if daemon_guard
+            .as_mut()
+            .is_some_and(|handle| handle.is_healthy())
+        {
             return Ok(());
         }
-
-        let mut daemon_guard = self.daemon.lock().unwrap();
-        if let Some(mut h) = daemon_guard.take() {
-            h.shutdown();
+        if let Some(mut handle) = daemon_guard.take() {
+            handle.shutdown();
         }
-
-        let mut handle = DaemonHandle::start(&self.python_path, &self.script_path)?;
+        let mut handle =
+            DaemonHandle::start(&self.python_path, &self.script_path, self.daemon_timeouts)?;
         handle.wait_for_ready()?;
         eprintln!("[pose-daemon] started successfully");
         *daemon_guard = Some(handle);
         Ok(())
+    }
+
+    fn daemon_request(&self, method: &str, payload: &str) -> Result<String> {
+        let mut guard = self.daemon.lock().unwrap();
+        let result = guard
+            .as_mut()
+            .ok_or_else(|| anyhow::anyhow!("Daemon not started"))?
+            .send_request(method, payload);
+        if result.is_err() {
+            guard.take();
+        }
+        result
     }
 
     fn find_python_path() -> String {
@@ -396,16 +497,11 @@ impl PoseDetector {
     fn try_daemon_detect_base64(&self, image_base64: &str) -> Result<PoseData> {
         self.ensure_daemon_started()?;
 
-        let mut daemon_guard = self.daemon.lock().unwrap();
-        let handle = daemon_guard
-            .as_mut()
-            .ok_or_else(|| anyhow::anyhow!("Daemon not started"))?;
-
         let payload = format!(
             "\"image_base64\":\"{}\"",
             image_base64.replace('\\', "\\\\").replace('"', "\\\"")
         );
-        let stdout = handle.send_request("detect_base64", &payload)?;
+        let stdout = self.daemon_request("detect_base64", &payload)?;
 
         let result: PythonPoseResult = serde_json::from_str(&stdout).map_err(|e| {
             anyhow::anyhow!(
@@ -502,14 +598,9 @@ impl PoseDetector {
     fn try_daemon_detect_file(&self, file_path: &str) -> Result<PoseData> {
         self.ensure_daemon_started()?;
 
-        let mut daemon_guard = self.daemon.lock().unwrap();
-        let handle = daemon_guard
-            .as_mut()
-            .ok_or_else(|| anyhow::anyhow!("Daemon not started"))?;
-
         let escaped_path = file_path.replace('\\', "\\\\").replace('"', "\\\"");
         let payload = format!("\"file_path\":\"{}\"", escaped_path);
-        let stdout = handle.send_request("detect_file", &payload)?;
+        let stdout = self.daemon_request("detect_file", &payload)?;
 
         let result: PythonPoseResult = serde_json::from_str(&stdout).map_err(|e| {
             anyhow::anyhow!(
@@ -735,9 +826,12 @@ for line in sys.stdin:
         )
         .unwrap();
         for _ in 0..4 {
-            let mut daemon =
-                DaemonHandle::start(&PoseDetector::find_python_path(), script.to_str().unwrap())
-                    .unwrap();
+            let mut daemon = DaemonHandle::start(
+                &PoseDetector::find_python_path(),
+                script.to_str().unwrap(),
+                Default::default(),
+            )
+            .unwrap();
             daemon.wait_for_ready().unwrap();
             assert!(daemon.is_healthy());
             let result = daemon
@@ -751,6 +845,205 @@ for line in sys.stdin:
             assert!(!daemon.is_healthy());
         }
         std::fs::remove_file(script).unwrap();
+    }
+
+    struct DaemonFixture {
+        directory: std::path::PathBuf,
+        script: std::path::PathBuf,
+    }
+
+    impl DaemonFixture {
+        fn new(code: &str) -> Self {
+            let directory =
+                std::env::temp_dir().join(format!("shotform-timeout-{}", uuid::Uuid::new_v4()));
+            std::fs::create_dir(&directory).unwrap();
+            let script = directory.join("daemon.py");
+            std::fs::write(&script, code).unwrap();
+            Self { directory, script }
+        }
+        fn start(&self, timeouts: super::DaemonTimeouts) -> DaemonHandle {
+            DaemonHandle::start(
+                &PoseDetector::find_python_path(),
+                self.script.to_str().unwrap(),
+                timeouts,
+            )
+            .unwrap()
+        }
+    }
+    impl Drop for DaemonFixture {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.directory);
+        }
+    }
+    fn fast_timeouts() -> super::DaemonTimeouts {
+        super::DaemonTimeouts {
+            ready: std::time::Duration::from_secs(2),
+            request: std::time::Duration::from_millis(200),
+            shutdown: std::time::Duration::from_millis(200),
+        }
+    }
+    fn assert_closed_and_reaped(daemon: &mut DaemonHandle) {
+        assert!(
+            daemon.process.try_wait().unwrap().is_some(),
+            "child must be reaped"
+        );
+        assert!(daemon.requests.is_none() && daemon.responses.is_none());
+        assert!(!daemon.is_healthy());
+    }
+
+    #[test]
+    fn daemon_no_ready_times_out_and_reaps_child() {
+        let fixture = DaemonFixture::new("import time\ntime.sleep(30)\n");
+        let mut timeout = fast_timeouts();
+        timeout.ready = std::time::Duration::from_millis(200);
+        let mut daemon = fixture.start(timeout);
+        let start = std::time::Instant::now();
+        assert!(daemon
+            .wait_for_ready()
+            .unwrap_err()
+            .to_string()
+            .contains("Timed out"));
+        assert!(start.elapsed() < std::time::Duration::from_secs(2));
+        assert_closed_and_reaped(&mut daemon);
+    }
+
+    #[test]
+    fn daemon_no_response_including_blocked_stdin_is_bounded() {
+        let fixture = DaemonFixture::new(
+            "import time\nprint('{\"status\":\"ready\"}',flush=True)\ntime.sleep(30)\n",
+        );
+        let mut daemon = fixture.start(fast_timeouts());
+        daemon.wait_for_ready().unwrap();
+        let start = std::time::Instant::now();
+        // Exceeds pipe capacity: the writer blocks because Python never reads stdin.
+        let payload = format!("\"image_base64\":\"{}\"", "A".repeat(4 * 1024 * 1024));
+        assert!(daemon
+            .send_request("detect_base64", &payload)
+            .unwrap_err()
+            .to_string()
+            .contains("Timed out"));
+        assert!(start.elapsed() < std::time::Duration::from_secs(2));
+        assert_closed_and_reaped(&mut daemon);
+        assert!(daemon
+            .send_request("detect_file", "\"file_path\":\"next\"")
+            .is_err());
+    }
+
+    #[test]
+    fn daemon_ignoring_shutdown_is_killed_and_reaped() {
+        let fixture = DaemonFixture::new("import sys,time\nprint('{\"status\":\"ready\"}',flush=True)\nsys.stdin.readline()\ntime.sleep(30)\n");
+        let mut daemon = fixture.start(fast_timeouts());
+        daemon.wait_for_ready().unwrap();
+        let start = std::time::Instant::now();
+        daemon.shutdown();
+        assert!(start.elapsed() < std::time::Duration::from_secs(2));
+        assert_closed_and_reaped(&mut daemon);
+        daemon.shutdown(); // Idempotent: no second wait or write to a dead process.
+    }
+
+    #[test]
+    fn daemon_status_lines_do_not_extend_response_deadline() {
+        let fixture = DaemonFixture::new(
+            r#"import sys,time
+print('{"status":"ready"}',flush=True)
+sys.stdin.readline()
+while True:
+    print('{"status":"working"}',flush=True)
+    time.sleep(0.02)
+"#,
+        );
+        let mut daemon = fixture.start(fast_timeouts());
+        daemon.wait_for_ready().unwrap();
+        let start = std::time::Instant::now();
+        assert!(daemon
+            .send_request("detect_file", "\"file_path\":\"test\"")
+            .is_err());
+        assert!(start.elapsed() < std::time::Duration::from_secs(2));
+        assert_closed_and_reaped(&mut daemon);
+    }
+
+    #[test]
+    fn daemon_default_ready_deadline_rejects_twelve_second_late_ready() {
+        let fixture = DaemonFixture::new(
+            "import time\ntime.sleep(12)\nprint('{\"status\":\"ready\"}',flush=True)\n",
+        );
+        let mut daemon = fixture.start(Default::default());
+        let start = std::time::Instant::now();
+        assert!(daemon
+            .wait_for_ready()
+            .unwrap_err()
+            .to_string()
+            .contains("Timed out"));
+        let elapsed = start.elapsed();
+        eprintln!("default ready timeout elapsed: {elapsed:?}");
+        assert!(elapsed >= std::time::Duration::from_secs(9));
+        assert!(elapsed < std::time::Duration::from_millis(11500));
+        assert_closed_and_reaped(&mut daemon);
+    }
+
+    #[test]
+    fn daemon_default_request_deadline_rejects_seventeen_second_late_response() {
+        let fixture = DaemonFixture::new(
+            r#"import sys,time
+print('{"status":"ready"}',flush=True)
+sys.stdin.readline()
+time.sleep(17)
+print('{"keypoints":[],"width":99,"height":1}',flush=True)
+"#,
+        );
+        let mut daemon = fixture.start(Default::default());
+        daemon.wait_for_ready().unwrap();
+        let start = std::time::Instant::now();
+        assert!(daemon
+            .send_request("detect_file", "\"file_path\":\"test\"")
+            .unwrap_err()
+            .to_string()
+            .contains("Timed out"));
+        let elapsed = start.elapsed();
+        eprintln!("default request timeout elapsed: {elapsed:?}");
+        assert!(elapsed >= std::time::Duration::from_secs(14));
+        assert!(elapsed < std::time::Duration::from_millis(16500));
+        assert_closed_and_reaped(&mut daemon);
+    }
+
+    #[test]
+    fn daemon_timeout_falls_back_then_next_analysis_uses_fresh_session() {
+        let fixture = DaemonFixture::new(
+            r#"import sys,json,time
+from pathlib import Path
+marker=Path(__file__).with_suffix('.started')
+if '--daemon' not in sys.argv:
+    result=json.dumps({'keypoints':[],'width':3,'height':1})
+    if '--output-file' in sys.argv:
+        output=Path(sys.argv[sys.argv.index('--output-file')+1])
+        output.write_text(result,encoding='utf-8')
+    else:
+        print(result,flush=True)
+else:
+    first=not marker.exists()
+    marker.touch()
+    print('{"status":"ready"}',flush=True)
+    for line in sys.stdin:
+        request=json.loads(line)
+        if request['method']=='shutdown': break
+        if first:
+            time.sleep(3)
+            print('{"keypoints":[],"width":99,"height":1}',flush=True)
+        else:
+            print('{"keypoints":[],"width":2,"height":1}',flush=True)
+"#,
+        );
+        let mut detector = PoseDetector::new();
+        detector.script_path = fixture.script.to_string_lossy().into();
+        detector.daemon_enabled = true;
+        detector.daemon_timeouts = fast_timeouts();
+        // Exercise the public analysis path, including existing file fallback.
+        assert_eq!(detector.detect_from_file("first").unwrap().width, 3);
+        assert!(detector.daemon.lock().unwrap().is_none());
+        assert_eq!(detector.detect_from_file("second").unwrap().width, 2);
+        assert_eq!(detector.try_daemon_detect_base64("AA==").unwrap().width, 2);
+        detector.shutdown_daemon();
+        assert!(detector.daemon.lock().unwrap().is_none());
     }
 
     #[test]

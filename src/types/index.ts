@@ -7,7 +7,15 @@ export interface Keypoint {
   visibility: number
 }
 
+export interface PoseModelInfo {
+  backend: string
+  name: string
+  sha256: string
+  fallback_reasons: string[]
+}
+
 export interface PoseData {
+  modelInfo?: PoseModelInfo | null
   keypoints: Keypoint[]
   width: number
   height: number

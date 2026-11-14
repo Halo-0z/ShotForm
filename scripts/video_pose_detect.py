@@ -6,7 +6,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from pose_detect import detect_pose, detect_poses, compute_torso_center
+from pose_detect import detect_pose, detect_poses, compute_torso_center, get_model_info
 
 
 def _error_result(message: str) -> dict:
@@ -162,11 +162,15 @@ def analyze_video(file_path: str, start_ms: int, end_ms: int, max_frames: int, s
         first_frame_multi_pose = None
 
         frames = []
-        for frame_index in _sample_frame_indices(start_frame, end_frame, max(4, max_frames)):
+        sample_indices = _sample_frame_indices(start_frame, end_frame, max(4, max_frames))
+        frames_read = 0
+        for frame_index in sample_indices:
             capture.set(cv2.CAP_PROP_POS_FRAMES, frame_index)
             success, frame = capture.read()
             if not success or frame is None:
                 continue
+
+            frames_read += 1
 
             processed_frame = _resize_frame(frame)
             multi_result = detect_poses(processed_frame)
@@ -227,6 +231,7 @@ def analyze_video(file_path: str, start_ms: int, end_ms: int, max_frames: int, s
                     'timestamp_ms': timestamp_ms,
                     'image_data': _frame_to_data_url(processed_frame),
                     'keypoints': selected_pose['keypoints'],
+                    'model_info': get_model_info(),
                     'width': frame_w,
                     'height': frame_h,
                 }
@@ -243,6 +248,8 @@ def analyze_video(file_path: str, start_ms: int, end_ms: int, max_frames: int, s
                 'trim_start_ms': trim_start_ms,
                 'trim_end_ms': trim_end_ms,
                 'total_frames': total_frames,
+                'sampled_frames': len(sample_indices),
+                'frames_read': frames_read,
             }
 
         result = {
@@ -254,6 +261,8 @@ def analyze_video(file_path: str, start_ms: int, end_ms: int, max_frames: int, s
             'trim_start_ms': trim_start_ms,
             'trim_end_ms': trim_end_ms,
             'total_frames': total_frames,
+            'sampled_frames': len(sample_indices),
+            'frames_read': frames_read,
             'detected_pose_count': detected_pose_count,
         }
 
@@ -266,6 +275,7 @@ def analyze_video(file_path: str, start_ms: int, end_ms: int, max_frames: int, s
 
 
 def _write_result(result: dict, output_file: str | None) -> None:
+    result["model_info"] = get_model_info()
     payload = json.dumps(result, ensure_ascii=False)
     if output_file:
         Path(output_file).write_text(payload, encoding='utf-8')

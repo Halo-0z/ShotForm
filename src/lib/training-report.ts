@@ -37,6 +37,7 @@ export async function saveReportFile(
 }
 
 export function buildAnalysisReport(record: AnalysisHistory): string {
+    const model = record.analysis.poseData.modelInfo
     const suggestions = (record.suggestions ?? [])
         .map((s) => `${s.bodyPart}：${s.issue}\n建议：${s.suggestion}`)
         .join("\n\n")
@@ -49,6 +50,7 @@ export function buildAnalysisReport(record: AnalysisHistory): string {
         `<p>分析时间：${e(new Date(record.analysis.timestamp).toLocaleString("zh-CN"))}\n训练日期：${e(record.trainingDate || "未填写")}\n标签：${e(record.tags?.join("、") || "无")}\n备注：${e(record.notes || "无")}</p>
     ${reportImage(record.annotatedImagePath || record.imagePath)}
     <p>投篮类型：${e(getShotTypeName(getRecordShotType(record)))}</p>
+    <p>实际姿态模型：${e(model?.name || "旧记录未记录")}<br>SHA-256：${e(model?.sha256 || "未记录")}<br>回退原因：${e(model ? model.fallback_reasons.join("；") || "无" : "未记录")}</p>
     <h2>所选帧角度</h2>${reportTable(
         ["指标", "角度（°）", "参考范围（°）", "状态"],
         record.analysis.angles.map((a) => [

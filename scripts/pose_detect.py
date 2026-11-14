@@ -1,5 +1,7 @@
 import base64
 import json
+import hashlib
+import os
 import sys
 import tempfile
 from pathlib import Path
@@ -63,10 +65,15 @@ LANDMARK_NAMES = [
 _DETECTOR_KIND = None
 _DETECTOR = None
 _DETECTOR_ERROR = None
+_MODEL_INFO = None
+
+
+def get_model_info():
+    return _MODEL_INFO
 
 
 def _error_result(message: str, width: int = 0, height: int = 0) -> dict:
-    return {"error": message, "keypoints": [], "width": width, "height": height}
+    return {"error": message, "keypoints": [], "width": width, "height": height, "model_info": get_model_info()}
 
 
 def _decode_image_bytes(image_bytes: bytes) -> np.ndarray | None:
@@ -82,6 +89,9 @@ def _read_image_file(file_path: str) -> np.ndarray | None:
 
 
 def _candidate_model_paths() -> list[Path]:
+    override = os.environ.get("SHOTFORM_POSE_MODELS")
+    if override:
+        return [Path(p) for p in override.split(os.pathsep) if p]
     script_dir = Path(__file__).resolve().parent
     roots = [script_dir.parent / "models", Path.cwd() / "models"]
     names = [
@@ -105,61 +115,52 @@ def _candidate_model_paths() -> list[Path]:
 
 
 def _cache_model_to_ascii_path(source_path: Path) -> Path:
+    data = source_path.read_bytes()
+    digest = hashlib.sha256(data).hexdigest()
     cache_dir = Path(tempfile.gettempdir()) / "basketball-shot-analyzer"
     cache_dir.mkdir(parents=True, exist_ok=True)
-
-    cached_path = cache_dir / source_path.name
-    needs_copy = True
-
-    if cached_path.exists():
-        source_stat = source_path.stat()
-        cached_stat = cached_path.stat()
-        needs_copy = (
-            cached_stat.st_size != source_stat.st_size
-            or cached_stat.st_mtime_ns < source_stat.st_mtime_ns
-        )
-
-    if needs_copy:
-        cached_path.write_bytes(source_path.read_bytes())
-
+    cached_path = cache_dir / f"{digest}.task"
+    if not cached_path.exists() or hashlib.sha256(cached_path.read_bytes()).hexdigest() != digest:
+        temporary = cached_path.with_suffix(f".{os.getpid()}.tmp")
+        temporary.write_bytes(data)
+        temporary.replace(cached_path)
     return cached_path
 
 
-def _create_tasks_detector():
+def create_task_detector(model_path: Path):
     from mediapipe.tasks import python as mp_python
     from mediapipe.tasks.python import vision
+    cached_path = _cache_model_to_ascii_path(model_path)
+    options = vision.PoseLandmarkerOptions(
+        base_options=mp_python.BaseOptions(model_asset_path=str(cached_path)),
+        running_mode=vision.RunningMode.IMAGE, num_poses=3,
+        min_pose_detection_confidence=0.35, min_pose_presence_confidence=0.35,
+        min_tracking_confidence=0.35, output_segmentation_masks=False,
+    )
+    detector = vision.PoseLandmarker.create_from_options(options)
+    return detector, {"backend": "tasks", "name": model_path.name,
+                      "sha256": cached_path.stem, "fallback_reasons": []}
 
-    errors: list[str] = []
 
+def _record_model(info):
+    global _MODEL_INFO
+    _MODEL_INFO = info
+    print("[pose-model] " + json.dumps(info, ensure_ascii=True), file=sys.stderr, flush=True)
+
+
+def _create_tasks_detector():
+    errors = []
     for model_path in _candidate_model_paths():
-        if not model_path.exists():
-            continue
-
         try:
-            cached_path = _cache_model_to_ascii_path(model_path)
-            base_options = mp_python.BaseOptions(model_asset_path=str(cached_path))
-            options = vision.PoseLandmarkerOptions(
-                base_options=base_options,
-                running_mode=vision.RunningMode.IMAGE,
-                num_poses=3,
-                min_pose_detection_confidence=0.35,
-                min_pose_presence_confidence=0.35,
-                min_tracking_confidence=0.35,
-                output_segmentation_masks=False,
-            )
-            detector = vision.PoseLandmarker.create_from_options(options)
+            detector, info = create_task_detector(model_path)
+            info["fallback_reasons"] = errors.copy()
+            _record_model(info)
             return "tasks", detector
         except Exception as exc:
-            errors.append(f"{model_path.name}: {exc}")
-
-    if errors:
-        raise RuntimeError("Failed to load MediaPipe task model. " + " | ".join(errors))
-
-    raise RuntimeError(
-        "No pose landmarker model found in the models directory. "
-        "Expected pose_landmarker_lite.task, pose_landmarker_full.task, "
-        "or pose_landmarker_heavy.task."
-    )
+            failure = f"{model_path.name}: {exc}"
+            errors.append(failure)
+            print("[pose-model] load failed: " + failure, file=sys.stderr, flush=True)
+    raise RuntimeError("Failed to load MediaPipe task models. " + " | ".join(errors))
 
 
 def _create_solutions_detector():
@@ -194,6 +195,10 @@ def _get_detector():
     if hasattr(mp, "solutions"):
         try:
             _DETECTOR_KIND, _DETECTOR = _create_solutions_detector()
+            model_path = Path(mp.__file__).parent / "modules/pose_landmark/pose_landmark_heavy.tflite"
+            _record_model({"backend": "solutions", "name": model_path.name,
+                           "sha256": hashlib.sha256(model_path.read_bytes()).hexdigest(),
+                           "fallback_reasons": errors.copy()})
             return _DETECTOR_KIND, _DETECTOR
         except Exception as exc:
             errors.append(str(exc))
@@ -260,7 +265,7 @@ def detect_pose(image: np.ndarray) -> dict:
                 }
             )
 
-        return {"keypoints": keypoints, "width": width, "height": height}
+        return {"keypoints": keypoints, "width": width, "height": height, "model_info": get_model_info()}
     except Exception as exc:
         return _error_result(str(exc), width, height)
 
@@ -294,7 +299,7 @@ def detect_poses(image: np.ndarray) -> dict:
             all_landmarks = [single] if single else []
 
         if not all_landmarks:
-            return {"poses": [], "width": width, "height": height}
+            return {"poses": [], "width": width, "height": height, "model_info": get_model_info()}
 
         poses = []
         for person_landmarks in all_landmarks:
@@ -315,9 +320,9 @@ def detect_poses(image: np.ndarray) -> dict:
             cx, cy = compute_torso_center(keypoints)
             poses.append({"keypoints": keypoints, "torso_cx": cx, "torso_cy": cy})
 
-        return {"poses": poses, "width": width, "height": height}
+        return {"poses": poses, "width": width, "height": height, "model_info": get_model_info()}
     except Exception as exc:
-        return {"poses": [], "width": width, "height": height, "error": str(exc)}
+        return {"poses": [], "width": width, "height": height, "model_info": get_model_info(), "error": str(exc)}
 
 
 def detect_from_base64(image_base64: str) -> dict:

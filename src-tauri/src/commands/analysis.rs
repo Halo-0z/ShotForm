@@ -330,7 +330,12 @@ fn aggregate_video_result(
     frames: &[VideoAnalysisFrame],
     trim_start_ms: u32,
     trim_end_ms: u32,
-) -> (ShotType, f32, Vec<String>, Option<crate::analysis::temporal::TemporalFeatures>) {
+) -> (
+    ShotType,
+    f32,
+    Vec<String>,
+    Option<crate::analysis::temporal::TemporalFeatures>,
+) {
     if frames.is_empty() {
         return (
             ShotType::Unknown,
@@ -428,7 +433,12 @@ fn aggregate_video_result(
 
     reasons.extend(fuse_reasons);
 
-    (overall_shot_type, overall_confidence, reasons, Some(temporal_features))
+    (
+        overall_shot_type,
+        overall_confidence,
+        reasons,
+        Some(temporal_features),
+    )
 }
 
 #[tauri::command]
@@ -465,7 +475,13 @@ pub async fn analyze_video(
 
     let detector = PoseDetector::new();
     let video_result = detector
-        .analyze_video_file(&file_path, trim_start_ms, trim_end_ms, 16, subject_pose_index)
+        .analyze_video_file(
+            &file_path,
+            trim_start_ms,
+            trim_end_ms,
+            16,
+            subject_pose_index,
+        )
         .map_err(|error| format!("视频姿态分析失败: {error}"))?;
 
     if video_result.frames.is_empty() {
@@ -486,6 +502,7 @@ pub async fn analyze_video(
         );
 
         let pose_data = PoseData {
+            model_info: frame.model_info.clone(),
             keypoints: frame.keypoints.clone(),
             width: frame.width,
             height: frame.height,
@@ -513,11 +530,12 @@ pub async fn analyze_video(
     );
 
     let best_frame_index = choose_best_frame_index(&analyzed_frames);
-    let (overall_shot_type, overall_shot_type_confidence, overall_reasons, temporal_features) = aggregate_video_result(
-        &analyzed_frames,
-        video_result.trim_start_ms,
-        video_result.trim_end_ms,
-    );
+    let (overall_shot_type, overall_shot_type_confidence, overall_reasons, temporal_features) =
+        aggregate_video_result(
+            &analyzed_frames,
+            video_result.trim_start_ms,
+            video_result.trim_end_ms,
+        );
     let template_profile = build_template_profile_from_video_frames(&analyzed_frames);
 
     emit_analysis_progress(&app_handle, "complete", 100, "视频分析完成");
@@ -542,14 +560,16 @@ pub async fn analyze_video(
             crate::models::types::FirstFrameMultiPose {
                 index: fmp.index,
                 image_data: fmp.image_data,
-                poses: fmp.poses.into_iter().map(|p| {
-                    crate::models::types::MultiPoseEntry {
+                poses: fmp
+                    .poses
+                    .into_iter()
+                    .map(|p| crate::models::types::MultiPoseEntry {
                         pose_index: p.pose_index,
                         keypoints: p.keypoints,
                         torso_cx: p.torso_cx,
                         torso_cy: p.torso_cy,
-                    }
-                }).collect(),
+                    })
+                    .collect(),
                 width: fmp.width,
                 height: fmp.height,
             }
@@ -730,6 +750,7 @@ mod tests {
         let keypoints = right_handed_keypoints();
         let analysis = ShotAnalysis {
             pose_data: PoseData {
+                model_info: None,
                 keypoints: keypoints.clone(),
                 width: 800,
                 height: 1200,

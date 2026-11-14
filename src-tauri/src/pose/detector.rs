@@ -4,7 +4,6 @@ use image::{DynamicImage, ImageFormat, RgbImage};
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
@@ -29,11 +28,12 @@ struct DaemonHandle {
     process: Child,
     stdin: ChildStdin,
     stdout_reader: BufReader<ChildStdout>,
-    health_monitor: Arc<AtomicBool>,
 }
 
 #[derive(serde::Deserialize)]
 struct PythonPoseResult {
+    #[serde(default)]
+    model_info: Option<serde_json::Value>,
     keypoints: Vec<PythonKeypoint>,
     width: u32,
     height: u32,
@@ -53,6 +53,8 @@ struct PythonKeypoint {
 
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct VideoPoseFrameResult {
+    #[serde(default)]
+    pub model_info: Option<serde_json::Value>,
     pub index: u32,
     pub timestamp_ms: u32,
     pub image_data: String,
@@ -99,41 +101,47 @@ pub struct VideoPoseResult {
 impl DaemonHandle {
     fn start(python_path: &str, script_path: &str) -> Result<Self> {
         let mut command = Command::new(python_path);
-        command.arg(script_path).arg("--daemon").stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped());
+        command
+            .arg(script_path)
+            .arg("--daemon")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
 
         #[cfg(windows)]
         command.creation_flags(CREATE_NO_WINDOW);
 
         let mut process = command.spawn()?;
-        let stdin = process.stdin.take().ok_or_else(|| anyhow::anyhow!("Failed to take stdin"))?;
-        let stdout_raw = process.stdout.take().ok_or_else(|| anyhow::anyhow!("Failed to take stdout"))?;
+        let stdin = process
+            .stdin
+            .take()
+            .ok_or_else(|| anyhow::anyhow!("Failed to take stdin"))?;
+        let stdout_raw = process
+            .stdout
+            .take()
+            .ok_or_else(|| anyhow::anyhow!("Failed to take stdout"))?;
         let stdout_reader = BufReader::new(stdout_raw);
 
-        let health = Arc::new(AtomicBool::new(true));
-        let health_clone = health.clone();
-        let exit_check_process = Arc::new(std::sync::Mutex::new(process));
-        let exit_check_clone = exit_check_process.clone();
-
-        thread::spawn(move || {
-            let mut p = exit_check_clone.lock().unwrap();
-            if p.try_wait().ok().flatten().is_some() {
-                eprintln!("[pose-daemon] process exited early");
-                health_clone.store(false, Ordering::SeqCst);
-            }
-        });
-
-        let process = Arc::try_unwrap(exit_check_process).unwrap().into_inner().unwrap();
+        // The handle is the sole owner of Child. Drain stderr independently so model
+        // diagnostics cannot fill its pipe and stall the JSON protocol.
+        if let Some(stderr) = process.stderr.take() {
+            thread::spawn(move || {
+                for line in BufReader::new(stderr).lines().map_while(Result::ok) {
+                    eprintln!("[pose-daemon] {line}");
+                }
+            });
+        }
 
         Ok(Self {
             process,
             stdin,
             stdout_reader,
-            health_monitor: health,
         })
     }
 
     fn wait_for_ready(&mut self) -> Result<()> {
-        let deadline = std::time::Instant::now() + std::time::Duration::from_millis(DAEMON_READY_TIMEOUT_MS);
+        let deadline =
+            std::time::Instant::now() + std::time::Duration::from_millis(DAEMON_READY_TIMEOUT_MS);
         let mut line = String::new();
 
         while std::time::Instant::now() < deadline {
@@ -157,7 +165,10 @@ impl DaemonHandle {
             }
         }
 
-        anyhow::bail!("Timed out waiting for daemon ready signal ({}ms)", DAEMON_READY_TIMEOUT_MS);
+        anyhow::bail!(
+            "Timed out waiting for daemon ready signal ({}ms)",
+            DAEMON_READY_TIMEOUT_MS
+        );
     }
 
     fn send_request(&mut self, method: &str, payload: &str) -> Result<String> {
@@ -165,7 +176,8 @@ impl DaemonHandle {
         self.stdin.write_all(request.as_bytes())?;
         self.stdin.flush()?;
 
-        let deadline = std::time::Instant::now() + std::time::Duration::from_millis(DAEMON_REQUEST_TIMEOUT_MS);
+        let deadline =
+            std::time::Instant::now() + std::time::Duration::from_millis(DAEMON_REQUEST_TIMEOUT_MS);
         let mut line = String::new();
 
         while std::time::Instant::now() < deadline {
@@ -187,11 +199,14 @@ impl DaemonHandle {
             }
         }
 
-        anyhow::bail!("Timed out waiting for daemon response ({}ms)", DAEMON_REQUEST_TIMEOUT_MS);
+        anyhow::bail!(
+            "Timed out waiting for daemon response ({}ms)",
+            DAEMON_REQUEST_TIMEOUT_MS
+        );
     }
 
-    fn is_healthy(&self) -> bool {
-        self.health_monitor.load(Ordering::SeqCst)
+    fn is_healthy(&mut self) -> bool {
+        matches!(self.process.try_wait(), Ok(None))
     }
 
     fn shutdown(&mut self) {
@@ -206,7 +221,9 @@ impl PoseDetector {
         let python_path = Self::find_python_path();
         let script_path = Self::find_script_path();
         let video_script_path = Self::find_video_script_path();
-        let daemon_enabled = std::env::var("POSE_DETECTOR_MODE").map(|v| v != "file").unwrap_or(true);
+        let daemon_enabled = std::env::var("POSE_DETECTOR_MODE")
+            .map(|v| v != "file")
+            .unwrap_or(true);
 
         Self {
             python_path,
@@ -223,13 +240,9 @@ impl PoseDetector {
         }
 
         let needs_restart = {
-            let daemon_guard = self.daemon.lock().unwrap();
-            match daemon_guard.as_ref() {
-                Some(handle) if handle.is_healthy() => false,
-                Some(_) => {
-                    eprintln!("[pose-daemon] unhealthy, restarting...");
-                    true
-                }
+            let mut daemon_guard = self.daemon.lock().unwrap();
+            match daemon_guard.as_mut() {
+                Some(handle) => !handle.is_healthy(),
                 None => true,
             }
         };
@@ -369,7 +382,10 @@ impl PoseDetector {
             match self.try_daemon_detect_base64(image_base64) {
                 Ok(result) => return Ok(result),
                 Err(e) => {
-                    eprintln!("[pose-daemon] daemon failed, falling back to file mode: {}", e);
+                    eprintln!(
+                        "[pose-daemon] daemon failed, falling back to file mode: {}",
+                        e
+                    );
                 }
             }
         }
@@ -381,13 +397,22 @@ impl PoseDetector {
         self.ensure_daemon_started()?;
 
         let mut daemon_guard = self.daemon.lock().unwrap();
-        let handle = daemon_guard.as_mut().ok_or_else(|| anyhow::anyhow!("Daemon not started"))?;
+        let handle = daemon_guard
+            .as_mut()
+            .ok_or_else(|| anyhow::anyhow!("Daemon not started"))?;
 
-        let payload = format!("\"image_base64\":\"{}\"", image_base64.replace('\\', "\\\\").replace('"', "\\\""));
+        let payload = format!(
+            "\"image_base64\":\"{}\"",
+            image_base64.replace('\\', "\\\\").replace('"', "\\\"")
+        );
         let stdout = handle.send_request("detect_base64", &payload)?;
 
         let result: PythonPoseResult = serde_json::from_str(&stdout).map_err(|e| {
-            anyhow::anyhow!("Failed to parse daemon response: {} - Output: {}", e, stdout)
+            anyhow::anyhow!(
+                "Failed to parse daemon response: {} - Output: {}",
+                e,
+                stdout
+            )
         })?;
 
         if let Some(error) = result.error {
@@ -395,14 +420,19 @@ impl PoseDetector {
         }
 
         Ok(PoseData {
-            keypoints: result.keypoints.into_iter().map(|pk| Keypoint {
-                id: pk.id,
-                name: pk.name,
-                x: pk.x,
-                y: pk.y,
-                z: pk.z,
-                visibility: pk.visibility,
-            }).collect(),
+            model_info: result.model_info,
+            keypoints: result
+                .keypoints
+                .into_iter()
+                .map(|pk| Keypoint {
+                    id: pk.id,
+                    name: pk.name,
+                    x: pk.x,
+                    y: pk.y,
+                    z: pk.z,
+                    visibility: pk.visibility,
+                })
+                .collect(),
             width: result.width,
             height: result.height,
         })
@@ -446,6 +476,7 @@ impl PoseDetector {
             .collect();
 
         Ok(PoseData {
+            model_info: result.model_info,
             keypoints,
             width: result.width,
             height: result.height,
@@ -457,7 +488,10 @@ impl PoseDetector {
             match self.try_daemon_detect_file(file_path) {
                 Ok(result) => return Ok(result),
                 Err(e) => {
-                    eprintln!("[pose-daemon] daemon failed, falling back to file mode: {}", e);
+                    eprintln!(
+                        "[pose-daemon] daemon failed, falling back to file mode: {}",
+                        e
+                    );
                 }
             }
         }
@@ -469,14 +503,20 @@ impl PoseDetector {
         self.ensure_daemon_started()?;
 
         let mut daemon_guard = self.daemon.lock().unwrap();
-        let handle = daemon_guard.as_mut().ok_or_else(|| anyhow::anyhow!("Daemon not started"))?;
+        let handle = daemon_guard
+            .as_mut()
+            .ok_or_else(|| anyhow::anyhow!("Daemon not started"))?;
 
         let escaped_path = file_path.replace('\\', "\\\\").replace('"', "\\\"");
         let payload = format!("\"file_path\":\"{}\"", escaped_path);
         let stdout = handle.send_request("detect_file", &payload)?;
 
         let result: PythonPoseResult = serde_json::from_str(&stdout).map_err(|e| {
-            anyhow::anyhow!("Failed to parse daemon response: {} - Output: {}", e, stdout)
+            anyhow::anyhow!(
+                "Failed to parse daemon response: {} - Output: {}",
+                e,
+                stdout
+            )
         })?;
 
         if let Some(error) = result.error {
@@ -484,14 +524,19 @@ impl PoseDetector {
         }
 
         Ok(PoseData {
-            keypoints: result.keypoints.into_iter().map(|pk| Keypoint {
-                id: pk.id,
-                name: pk.name,
-                x: pk.x,
-                y: pk.y,
-                z: pk.z,
-                visibility: pk.visibility,
-            }).collect(),
+            model_info: result.model_info,
+            keypoints: result
+                .keypoints
+                .into_iter()
+                .map(|pk| Keypoint {
+                    id: pk.id,
+                    name: pk.name,
+                    x: pk.x,
+                    y: pk.y,
+                    z: pk.z,
+                    visibility: pk.visibility,
+                })
+                .collect(),
             width: result.width,
             height: result.height,
         })
@@ -523,6 +568,7 @@ impl PoseDetector {
             .collect();
 
         Ok(PoseData {
+            model_info: result.model_info,
             keypoints,
             width: result.width,
             height: result.height,
@@ -670,7 +716,42 @@ fn encode_rgb_image_to_base64(image_data: &[u8], width: u32, height: u32) -> Res
 
 #[cfg(test)]
 mod tests {
-    use super::encode_rgb_image_to_base64;
+    use super::{encode_rgb_image_to_base64, DaemonHandle, PoseDetector};
+
+    #[test]
+    fn daemon_start_owns_child_and_drains_diagnostics() {
+        let script =
+            std::env::temp_dir().join(format!("shotform-daemon-test-{}.py", uuid::Uuid::new_v4()));
+        std::fs::write(
+            &script,
+            r#"import sys,json
+print(json.dumps({'status':'ready'}),flush=True)
+for line in sys.stdin:
+    request=json.loads(line)
+    if request['method']=='shutdown': break
+    print('diagnostic',file=sys.stderr,flush=True)
+    print(json.dumps({'keypoints': [], 'width': 1, 'height': 1}),flush=True)
+"#,
+        )
+        .unwrap();
+        for _ in 0..4 {
+            let mut daemon =
+                DaemonHandle::start(&PoseDetector::find_python_path(), script.to_str().unwrap())
+                    .unwrap();
+            daemon.wait_for_ready().unwrap();
+            assert!(daemon.is_healthy());
+            let result = daemon
+                .send_request("detect_file", "\"file_path\":\"fixture\"")
+                .unwrap();
+            assert_eq!(
+                serde_json::from_str::<serde_json::Value>(&result).unwrap()["width"],
+                1
+            );
+            daemon.shutdown();
+            assert!(!daemon.is_healthy());
+        }
+        std::fs::remove_file(script).unwrap();
+    }
 
     #[test]
     fn encodes_raw_rgb_pixels_as_decodable_png() {

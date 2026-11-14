@@ -15,6 +15,8 @@ pub struct Keypoint {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct PoseData {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model_info: Option<serde_json::Value>,
     pub keypoints: Vec<Keypoint>,
     pub width: u32,
     pub height: u32,

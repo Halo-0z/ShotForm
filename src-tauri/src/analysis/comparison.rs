@@ -581,6 +581,7 @@ pub fn get_default_player_templates() -> Vec<PlayerTemplate> {
             description: "【示例参考数据，非实测】NBA 历史级射手，典型 1 段式投篮代表。"
                 .to_string(),
             pose_data: PoseData {
+                model_info: None,
                 keypoints: vec![],
                 width: 640,
                 height: 480,
@@ -623,6 +624,7 @@ pub fn get_default_player_templates() -> Vec<PlayerTemplate> {
             team: "洛杉矶湖人".to_string(),
             description: "【示例参考数据，非实测】NBA 传奇球星，典型 2 段式投篮代表。".to_string(),
             pose_data: PoseData {
+                model_info: None,
                 keypoints: vec![],
                 width: 640,
                 height: 480,
@@ -665,6 +667,7 @@ pub fn get_default_player_templates() -> Vec<PlayerTemplate> {
             team: "芝加哥公牛".to_string(),
             description: "【示例参考数据，非实测】篮球之神，经典后仰与中距离投篮代表。".to_string(),
             pose_data: PoseData {
+                model_info: None,
                 keypoints: vec![],
                 width: 640,
                 height: 480,
@@ -708,6 +711,7 @@ pub fn get_default_player_templates() -> Vec<PlayerTemplate> {
             description: "【示例参考数据，非实测】顶级 3D 球员，典型 1.5 段式投篮代表。"
                 .to_string(),
             pose_data: PoseData {
+                model_info: None,
                 keypoints: vec![],
                 width: 640,
                 height: 480,
@@ -810,6 +814,7 @@ mod tests {
     fn sample_analysis() -> ShotAnalysis {
         ShotAnalysis {
             pose_data: PoseData {
+                model_info: None,
                 keypoints: vec![
                     keypoint(11, -20.0, 0.0),
                     keypoint(15, -35.0, 20.0),
@@ -874,6 +879,7 @@ mod tests {
         let comparator = PoseComparator::new();
         let analysis = ShotAnalysis {
             pose_data: PoseData {
+                model_info: None,
                 keypoints: vec![
                     keypoint(11, -20.0, 0.0),
                     keypoint(15, -35.0, -30.0),

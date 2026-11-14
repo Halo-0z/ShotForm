@@ -1,0 +1,114 @@
+[
+  {
+    "case": "heavy",
+    "kind": "image",
+    "input": "public/hero/kobe-shot.png",
+    "input_sha256": "fbe712786a163a9ee24fa47248050f5c1987a15e9171d811a2baa6f2d69cd1f1",
+    "model_info": {
+      "backend": "tasks",
+      "name": "pose_landmarker_heavy.task",
+      "sha256": "64437af838a65d18e5ba7a0d39b465540069bc8aae8308de3e318aad31fcbc7b",
+      "fallback_reasons": []
+    },
+    "elapsed_seconds": 1.92,
+    "error": null,
+    "keypoints": 33,
+    "frames": 0,
+    "sampled_frames": null,
+    "exit_code": 0
+  },
+  {
+    "case": "heavy",
+    "kind": "video",
+    "input": "tests/fixtures/upload-sample.mp4",
+    "input_sha256": "41746a6c9bb21a92ba37d86baec7f58a2d6dd6afd109049a732d0b785c60a504",
+    "model_info": {
+      "backend": "tasks",
+      "name": "pose_landmarker_heavy.task",
+      "sha256": "64437af838a65d18e5ba7a0d39b465540069bc8aae8308de3e318aad31fcbc7b",
+      "fallback_reasons": []
+    },
+    "elapsed_seconds": 3.413,
+    "error": null,
+    "keypoints": 0,
+    "frames": 16,
+    "sampled_frames": 16,
+    "exit_code": 0
+  },
+  {
+    "case": "lite",
+    "kind": "image",
+    "input": "public/hero/kobe-shot.png",
+    "input_sha256": "fbe712786a163a9ee24fa47248050f5c1987a15e9171d811a2baa6f2d69cd1f1",
+    "model_info": {
+      "backend": "tasks",
+      "name": "pose_landmarker_lite.task",
+      "sha256": "59929e1d1ee95287735ddd833b19cf4ac46d29bc7afddbbf6753c459690d574a",
+      "fallback_reasons": []
+    },
+    "elapsed_seconds": 2.034,
+    "error": null,
+    "keypoints": 33,
+    "frames": 0,
+    "sampled_frames": null,
+    "exit_code": 0
+  },
+  {
+    "case": "lite",
+    "kind": "video",
+    "input": "tests/fixtures/upload-sample.mp4",
+    "input_sha256": "41746a6c9bb21a92ba37d86baec7f58a2d6dd6afd109049a732d0b785c60a504",
+    "model_info": {
+      "backend": "tasks",
+      "name": "pose_landmarker_lite.task",
+      "sha256": "59929e1d1ee95287735ddd833b19cf4ac46d29bc7afddbbf6753c459690d574a",
+      "fallback_reasons": []
+    },
+    "elapsed_seconds": 2.585,
+    "error": null,
+    "keypoints": 0,
+    "frames": 16,
+    "sampled_frames": 16,
+    "exit_code": 0
+  },
+  {
+    "case": "heavy_corrupt_fallback",
+    "kind": "image",
+    "input": "public/hero/kobe-shot.png",
+    "input_sha256": "fbe712786a163a9ee24fa47248050f5c1987a15e9171d811a2baa6f2d69cd1f1",
+    "model_info": {
+      "backend": "tasks",
+      "name": "pose_landmarker_lite.task",
+      "sha256": "59929e1d1ee95287735ddd833b19cf4ac46d29bc7afddbbf6753c459690d574a",
+      "fallback_reasons": [
+        "heavy-original.task: Unable to open zip archive."
+      ]
+    },
+    "elapsed_seconds": 2.045,
+    "error": null,
+    "keypoints": 33,
+    "frames": 0,
+    "sampled_frames": null,
+    "exit_code": 0
+  },
+  {
+    "case": "heavy_corrupt_fallback",
+    "kind": "video",
+    "input": "tests/fixtures/upload-sample.mp4",
+    "input_sha256": "41746a6c9bb21a92ba37d86baec7f58a2d6dd6afd109049a732d0b785c60a504",
+    "model_info": {
+      "backend": "tasks",
+      "name": "pose_landmarker_lite.task",
+      "sha256": "59929e1d1ee95287735ddd833b19cf4ac46d29bc7afddbbf6753c459690d574a",
+      "fallback_reasons": [
+        "heavy-original.task: Unable to open zip archive."
+      ]
+    },
+    "elapsed_seconds": 2.743,
+    "error": null,
+    "keypoints": 0,
+    "frames": 16,
+    "sampled_frames": 16,
+    "exit_code": 0
+  }
+]

@@ -33,6 +33,8 @@ def main() -> int:
 
     run_step("Frontend tests", [npm, 'run', 'test'])
     run_step("Frontend build", [npm, 'run', 'build'])
+    run_step("Python experiment/SQL tests", [python, '-m', 'unittest', 'discover', '-s', 'tests', '-p', 'test_*.py'])
+    run_step("Browser workflow tests", [npm, 'run', 'test:render'])
     run_step("Rust tests", [cargo, 'test', '--manifest-path', 'src-tauri/Cargo.toml'])
     run_step(
         "Python syntax smoke",

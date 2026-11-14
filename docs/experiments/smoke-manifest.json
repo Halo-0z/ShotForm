@@ -1,0 +1,7 @@
+{
+  "purpose": "仅验证代码流程：素材来自本仓库，非个人训练效果实验",
+  "samples": [
+    {"id": "repo-image", "path": "../../public/hero/kobe-shot.png", "kind": "image", "source": "ShotForm 仓库现有界面素材，原始拍摄来源未核验", "condition": "静态宣传素材，仅用于流程检查"},
+    {"id": "repo-video", "path": "../../tests/fixtures/upload-sample.mp4", "kind": "video", "source": "ShotForm 仓库现有上传测试素材，原始拍摄来源未核验", "condition": "已有测试短视频，仅用于流程检查", "start_ms": 0, "end_ms": 0}
+  ]
+}

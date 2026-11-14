@@ -1,0 +1,27 @@
+{
+  "count": 0,
+  "mae_degrees": null,
+  "rows": [],
+  "skipped": [
+    {
+      "image": "repo-video-0.jpg",
+      "side": "left",
+      "reason": "Missing manual points, model points or annotator"
+    },
+    {
+      "image": "repo-video-0.jpg",
+      "side": "right",
+      "reason": "Missing manual points, model points or annotator"
+    },
+    {
+      "image": "repo-video-5.jpg",
+      "side": "left",
+      "reason": "Missing manual points, model points or annotator"
+    },
+    {
+      "image": "repo-video-5.jpg",
+      "side": "right",
+      "reason": "Missing manual points, model points or annotator"
+    }
+  ]
+}

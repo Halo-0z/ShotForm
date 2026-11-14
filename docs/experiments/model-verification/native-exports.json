@@ -1,0 +1,48 @@
+[
+  {
+    "file": "image.html",
+    "bytes": 839864,
+    "sha256": "36f475e23822957c03191a91fda2ae0dbf22b90e5cc26cd52d940718ba4fe59c",
+    "offline_image_width": 498,
+    "model_metadata": true,
+    "ai_not_generated": true
+  },
+  {
+    "file": "video-restored.html",
+    "bytes": 744481,
+    "sha256": "736b440985f05f126523c8a6164988115e156cb2eed0f5f61c82744202cc067a",
+    "offline_image_width": 444,
+    "model_metadata": true,
+    "ai_not_generated": true
+  },
+  {
+    "file": "image.json",
+    "bytes": 1805142,
+    "sha256": "66c114c5a94038826a4deed2b2f830823a350a70e9c33c4d006eed08f462d3f7",
+    "id": 1,
+    "keypoints": 33,
+    "frames": 0,
+    "suggestions": 6,
+    "model": {
+      "backend": "tasks",
+      "fallback_reasons": [],
+      "name": "pose_landmarker_heavy.task",
+      "sha256": "64437af838a65d18e5ba7a0d39b465540069bc8aae8308de3e318aad31fcbc7b"
+    }
+  },
+  {
+    "file": "video.json",
+    "bytes": 14544949,
+    "sha256": "228402ec4cd7c192163c2346644f2e821ab27f1d3a1a1110a849f780051411f8",
+    "id": 2,
+    "keypoints": 33,
+    "frames": 16,
+    "suggestions": 2,
+    "model": {
+      "backend": "tasks",
+      "fallback_reasons": [],
+      "name": "pose_landmarker_heavy.task",
+      "sha256": "64437af838a65d18e5ba7a0d39b465540069bc8aae8308de3e318aad31fcbc7b"
+    }
+  }
+]

@@ -1,0 +1,34 @@
+{
+  "read_only_check": true,
+  "record_count": 2,
+  "rows": [
+    {
+      "id": 1,
+      "frame_count": 0,
+      "suggestions_count": 6,
+      "angles_and_rules_match_native_json": true,
+      "model_info": {
+        "backend": "tasks",
+        "fallback_reasons": [],
+        "name": "pose_landmarker_heavy.task",
+        "sha256": "64437af838a65d18e5ba7a0d39b465540069bc8aae8308de3e318aad31fcbc7b"
+      },
+      "selected_comparison_player": null,
+      "snapshot_detail_count": 0
+    },
+    {
+      "id": 2,
+      "frame_count": 16,
+      "suggestions_count": 2,
+      "angles_and_rules_match_native_json": true,
+      "model_info": {
+        "backend": "tasks",
+        "fallback_reasons": [],
+        "name": "pose_landmarker_heavy.task",
+        "sha256": "64437af838a65d18e5ba7a0d39b465540069bc8aae8308de3e318aad31fcbc7b"
+      },
+      "selected_comparison_player": 4,
+      "snapshot_detail_count": 4
+    }
+  ]
+}

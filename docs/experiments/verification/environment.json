@@ -1,0 +1,22 @@
+{
+  "python": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]",
+  "executable": "D:\\工作\\毕业论文\\ShotForm\\.venv\\Scripts\\python.exe",
+  "os": "Windows-11-10.0.26200-SP0",
+  "machine": "AMD64",
+  "packages": {
+    "mediapipe": "0.10.21",
+    "opencv-contrib-python": "4.11.0.86",
+    "numpy": "1.26.4"
+  },
+  "tools": {
+    "node": "v24.19.0",
+    "npm": "11.17.0",
+    "cargo": "cargo 1.100.0 (3acc79c0c 2026-11-05)",
+    "rustc": "rustc 1.100.0 (0ef1bc386 2026-11-09)"
+  },
+  "models": {
+    "pose_landmarker_heavy.task": 1999138,
+    "pose_landmarker_lite.task": 5777746
+  },
+  "hunyuan_key_configured": false
+}

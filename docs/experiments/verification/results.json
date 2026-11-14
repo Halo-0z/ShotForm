@@ -1,0 +1,38 @@
+{
+  "executed_at_utc": "2026-11-14T16:16:41.973968+00:00",
+  "machine": "Windows-11-10.0.26200-SP0",
+  "timing_definition": "Python process startup + decoding + pose inference + JSON output; excludes Rust angles and UI",
+  "results": [
+    {
+      "id": "repo-image",
+      "path": "../../public/hero/kobe-shot.png",
+      "kind": "image",
+      "source": "ShotForm 仓库现有界面素材，原始拍摄来源未核验",
+      "condition": "静态宣传素材，仅用于流程检查",
+      "resolved_path": "D:\\工作\\毕业论文\\ShotForm\\public\\hero\\kobe-shot.png",
+      "sha256": "fbe712786a163a9ee24fa47248050f5c1987a15e9171d811a2baa6f2d69cd1f1",
+      "elapsed_seconds": 1.073,
+      "error": null,
+      "exit_code": 0,
+      "keypoint_count": 33
+    },
+    {
+      "id": "repo-video",
+      "path": "../../tests/fixtures/upload-sample.mp4",
+      "kind": "video",
+      "source": "ShotForm 仓库现有上传测试素材，原始拍摄来源未核验",
+      "condition": "已有测试短视频，仅用于流程检查",
+      "start_ms": 0,
+      "end_ms": 0,
+      "resolved_path": "D:\\工作\\毕业论文\\ShotForm\\tests\\fixtures\\upload-sample.mp4",
+      "sha256": "41746a6c9bb21a92ba37d86baec7f58a2d6dd6afd109049a732d0b785c60a504",
+      "elapsed_seconds": 1.727,
+      "error": null,
+      "exit_code": 0,
+      "sampled_frames": 16,
+      "read_frames": 16,
+      "valid_frames": 16,
+      "valid_ratio": 1.0
+    }
+  ]
+}

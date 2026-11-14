@@ -56,8 +56,7 @@ impl SuggestionStrategyFactory {
 
         for rule in config.rules {
             let angle_names = rule.angle_names.clone();
-            let strategy: Arc<dyn AngleSuggestionStrategy> =
-                Arc::new(RuleBasedStrategy { rule });
+            let strategy: Arc<dyn AngleSuggestionStrategy> = Arc::new(RuleBasedStrategy { rule });
 
             for name in angle_names {
                 strategies.insert(name, strategy.clone());
@@ -110,11 +109,36 @@ mod tests {
 
     #[test]
     fn elbow_too_small_returns_suggestion() {
-        let angle = make_angle("left_elbow_angle", 70.0, (90.0, 120.0));
+        let angle = make_angle("left_elbow_angle", 69.0, (90.0, 120.0));
         let result = generate_suggestion(&angle).unwrap();
         assert_eq!(result.body_part, "手肘");
         assert!(result.issue.contains("肘角偏小"));
         assert_eq!(result.priority, "high");
+    }
+
+    #[test]
+    fn elbow_priority_is_high_only_beyond_twenty_degrees() {
+        for name in [
+            "left_elbow_angle",
+            "right_elbow_angle",
+            "shooting_elbow_angle",
+        ] {
+            for (value, expected) in [
+                (69.9, "high"),
+                (70.0, "medium"),
+                (70.1, "medium"),
+                (139.9, "medium"),
+                (140.0, "medium"),
+                (140.1, "high"),
+            ] {
+                let result = generate_suggestion(&make_angle(name, value, (90.0, 120.0))).unwrap();
+                assert_eq!(result.priority, expected, "{name}: {value}");
+                assert!(!result.suggestion.is_empty());
+            }
+            for value in [90.0, 120.0] {
+                assert!(generate_suggestion(&make_angle(name, value, (90.0, 120.0))).is_none());
+            }
+        }
     }
 
     #[test]

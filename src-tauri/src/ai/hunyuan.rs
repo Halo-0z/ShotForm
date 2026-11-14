@@ -3,8 +3,9 @@ use crate::models::{
 };
 use serde::{Deserialize, Serialize};
 const DEFAULT_BASE_URL: &str = "https://tokenhub.tencentmaas.com/v1";
-const DEFAULT_MODEL: &str = "hy3-preview";
-const DEFAULT_VISION_MODEL: &str = "hy3-preview";
+// Verified against Tencent TokenHub model list and image-input guide (2026-11-15).
+const DEFAULT_MODEL: &str = "hy3";
+const DEFAULT_VISION_MODEL: &str = "hy4";
 pub async fn generate_shot_review(
     payload: &AiAnalysisPayload,
     image_data: Option<&str>,
@@ -36,7 +37,7 @@ pub async fn generate_correction_suggestions(
     parse_coaching_response(&content)
 }
 async fn send_chat_completion(
-    payload: &AiAnalysisPayload,
+    _payload: &AiAnalysisPayload,
     image_data: Option<&str>,
     temperature: f32,
     max_tokens: u32,
@@ -54,13 +55,7 @@ async fn send_chat_completion(
             model: model.clone(),
             temperature,
             max_tokens,
-            messages: build_messages(
-                system_prompt,
-                user_prompt.clone(),
-                payload,
-                image_data,
-                &model,
-            ),
+            messages: build_messages(system_prompt, user_prompt.clone(), image_data, &model),
         };
         let response = client
             .post(format!("{base_url}/chat/completions"))
@@ -108,7 +103,6 @@ async fn send_chat_completion(
 fn build_messages(
     system_prompt: &str,
     user_prompt: String,
-    _payload: &AiAnalysisPayload,
     image_data: Option<&str>,
     model: &str,
 ) -> Vec<ChatMessage> {
@@ -350,23 +344,41 @@ fn resolve_candidate_models(has_image: bool) -> Vec<String> {
         std::env::var("HUNYUAN_MODEL").unwrap_or_else(|_| DEFAULT_MODEL.to_string());
     let vision_model =
         std::env::var("HUNYUAN_VISION_MODEL").unwrap_or_else(|_| DEFAULT_VISION_MODEL.to_string());
+    candidate_models(has_image, &default_model, &vision_model)
+}
+
+fn candidate_models(has_image: bool, default_model: &str, vision_model: &str) -> Vec<String> {
+    let default_model = default_model.trim();
+    let default_model = if default_model.is_empty() {
+        DEFAULT_MODEL
+    } else {
+        default_model
+    };
+    let vision_model = vision_model.trim();
+    let vision_model = if vision_model.is_empty() {
+        DEFAULT_VISION_MODEL
+    } else {
+        vision_model
+    };
     let mut models = Vec::new();
     if has_image {
         if model_supports_vision(&default_model) {
-            models.push(default_model.clone());
+            models.push(default_model.to_string());
         } else {
-            models.push(vision_model);
-            models.push(default_model.clone());
+            if model_supports_vision(vision_model) {
+                models.push(vision_model.to_string());
+            }
+            models.push(default_model.to_string());
         }
     } else {
-        models.push(default_model.clone());
+        models.push(default_model.to_string());
     }
     models.dedup();
     models
 }
 fn model_supports_vision(model: &str) -> bool {
     let lowered = model.to_ascii_lowercase();
-    lowered.contains("vision") || lowered.contains("vl")
+    lowered == "hy4" || lowered.contains("vision") || lowered.contains("vl")
 }
 fn read_env<const N: usize>(keys: [&str; N]) -> Result<String, String> {
     for key in keys {
@@ -483,23 +495,65 @@ mod tests {
     }
     #[test]
     fn detects_vision_models() {
-        assert!(model_supports_vision("hy3-preview"));
-        assert!(model_supports_vision("hunyuan-vl-plus"));
-        assert!(!model_supports_vision("hy3-preview"));
+        for model in ["hy4", "hunyuan-vision-1.5-instruct", "hunyuan-vl-plus"] {
+            assert!(model_supports_vision(model), "{model}");
+        }
+        for model in ["hy3-preview", "hy3", "hy4-preview"] {
+            assert!(!model_supports_vision(model), "{model}");
+        }
     }
     #[test]
     fn prefers_vision_model_when_image_is_present() {
-        std::env::set_var("HUNYUAN_MODEL", "hy3-preview");
-        std::env::remove_var("HUNYUAN_VISION_MODEL");
-        let models = resolve_candidate_models(true);
         assert_eq!(
-            models.first().map(String::as_str),
-            Some(DEFAULT_VISION_MODEL)
+            candidate_models(true, DEFAULT_MODEL, DEFAULT_VISION_MODEL),
+            vec!["hy4", "hy3"]
         );
         assert_eq!(
-            models.get(1).map(String::as_str),
-            Some("hy3-preview")
+            candidate_models(false, DEFAULT_MODEL, DEFAULT_VISION_MODEL),
+            vec!["hy3"]
         );
+        assert_eq!(candidate_models(true, "hy4", "hy4"), vec!["hy4"]);
+        assert_eq!(
+            candidate_models(true, "hy3-preview", "hy3-preview"),
+            vec!["hy3-preview"]
+        );
+        assert_eq!(candidate_models(true, " ", " "), vec!["hy4", "hy3"]);
+    }
+    #[test]
+    fn serializes_image_parts_only_for_visual_candidates() {
+        let image = "data:image/png;base64,AA==";
+        for model in candidate_models(true, DEFAULT_MODEL, DEFAULT_VISION_MODEL) {
+            let messages = build_messages("system", "pose evidence".into(), Some(image), &model);
+            let json = serde_json::to_value(messages).unwrap();
+            assert_eq!(json[0]["content"], "system");
+            if model == "hy4" {
+                assert_eq!(json[1]["content"][0]["type"], "text");
+                assert_eq!(json[1]["content"][1]["type"], "image_url");
+                assert_eq!(json[1]["content"][1]["image_url"]["url"], image);
+            } else {
+                assert_eq!(json[1]["content"], "pose evidence");
+                assert!(!json.to_string().contains("image_url"));
+            }
+        }
+        let json = serde_json::to_value(build_messages(
+            "system",
+            "pose evidence".into(),
+            None,
+            "hy4",
+        ))
+        .unwrap();
+        assert!(!json.to_string().contains("image_url"));
+    }
+    #[test]
+    fn auth_failures_stop_fallback_but_unavailable_models_allow_next_candidate() {
+        assert!(!should_try_next_model(&classify_api_error(
+            reqwest::StatusCode::UNAUTHORIZED,
+            "invalid api key"
+        )));
+        assert!(should_try_next_model(&classify_api_error(
+            reqwest::StatusCode::NOT_FOUND,
+            "model not found"
+        )));
     }
     #[test]
     fn builds_summary_when_model_omits_it() {

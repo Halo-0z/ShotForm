@@ -1,12 +1,11 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-
 const source = readFileSync(new URL('./index.ts', import.meta.url), 'utf8')
-
-test('router defines the template management route for admin pre-import', () => {
-  assert.match(
-    source,
-    /\{\s*path:\s*'\/templates',[\s\S]*name:\s*'Templates',[\s\S]*component:\s*\(\)\s*=>\s*import\('\@\/views\/Templates\.vue'\),[\s\S]*meta:\s*\{[\s\S]*title:\s*'[^']+'[\s\S]*\}\s*\}/
-  )
+test('templates remains a lazy-loaded workbench route', () => {
+  const block = source.split('path: "/templates"')[1]?.split('path:')[0]
+  assert.ok(block)
+  assert.match(block, /name: "Templates"/)
+  assert.ok(block.includes('import("@/views/Templates.vue")'))
+  assert.match(block, /workbenchPage:\s*true/)
 })

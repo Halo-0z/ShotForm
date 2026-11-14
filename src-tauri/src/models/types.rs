@@ -348,6 +348,12 @@ pub struct AnalysisHistory {
     #[serde(default)]
     pub video_analysis: Option<VideoShotAnalysis>,
     pub created_at: u64,
+    #[serde(default)]
+    pub training_date: String,
+    #[serde(default)]
+    pub notes: String,
+    #[serde(default)]
+    pub tags: Vec<String>,
 }
 
 pub const KEYPOINT_NAMES: [&str; 33] = [

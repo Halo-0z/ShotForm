@@ -21,6 +21,8 @@
     "shell:allow-open",
     "dialog:default",
     "fs:default",
-    "notification:default"
+    "notification:default",
+    "fs:allow-write-text-file",
+    "fs:allow-read-file"
   ]
 }

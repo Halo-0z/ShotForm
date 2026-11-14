@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import ConfirmDialog from "@/components/ui/confirm-dialog/ConfirmDialog.vue"
 import ProgressChart from "@/components/ProgressChart.vue"
+import TrainingRecordEditor from "@/components/TrainingRecordEditor.vue"
+import TrainingComparison from "@/components/TrainingComparison.vue"
+import { localDate } from "@/lib/training-comparison.js"
 import {
-    Search,
     Trash2,
     Eye,
     Clock,
@@ -19,7 +21,7 @@ import {
 import { PAGE_COVER_ART } from "@/lib/page-cover-art"
 import { useAnalysisStore } from "@/stores/analysis"
 import type { AnalysisHistory, ShotType } from "@/types"
-import { SHOT_TYPE_NAMES } from "@/types"
+import { SHOT_TYPE_NAMES, getRecordShotType } from "@/types"
 import { getShotTypeBadgeVariant } from "@/lib/analysis-utils"
 
 const router = useRouter()
@@ -31,50 +33,75 @@ const PAGE_SIZE = 20
 const currentOffset = ref(0)
 const hasMore = ref(false)
 const isLoadingMore = ref(false)
-const searchQuery = ref("")
 const shotTypeFilter = ref<ShotType | "">("")
-
-const filteredHistory = computed(() => {
-    let list = historyList.value
-
-    if (shotTypeFilter.value) {
-        list = list.filter((r) => r.analysis.shotType === shotTypeFilter.value)
-    }
-
-    if (searchQuery.value.trim()) {
-        const q = searchQuery.value.trim().toLowerCase()
-        list = list.filter((r) => {
-            const typeName = getShotTypeName(r.analysis.shotType).toLowerCase()
-            return typeName.includes(q)
-        })
-    }
-
-    return list
+const dateFrom = ref(""),
+    dateTo = ref(""),
+    tagFilter = ref("")
+const historyError = ref("")
+const editingId = ref<number | null>(null)
+const selectedRecords = ref<AnalysisHistory[]>([])
+const filteredHistory = computed(() => historyList.value)
+let queryRevision = 0
+const filters = () => ({
+    dateFrom: dateFrom.value,
+    dateTo: dateTo.value,
+    tag: tagFilter.value,
+    shotType: shotTypeFilter.value,
 })
-
+let appliedFilters = filters()
 const loadInitial = async () => {
+    const revision = ++queryRevision
+    historyError.value = ""
+    if (dateFrom.value && dateTo.value && dateFrom.value > dateTo.value) {
+        historyError.value = "起始日期不能晚于结束日期"
+        return
+    }
     isLoadingHistory.value = true
+    appliedFilters = filters()
     try {
-        const page = await analysisStore.getHistoryPage(PAGE_SIZE, 0)
+        const page = await analysisStore.queryHistory(PAGE_SIZE, 0, appliedFilters)
+        if (revision !== queryRevision) return
         historyList.value = page
         currentOffset.value = page.length
         hasMore.value = page.length === PAGE_SIZE
+    } catch (e) {
+        if (revision === queryRevision) historyError.value = `加载失败：${String(e)}`
     } finally {
-        isLoadingHistory.value = false
+        if (revision === queryRevision) isLoadingHistory.value = false
     }
 }
-
 const loadMore = async () => {
     if (isLoadingMore.value || !hasMore.value) return
+    const revision = queryRevision
     isLoadingMore.value = true
     try {
-        const page = await analysisStore.getHistoryPage(PAGE_SIZE, currentOffset.value)
+        const page = await analysisStore.queryHistory(PAGE_SIZE, currentOffset.value, appliedFilters)
+        if (revision !== queryRevision) return
         historyList.value = [...historyList.value, ...page]
         currentOffset.value += page.length
         hasMore.value = page.length === PAGE_SIZE
+    } catch (e) {
+        historyError.value = `加载失败：${String(e)}`
     } finally {
         isLoadingMore.value = false
     }
+}
+const toggleComparison = (record: AnalysisHistory) => {
+    if (selectedRecords.value.some((r) => r.id === record.id))
+        selectedRecords.value = selectedRecords.value.filter((r) => r.id !== record.id)
+    else if (selectedRecords.value.length < 2) selectedRecords.value.push(record)
+}
+const afterMetadataSaved = async () => {
+    editingId.value = null
+    selectedRecords.value = []
+    await loadInitial()
+}
+const resetFilters = () => {
+    dateFrom.value = ""
+    dateTo.value = ""
+    tagFilter.value = ""
+    shotTypeFilter.value = ""
+    void loadInitial()
 }
 
 onMounted(() => {
@@ -126,7 +153,10 @@ const handleConfirmDelete = async () => {
     isDeleting.value = true
     try {
         await analysisStore.deleteHistory(id)
-        historyList.value = historyList.value.filter((h) => h.id !== id)
+        selectedRecords.value = selectedRecords.value.filter((r) => r.id !== id)
+        await loadInitial()
+    } catch (e) {
+        historyError.value = `删除失败：${String(e)}`
     } finally {
         isDeleting.value = false
         confirmDialogOpen.value = false
@@ -150,7 +180,7 @@ const groupedHistory = computed<HistoryGroup[]>(() => {
     const groups = new Map<string, HistoryGroup>()
 
     for (const record of filteredHistory.value) {
-        const sourceId = record.sourceIdentifier || "unknown"
+        const sourceId = `${record.sourceIdentifier || "image"}#${record.id}`
         const existing = groups.get(sourceId)
 
         if (existing) {
@@ -159,7 +189,8 @@ const groupedHistory = computed<HistoryGroup[]>(() => {
             const sourceType = sourceId.startsWith("video:") ? "video" : "image"
             const sourceName =
                 sourceType === "video"
-                    ? sourceId.replace("video:", "").split(/[\\/]/).pop() || "未知视频"
+                    ? (record.sourceIdentifier || "").replace("video:", "").split(/[\\/]/).pop() ||
+                      "未知视频"
                     : "图片分析"
 
             groups.set(sourceId, {
@@ -186,7 +217,7 @@ const toggleGroup = (sourceIdentifier: string) => {
     expandedGroups.value = newSet
 }
 
-const isExpanded = (sourceIdentifier: string) => expandedGroups.value.has(sourceIdentifier)
+const isExpanded = (sourceIdentifier: string) => !expandedGroups.value.has(sourceIdentifier)
 </script>
 
 <template>
@@ -207,37 +238,53 @@ const isExpanded = (sourceIdentifier: string) => expandedGroups.value.has(source
             </header>
 
             <section class="history-archive">
+                <form class="training-filters" @submit.prevent="loadInitial">
+                    <label
+                        >开始日期<input v-model="dateFrom" type="date" aria-label="开始日期"
+                    /></label>
+                    <label
+                        >结束日期<input v-model="dateTo" type="date" aria-label="结束日期"
+                    /></label>
+                    <label
+                        >标签<input
+                            v-model="tagFilter"
+                            placeholder="完整标签名称"
+                            aria-label="筛选标签"
+                    /></label>
+                    <label
+                        >分型<select v-model="shotTypeFilter">
+                            <option value="">全部分型</option>
+                            <option value="one_motion">一段式</option>
+                            <option value="one_point_five_motion">1.5 段式</option>
+                            <option value="two_motion">二段式</option>
+                            <option value="unknown">待确认</option>
+                        </select></label
+                    >
+                    <Button type="submit" :disabled="isLoadingHistory">筛选</Button>
+                    <Button type="button" variant="outline" @click="resetFilters">重置</Button>
+                </form>
+                <p v-if="historyError" role="alert" class="text-[var(--color-danger)]">
+                    {{ historyError }}
+                </p>
+                <p class="my-3">已选 {{ selectedRecords.length }}/2 条记录用于训练对比。</p>
+                <Button
+                    v-if="selectedRecords.length"
+                    variant="outline"
+                    size="sm"
+                    @click="selectedRecords = []"
+                    >清空选择</Button
+                >
+                <TrainingComparison
+                    v-if="selectedRecords.length === 2"
+                    :records="selectedRecords"
+                    @close="selectedRecords = []"
+                />
                 <div v-if="isLoadingHistory" class="history-archive__loading">
                     <Loader2 class="h-8 w-8 animate-spin text-[var(--primary-color)]" />
                     <p class="history-archive__loading-text">正在加载历史记录...</p>
                 </div>
 
                 <template v-else>
-                    <header v-if="historyList.length > 0" class="history-archive__toolbar">
-                        <div>
-                            <p class="history-archive__eyebrow">Session Archive</p>
-                            <h2 class="history-archive__title">继续查看以往分析</h2>
-                        </div>
-                        <div class="history-archive__filters">
-                            <div class="history-archive__search">
-                                <Search class="history-archive__search-icon h-3.5 w-3.5" />
-                                <input
-                                    v-model="searchQuery"
-                                    class="history-archive__search-input"
-                                    type="text"
-                                    placeholder="搜索投篮分型..."
-                                />
-                            </div>
-                            <select v-model="shotTypeFilter" class="history-archive__select">
-                                <option value="">全部分型</option>
-                                <option value="one_motion">一段式投篮</option>
-                                <option value="one_point_five_motion">1.5 段式投篮</option>
-                                <option value="two_motion">二段式投篮</option>
-                                <option value="unknown">分型待确认</option>
-                            </select>
-                        </div>
-                    </header>
-
                     <div v-if="historyList.length > 0" class="history-archive__list">
                         <div
                             v-for="group in groupedHistory"
@@ -280,7 +327,10 @@ const isExpanded = (sourceIdentifier: string) => expandedGroups.value.has(source
                                     class="history-session-row"
                                 >
                                     <div class="history-session-row__time">
-                                        <p class="history-session-row__label">分析时间</p>
+                                        <p class="history-session-row__label">
+                                            训练日期
+                                            {{ record.trainingDate || localDate(record.createdAt) }}
+                                        </p>
                                         <div class="history-session-row__timestamp">
                                             <Clock class="w-3.5 h-3.5" />
                                             {{ formatRelativeTime(record.createdAt) }}
@@ -303,23 +353,50 @@ const isExpanded = (sourceIdentifier: string) => expandedGroups.value.has(source
                                                 <Badge
                                                     :variant="
                                                         getShotTypeBadgeVariant(
-                                                            record.analysis.shotType,
+                                                            getRecordShotType(record),
                                                         )
                                                     "
                                                 >
-                                                    {{ getShotTypeName(record.analysis.shotType) }}
+                                                    {{ getShotTypeName(getRecordShotType(record)) }}
                                                 </Badge>
                                                 <span class="history-session-row__result"
                                                     >分析结果已保存</span
                                                 >
                                             </div>
                                             <p class="history-session-row__summary">
-                                                可以继续查看详情或恢复分析流程。
+                                                {{ record.notes || "无训练备注" }}
+                                                <span v-if="record.tags?.length">
+                                                    · {{ record.tags.join("、") }}</span
+                                                >
                                             </p>
                                         </div>
                                     </div>
 
                                     <div class="history-session-row__actions">
+                                        <label
+                                            ><input
+                                                type="checkbox"
+                                                :checked="
+                                                    selectedRecords.some((r) => r.id === record.id)
+                                                "
+                                                :disabled="
+                                                    selectedRecords.length >= 2 &&
+                                                    !selectedRecords.some((r) => r.id === record.id)
+                                                "
+                                                :aria-label="'选择记录 ' + record.id + ' 对比'"
+                                                @change="toggleComparison(record)"
+                                            />
+                                            对比</label
+                                        >
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            @click="
+                                                editingId =
+                                                    editingId === record.id ? null : record.id
+                                            "
+                                            >编辑训练</Button
+                                        >
                                         <Button
                                             variant="outline"
                                             size="sm"
@@ -340,15 +417,22 @@ const isExpanded = (sourceIdentifier: string) => expandedGroups.value.has(source
                                     </div>
                                 </article>
 
-                                <ProgressChart :records="group.records" />
+                                <template
+                                    v-for="record in group.records"
+                                    :key="'edit-' + record.id"
+                                >
+                                    <TrainingRecordEditor
+                                        v-if="editingId === record.id"
+                                        :record="record"
+                                        @saved="afterMetadataSaved"
+                                        @cancel="editingId = null"
+                                    />
+                                </template>
                             </div>
                         </div>
                     </div>
 
-                    <div
-                        v-if="hasMore && !searchQuery && !shotTypeFilter"
-                        class="history-archive__more"
-                    >
+                    <div v-if="hasMore" class="history-archive__more">
                         <Button
                             variant="outline"
                             :loading="isLoadingMore"
@@ -359,6 +443,10 @@ const isExpanded = (sourceIdentifier: string) => expandedGroups.value.has(source
                         </Button>
                     </div>
 
+                    <p v-if="historyList.length > 1" class="my-3">
+                        以下趋势仅展示已加载记录的代表帧角度，跨素材变化不自动代表训练进步。
+                    </p>
+                    <ProgressChart :records="historyList" />
                     <div v-if="groupedHistory.length === 0" class="history-empty-state">
                         <Clock class="w-12 h-12 text-[var(--text-muted)] mb-4" />
                         <h2 class="history-empty-state__title">
@@ -393,6 +481,35 @@ const isExpanded = (sourceIdentifier: string) => expandedGroups.value.has(source
 </template>
 
 <style scoped>
+.training-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: end;
+    margin-bottom: 20px;
+}
+.training-filters label {
+    display: grid;
+    gap: 6px;
+    font-size: 13px;
+}
+.training-filters input,
+.training-filters select {
+    padding: 8px;
+    border: 1px solid var(--surface-border);
+    border-radius: 6px;
+    background: var(--card-bg);
+    color: var(--text-primary);
+    max-width: 180px;
+}
+.history-session-row__actions {
+    flex-wrap: wrap;
+}
+.history-session-row__summary {
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+}
+
 .history-page {
     position: relative;
     min-height: 100%;

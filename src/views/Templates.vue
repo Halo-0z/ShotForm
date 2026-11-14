@@ -307,7 +307,7 @@ onMounted(() => {
                     <p class="templates-page__eyebrow">TEMPLATES</p>
                     <h1 class="templates-page__title">球星模板管理</h1>
                     <p class="templates-page__summary">
-                        管理员先上传并分析一段球星标准投篮视频，再将整段动作画像保存为模板，供后续球星对比直接复用。
+                        请先上传并分析一段有来源的参考投篮视频，再将整段动作画像保存为模板，供后续球星对比直接复用。
                     </p>
                 </div>
 
@@ -321,7 +321,7 @@ onMounted(() => {
                     <CardHeader>
                         <CardTitle>从当前视频分析生成模板</CardTitle>
                         <CardDescription>
-                            只支持完整投篮视频生成模板；单帧截图不再保存为球星模板。
+                            模板描述请记录素材来源、拍摄条件和片段时间。内置无视频画像的模板为示例数值，不是球星实测数据。
                         </CardDescription>
                     </CardHeader>
                     <CardContent class="templates-panel__content">
@@ -418,7 +418,7 @@ onMounted(() => {
                                         v-model="form.description"
                                         class="templates-form__textarea"
                                         rows="4"
-                                        placeholder="记录采样阶段、出手特点或适用场景。"
+                                        placeholder="填写来源链接或拍摄者、片段时间、拍摄角度与适用场景。"
                                     />
                                 </div>
 
@@ -615,7 +615,7 @@ onMounted(() => {
                                                 v-model="editForm.description"
                                                 class="templates-form__textarea"
                                                 rows="4"
-                                                placeholder="记录采样阶段、出手特点或适用场景。"
+                                                placeholder="填写来源链接或拍摄者、片段时间、拍摄角度与适用场景。"
                                             />
                                         </div>
 

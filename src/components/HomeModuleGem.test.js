@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
-const componentPath = resolve('D:/智能投篮分析/src/components/HomeModuleGem.vue')
+const componentPath = resolve('src/components/HomeModuleGem.vue')
 const source = readFileSync(componentPath, 'utf8')
 
 test('HomeModuleGem defines a dark-specific icon palette', () => {

@@ -31,6 +31,7 @@ export interface AnalysisProgress {
 type CoachingSourceState = "idle" | "loading" | "done" | "error"
 
 interface CoachingSource {
+    analysisKey: string | null
     data: CorrectionSuggestion[]
     summary: string
     state: CoachingSourceState
@@ -39,6 +40,7 @@ interface CoachingSource {
 }
 
 const emptyCoachingSource = (): CoachingSource => ({
+    analysisKey: null,
     data: [],
     summary: "",
     state: "idle",
@@ -59,12 +61,33 @@ export const useAnalysisStore = defineStore("analysis", () => {
     const currentImage = ref<string>("")
     const currentAnnotatedImage = ref<string>("")
     const currentHistoryId = ref<number | null>(null)
+    const currentTrainingMetadata = ref({ trainingDate: "", notes: "", tags: [] as string[] })
+    const isSavingHistory = ref(false)
+    let savePromise: Promise<number> | null = null
+    const analysisRevision = ref(0)
+    let savedAnalysisTimestamp: number | null = null
+    const resetHistorySession = () => {
+        analysisRevision.value++
+        currentHistoryId.value = null
+        savedAnalysisTimestamp = null
+        currentTrainingMetadata.value = { trainingDate: "", notes: "", tags: [] }
+    }
     const currentComparison = ref<ComparisonResult | null>(null)
     const currentComparisonSnapshot = ref<ComparisonWorkbenchSnapshot | null>(null)
     const coachingSources = reactive({
         rule: emptyCoachingSource(),
         ai: emptyCoachingSource(),
     })
+    const currentAnalysisKey = () => currentAnalysis.value
+        ? `${analysisRevision.value}:${currentAnalysis.value.timestamp}:${currentVideoAnalysis.value ? currentVideoFrameIndex.value : "image"}`
+        : null
+    const currentRuleSuggestions = computed(() =>
+        coachingSources.rule.state === "done" &&
+        coachingSources.rule.analysisKey !== null &&
+        coachingSources.rule.analysisKey === currentAnalysisKey()
+            ? coachingSources.rule.data
+            : [],
+    )
     const autoAiAnalysisEnabled = ref(false)
     const isLoading = ref(false)
     const progress = ref<AnalysisProgress | null>(null)
@@ -125,6 +148,10 @@ export const useAnalysisStore = defineStore("analysis", () => {
     const applyCurrentComparisonSnapshot = (snapshot: ComparisonWorkbenchSnapshot | null) => {
         currentComparisonSnapshot.value = snapshot
         currentComparison.value = snapshot?.selectedDetail?.result ?? null
+    }
+
+    const setCurrentComparisonSnapshot = (snapshot: ComparisonWorkbenchSnapshot | null) => {
+        applyCurrentComparisonSnapshot(normalizeComparisonSnapshot(snapshot, currentHistoryId.value))
     }
 
     const clearCurrentComparisonState = () => {
@@ -230,6 +257,8 @@ export const useAnalysisStore = defineStore("analysis", () => {
             coachingSources.ai.state = "done"
             coachingSources.ai.timestamp = Date.now()
         } else if (source === "rules") {
+            coachingSources.rule = emptyCoachingSource()
+            coachingSources.rule.analysisKey = currentAnalysisKey()
             coachingSources.rule.data = suggestions ?? []
             coachingSources.rule.summary = summary ?? ""
             coachingSources.rule.state = "done"
@@ -267,7 +296,8 @@ export const useAnalysisStore = defineStore("analysis", () => {
         )
     }
 
-    const applyVideoFrameSelection = (analysis: VideoShotAnalysis | null, frameIndex: number) => {
+    const applyVideoFrameSelection = (analysis: VideoShotAnalysis | null, frameIndex: number, loadRules = true) => {
+        coachingSources.rule = emptyCoachingSource()
         if (!analysis || !analysis.frames.length) {
             currentVideoFrameIndex.value = 0
             return
@@ -281,7 +311,7 @@ export const useAnalysisStore = defineStore("analysis", () => {
         currentAnnotatedImage.value = frame.annotatedImageData || frame.imageData
         clearCurrentComparisonState()
         coachingSources.ai = emptyCoachingSource()
-        void loadRuleSuggestions(currentAnalysis.value)
+        if (loadRules) return loadRuleSuggestions(currentAnalysis.value)
     }
 
     const syncCurrentAnalysisAiReview = (review: AiShotReview, sourceTimestamp?: number) => {
@@ -321,7 +351,7 @@ export const useAnalysisStore = defineStore("analysis", () => {
         currentImage.value = ""
         currentAnnotatedImage.value = ""
         currentAnalysis.value = null
-        currentHistoryId.value = null
+        resetHistorySession()
         clearCurrentComparisonState()
         clearAiCoachingCache()
     }
@@ -388,22 +418,30 @@ export const useAnalysisStore = defineStore("analysis", () => {
     }
 
     const loadRuleSuggestions = async (analysis: ShotAnalysis | null) => {
-        if (!analysis) return
-
-        coachingSources.rule.state = "loading"
-        coachingSources.rule.error = ""
+        if (!analysis || analysis !== currentAnalysis.value) return
+        const analysisKey = currentAnalysisKey()
+        coachingSources.rule = { ...emptyCoachingSource(), analysisKey, state: "loading" }
+        // Each request owns a separate source object, even when returning to the same frame.
+        const source = coachingSources.rule
+        const isCurrent = () => source === coachingSources.rule && analysisKey === currentAnalysisKey()
 
         try {
             const suggestions = await invoke<CorrectionSuggestion[]>("get_correction_suggestions", {
                 analysis,
             })
+            if (!isCurrent()) return
             coachingSources.rule.data = suggestions
             coachingSources.rule.summary = buildRuleSummary(suggestions)
             coachingSources.rule.state = "done"
             coachingSources.rule.timestamp = Date.now()
         } catch (error) {
-            coachingSources.rule.state = "error"
-            coachingSources.rule.error = error instanceof Error ? error.message : String(error)
+            if (!isCurrent()) return
+            coachingSources.rule = {
+                ...emptyCoachingSource(),
+                analysisKey,
+                state: "error",
+                error: error instanceof Error ? error.message : String(error),
+            }
         }
     }
 
@@ -426,6 +464,7 @@ export const useAnalysisStore = defineStore("analysis", () => {
             return
         }
 
+        const revision = analysisRevision.value
         coachingSources.ai.state = "loading"
         coachingSources.ai.error = ""
 
@@ -440,12 +479,17 @@ export const useAnalysisStore = defineStore("analysis", () => {
                 },
             )
 
+            if (
+                revision !== analysisRevision.value ||
+                analysis.timestamp !== currentAnalysis.value?.timestamp
+            )
+                return
             coachingSources.ai.data = response.suggestions
             coachingSources.ai.summary = response.summary
             coachingSources.ai.state = "done"
             coachingSources.ai.timestamp = Date.now()
 
-            if (currentHistoryId.value) {
+            if (currentHistoryId.value && analysis.timestamp === savedAnalysisTimestamp) {
                 await updateHistoryAiCoaching(
                     currentHistoryId.value,
                     response.summary,
@@ -453,6 +497,11 @@ export const useAnalysisStore = defineStore("analysis", () => {
                 )
             }
         } catch (error) {
+            if (
+                revision !== analysisRevision.value ||
+                analysis.timestamp !== currentAnalysis.value?.timestamp
+            )
+                return
             coachingSources.ai.state = "error"
             coachingSources.ai.error = error instanceof Error ? error.message : String(error)
         }
@@ -460,7 +509,7 @@ export const useAnalysisStore = defineStore("analysis", () => {
 
     const buildRuleSummary = (suggestions: CorrectionSuggestion[]): string => {
         if (!suggestions.length) {
-            return "当前姿态未检测到明显偏差，整体表现良好。"
+            return "当前规则未给出修正建议，请结合关键点置信度检查。"
         }
         const focus = suggestions
             .slice(0, 2)
@@ -474,7 +523,7 @@ export const useAnalysisStore = defineStore("analysis", () => {
         progress.value = { stage: "starting", progress: 0, message: "开始分析..." }
         clearVideoState()
         clearAiCoachingCache()
-        currentHistoryId.value = null
+        resetHistorySession()
         clearCurrentComparisonState()
         currentImage.value = imageData
         currentAnnotatedImage.value = ""
@@ -497,7 +546,7 @@ export const useAnalysisStore = defineStore("analysis", () => {
 
             currentAnalysis.value = normalizedResult
 
-            void loadRuleSuggestions(normalizedResult)
+            await loadRuleSuggestions(currentAnalysis.value)
 
             if (shouldAutoGenerateAiReview(autoAiAnalysisEnabled.value, normalizedResult)) {
                 void generateAiReview({
@@ -548,8 +597,7 @@ export const useAnalysisStore = defineStore("analysis", () => {
             const result = await invoke<VideoShotAnalysis>("analyze_video", invokeArgs)
             const normalizedResult = normalizeVideoAnalysis(result)
             currentVideoAnalysis.value = normalizedResult
-            applyVideoFrameSelection(normalizedResult, normalizedResult.bestFrameIndex ?? 0)
-
+            await applyVideoFrameSelection(normalizedResult, normalizedResult.bestFrameIndex ?? 0)
             if (
                 normalizedResult.firstFrameMultiPose &&
                 normalizedResult.firstFrameMultiPose.poses.length > 1
@@ -575,11 +623,11 @@ export const useAnalysisStore = defineStore("analysis", () => {
     }
 
     const selectVideoFrame = (frameIndex: number) => {
-        applyVideoFrameSelection(currentVideoAnalysis.value, frameIndex)
+        return applyVideoFrameSelection(currentVideoAnalysis.value, frameIndex)
     }
 
     const setCurrentAnalysis = (analysis: ShotAnalysis) => {
-        currentHistoryId.value = null
+        resetHistorySession()
         currentAnalysis.value = normalizeAnalysis(analysis)
         clearCurrentComparisonState()
         clearAiCoachingCache()
@@ -587,6 +635,13 @@ export const useAnalysisStore = defineStore("analysis", () => {
 
     const setCurrentHistoryRecord = (record: AnalysisHistory) => {
         const normalizedRecord = normalizeHistoryRecord(record)
+        resetHistorySession()
+        savedAnalysisTimestamp = normalizedRecord.analysis.timestamp
+        currentTrainingMetadata.value = {
+            trainingDate: record.trainingDate ?? "",
+            notes: record.notes ?? "",
+            tags: record.tags ?? [],
+        }
         currentHistoryId.value = normalizedRecord.id
         currentAnalysis.value = normalizedRecord.analysis
         currentImage.value = normalizedRecord.imagePath
@@ -599,11 +654,24 @@ export const useAnalysisStore = defineStore("analysis", () => {
             applyVideoFrameSelection(
                 normalizedRecord.videoAnalysis,
                 normalizedRecord.videoAnalysis.bestFrameIndex ?? 0,
+                false,
             )
         } else {
             clearVideoState()
         }
 
+        // Frame selection clears comparison/cache; restore captured values only after selection.
+        currentAnalysis.value = normalizedRecord.analysis
+        currentImage.value = normalizedRecord.imagePath
+        currentAnnotatedImage.value = normalizedRecord.annotatedImagePath
+        applyCurrentComparisonSnapshot(normalizedRecord.comparison ?? null)
+        coachingSources.rule = {
+            ...emptyCoachingSource(),
+            state: "done",
+            analysisKey: currentAnalysisKey(),
+            data: normalizedRecord.suggestions,
+            summary: buildRuleSummary(normalizedRecord.suggestions),
+        }
         // 恢复 AI 建议（如果有缓存）
         if (normalizedRecord.aiCoachingSummary || normalizedRecord.aiCoachingSuggestions?.length) {
             coachingSources.ai.data = normalizedRecord.aiCoachingSuggestions ?? []
@@ -639,32 +707,107 @@ export const useAnalysisStore = defineStore("analysis", () => {
         })
     }
 
-    const saveToHistory = async (
-        imagePath: string,
-        annotatedImagePath: string,
+    const saveToHistory = (
+        imagePath = currentImage.value,
+        annotatedImagePath = currentAnnotatedImage.value,
         options?: {
-            suggestions?: CorrectionSuggestion[]
             aiCoachingSummary?: string | null
             aiCoachingSuggestions?: CorrectionSuggestion[] | null
             sourceIdentifier?: string | null
             videoAnalysis?: VideoShotAnalysis | null
         },
-    ): Promise<void> => {
-        if (!currentAnalysis.value) return
-
-        await invoke("save_analysis_history", {
-            imagePath,
-            annotatedImagePath,
-            analysis: currentAnalysis.value,
-            comparison: buildHistoryComparisonPayload(currentComparisonSnapshot.value, {
-                historyId: null,
+    ): Promise<number> => {
+        if (savePromise) return savePromise
+        if (currentHistoryId.value != null) return Promise.resolve(currentHistoryId.value)
+        if (!currentAnalysis.value) return Promise.reject(new Error("请先完成分析"))
+        const revision = analysisRevision.value
+        const timestamp = currentAnalysis.value.timestamp
+        const capturedVideo = options?.videoAnalysis ?? currentVideoAnalysis.value
+        const args = JSON.parse(
+            JSON.stringify({
+                imagePath,
+                annotatedImagePath: annotatedImagePath || imagePath,
+                analysis: currentAnalysis.value,
+                comparison: buildHistoryComparisonPayload(currentComparisonSnapshot.value, {
+                    historyId: null,
+                }),
+                suggestions: currentRuleSuggestions.value,
+                aiCoachingSummary:
+                    options?.aiCoachingSummary ??
+                    (coachingSources.ai.state === "done" ? coachingSources.ai.summary : null),
+                aiCoachingSuggestions:
+                    options?.aiCoachingSuggestions ??
+                    (coachingSources.ai.state === "done" ? coachingSources.ai.data : null),
+                sourceIdentifier:
+                    options?.sourceIdentifier ??
+                    (currentVideoPath.value
+                        ? `video:${currentVideoPath.value}`
+                        : `image:${timestamp}`),
+                videoAnalysis: capturedVideo
+                    ? { ...capturedVideo, bestFrameIndex: currentVideoFrameIndex.value }
+                    : null,
             }),
-            suggestions: options?.suggestions ?? [],
-            aiCoachingSummary: options?.aiCoachingSummary ?? null,
-            aiCoachingSuggestions: options?.aiCoachingSuggestions ?? null,
-            sourceIdentifier: options?.sourceIdentifier ?? null,
-            videoAnalysis: options?.videoAnalysis ?? null,
+        )
+        isSavingHistory.value = true
+        savePromise = invoke<number>("save_analysis_history", args)
+            .then(async (id) => {
+                if (revision === analysisRevision.value) {
+                    currentHistoryId.value = id
+                    savedAnalysisTimestamp = timestamp
+                    // AI may have completed while the initial insert was in progress.
+                    if (
+                        currentAnalysis.value?.timestamp === timestamp &&
+                        coachingSources.ai.state === "done"
+                    ) {
+                        try {
+                            await updateHistoryAiCoaching(
+                                id,
+                                coachingSources.ai.summary,
+                                coachingSources.ai.data,
+                            )
+                        } catch (error) {
+                            coachingSources.ai.error = `建议已生成，但保存失败：${String(error)}`
+                        }
+                    }
+                }
+                return id
+            })
+            .finally(() => {
+                isSavingHistory.value = false
+                savePromise = null
+            })
+        return savePromise
+    }
+
+    const queryHistory = async (
+        limit: number,
+        offset: number,
+        filters: {
+            dateFrom?: string
+            dateTo?: string
+            tag?: string
+            shotType?: string
+        } = {},
+    ): Promise<AnalysisHistory[]> => {
+        const rows = await invoke<AnalysisHistory[]>("query_training_history", {
+            limit,
+            offset,
+            dateFrom: filters.dateFrom || null,
+            dateTo: filters.dateTo || null,
+            tag: filters.tag?.trim() || null,
+            shotType: filters.shotType || null,
         })
+        return rows.map(normalizeHistoryRecord)
+    }
+    const updateTrainingMetadata = async (
+        id: number,
+        trainingDate: string,
+        notes: string,
+        tags: string[],
+    ) => {
+        await invoke("update_training_metadata", { id, trainingDate, notes, tags })
+        if (currentHistoryId.value === id)
+            currentTrainingMetadata.value = { trainingDate, notes, tags }
     }
 
     const getHistory = async (): Promise<AnalysisHistory[]> => {
@@ -682,6 +825,7 @@ export const useAnalysisStore = defineStore("analysis", () => {
 
     const deleteHistory = async (id: number): Promise<void> => {
         await invoke("delete_analysis_history", { id })
+        if (currentHistoryId.value === id) resetHistorySession()
     }
 
     const buildAiAnalysisPayload = async (): Promise<AiAnalysisPayload | null> => {
@@ -703,6 +847,7 @@ export const useAnalysisStore = defineStore("analysis", () => {
         currentComparison,
         currentComparisonSnapshot,
         coachingSources,
+        currentRuleSuggestions,
         currentAiCoachingSummary,
         currentAiCoachingSuggestions,
         currentAiCoachingSource,
@@ -720,6 +865,7 @@ export const useAnalysisStore = defineStore("analysis", () => {
         setCurrentAnalysis,
         setCurrentHistoryRecord,
         setCurrentComparison,
+        setCurrentComparisonSnapshot,
         setAiCoachingCache,
         clearAiCoachingCache,
         clearCoachingSources,
@@ -728,6 +874,10 @@ export const useAnalysisStore = defineStore("analysis", () => {
         updateHistoryAiCoaching,
         updateHistoryComparison,
         saveToHistory,
+        isSavingHistory,
+        currentTrainingMetadata,
+        queryHistory,
+        updateTrainingMetadata,
         getHistory,
         getHistoryPage,
         deleteHistory,

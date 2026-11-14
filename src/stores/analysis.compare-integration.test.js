@@ -134,7 +134,10 @@ const createHarness = async (options = {}) => {
   const persistCalls = []
   const progressHandlers = []
   const analysisStore = {
-    currentHistoryId: options.currentHistoryId ?? 9,
+    currentHistoryId: Object.hasOwn(options, 'currentHistoryId') ? options.currentHistoryId : 9,
+    currentAnalysis: sampleAnalysis(),
+    currentComparisonSnapshot: options.savedSnapshot ?? null,
+    setCurrentComparisonSnapshot(snapshot) { this.currentComparisonSnapshot = JSON.parse(JSON.stringify(snapshot)) },
     currentVideoPath: options.currentVideoPath ?? 'video.mp4',
     currentVideoFrameIndex: options.currentVideoFrameIndex ?? 3,
     updateHistoryComparison: async (historyId, snapshot) => {
@@ -192,12 +195,12 @@ test('shouldPersistComparisonSnapshot requires history, analysis key, and video 
 })
 
 test('ensureWorkbench persists ready snapshot only while the active analysis bridge still matches', async () => {
-  const { store, persistCalls } = await createHarness()
+  const { store, persistCalls, analysisStore } = await createHarness()
 
   await store.ensureWorkbench({
     surfaceId: 'analysis-tab',
     identity: sampleIdentity(),
-    analysis: sampleAnalysis()
+    analysis: analysisStore.currentAnalysis
   })
 
   assert.equal(store.status, 'ready')
@@ -207,7 +210,7 @@ test('ensureWorkbench persists ready snapshot only while the active analysis bri
 })
 
 test('ensureWorkbench skips persistence when the frame changes before the backend resolves', async () => {
-  const { store, persistCalls } = await createHarness({
+  const { store, persistCalls, analysisStore } = await createHarness({
     beforeResolve: (analysisStore) => {
       analysisStore.currentVideoFrameIndex = 4
     }
@@ -216,7 +219,7 @@ test('ensureWorkbench skips persistence when the frame changes before the backen
   await store.ensureWorkbench({
     surfaceId: 'analysis-tab',
     identity: sampleIdentity(),
-    analysis: sampleAnalysis()
+    analysis: analysisStore.currentAnalysis
   })
 
   assert.equal(store.status, 'ready')
@@ -224,12 +227,12 @@ test('ensureWorkbench skips persistence when the frame changes before the backen
 })
 
 test('selectPlayer persists the atomically switched selected detail when identity still matches', async () => {
-  const { store, persistCalls } = await createHarness()
+  const { store, persistCalls, analysisStore } = await createHarness()
 
   await store.ensureWorkbench({
     surfaceId: 'analysis-tab',
     identity: sampleIdentity(),
-    analysis: sampleAnalysis()
+    analysis: analysisStore.currentAnalysis
   })
   await store.selectPlayer(34)
 
@@ -242,7 +245,7 @@ test('selectPlayer persists the atomically switched selected detail when identit
 
 test('refreshWorkbench bypasses cached comparison data and rebuilds from the latest templates', async () => {
   let callCount = 0
-  const { store } = await createHarness({
+  const { store, analysisStore } = await createHarness({
     buildWorkbench: async ({ identity }) => {
       callCount += 1
       return sampleSnapshot(identity.analysisKey, {
@@ -255,12 +258,12 @@ test('refreshWorkbench bypasses cached comparison data and rebuilds from the lat
   await store.ensureWorkbench({
     surfaceId: 'analysis-tab',
     identity: sampleIdentity(),
-    analysis: sampleAnalysis()
+    analysis: analysisStore.currentAnalysis
   })
   await store.ensureWorkbench({
     surfaceId: 'analysis-tab',
     identity: sampleIdentity(),
-    analysis: sampleAnalysis()
+    analysis: analysisStore.currentAnalysis
   })
 
   assert.equal(callCount, 1)
@@ -288,14 +291,14 @@ test('ensureWorkbench starts and clears the timeout ticker for pending work', as
   }
 
   try {
-    const { store } = await createHarness({
+    const { store, analysisStore } = await createHarness({
       buildWorkbench: () => new Promise(() => {})
     })
 
     void store.ensureWorkbench({
       surfaceId: 'analysis-tab',
       identity: sampleIdentity(),
-      analysis: sampleAnalysis()
+      analysis: analysisStore.currentAnalysis
     })
     await Promise.resolve()
     await Promise.resolve()
@@ -310,4 +313,46 @@ test('ensureWorkbench starts and clears the timeout ticker for pending work', as
     globalThis.setInterval = originalSetInterval
     globalThis.clearInterval = originalClearInterval
   }
+})
+
+test('unsaved comparison syncs the full snapshot and selected template before saving', async () => {
+  const { store, analysisStore, persistCalls } = await createHarness({ currentHistoryId: null })
+  await store.ensureWorkbench({ surfaceId: 'compare', identity: sampleIdentity({ historyId: null }), analysis: analysisStore.currentAnalysis })
+  assert.equal(analysisStore.currentComparisonSnapshot.summaries.length, 2)
+  assert.equal(Object.keys(analysisStore.currentComparisonSnapshot.detailsByPlayerId).length, 2)
+  await store.selectPlayer(34)
+  assert.equal(analysisStore.currentComparisonSnapshot.selectedPlayerId, 34)
+  assert.equal(analysisStore.currentComparisonSnapshot.selectedDetail.result.player.id, 34)
+  assert.equal(persistCalls.length, 0)
+})
+
+test('restored legacy snapshot takes priority over templates and cache until explicit refresh', async () => {
+  let builds = 0
+  const { store, analysisStore } = await createHarness({
+    savedSnapshot: sampleSnapshot('legacy-history-9-player-34', { selectedPlayerId: 34 }),
+    buildWorkbench: async ({ identity }) => {
+      builds++
+      return sampleSnapshot(identity.analysisKey, { firstPlayerId: 56, secondPlayerId: 23 })
+    }
+  })
+  const input = { surfaceId: 'compare', identity: sampleIdentity(), analysis: analysisStore.currentAnalysis }
+  await store.ensureWorkbench(input)
+  assert.equal(builds, 0)
+  assert.equal(store.selectedPlayerId, 34)
+  assert.equal(store.selectedDetail.result.player.name, 'Thompson')
+  await store.selectPlayer(23)
+  await store.ensureWorkbench(input)
+  assert.equal(store.selectedPlayerId, 23)
+  assert.equal(builds, 0)
+  await store.refreshWorkbench()
+  assert.equal(builds, 1)
+  assert.equal(store.selectedPlayerId, 56)
+  assert.equal(analysisStore.currentComparisonSnapshot.selectedPlayerId, 56)
+})
+
+test('late result cannot sync into another analysis, even with identical timestamp and history id', async () => {
+  const { store, analysisStore, persistCalls } = await createHarness({ beforeResolve: bridge => { bridge.currentAnalysis = sampleAnalysis() } })
+  await store.ensureWorkbench({ surfaceId: 'compare', identity: sampleIdentity(), analysis: analysisStore.currentAnalysis })
+  assert.equal(analysisStore.currentComparisonSnapshot, null)
+  assert.equal(persistCalls.length, 0)
 })

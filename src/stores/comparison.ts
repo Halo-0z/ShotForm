@@ -1,4 +1,4 @@
-import { computed, ref } from 'vue'
+import { computed, ref, toRaw } from 'vue'
 import { defineStore } from 'pinia'
 import { useAnalysisStore } from '@/stores/analysis'
 import {
@@ -159,8 +159,14 @@ export const useComparisonStore = defineStore('comparison', () => {
     identity: ComparisonIdentity | null | undefined,
     snapshot: ComparisonWorkbenchSnapshot | null | undefined
   ) => {
+    if (!snapshot || !identity || !isCurrentInput(lastInput.value) ||
+        snapshot.analysisKey !== identity.analysisKey) return
+
+    // Keep unsaved analyses in sync too; saving later must capture the whole workbench.
+    analysisStore.setCurrentComparisonSnapshot(snapshot)
+    const currentIdentity = { ...identity, historyId: analysisStore.currentHistoryId }
     if (!shouldPersistComparisonSnapshot({
-      identity,
+      identity: currentIdentity,
       snapshot,
       analysisBridge: {
         currentHistoryId: analysisStore.currentHistoryId,
@@ -171,12 +177,23 @@ export const useComparisonStore = defineStore('comparison', () => {
       return
     }
 
-    const historyId = identity?.historyId
+    const historyId = currentIdentity.historyId
     if (historyId == null || !snapshot) {
       return
     }
 
     await analysisStore.updateHistoryComparison(historyId, snapshot)
+  }
+
+  const isCurrentInput = (input: EnsureWorkbenchInput | null) => {
+    if (!input || !analysisStore.currentAnalysis ||
+        toRaw(input.analysis) !== toRaw(analysisStore.currentAnalysis)) return false
+    const identity = input.identity
+    if (identity.historyId != null && identity.historyId !== analysisStore.currentHistoryId) return false
+    return identity.source !== 'video-frame' || (
+      (identity.videoPath ?? '') === (analysisStore.currentVideoPath ?? '') &&
+      (identity.frameIndex ?? null) === (analysisStore.currentVideoFrameIndex ?? null)
+    )
   }
 
   const claimSurface = (surfaceId: string) => {
@@ -196,6 +213,13 @@ export const useComparisonStore = defineStore('comparison', () => {
   const ensureWorkbench = async (input: EnsureWorkbenchInput) => {
     claimSurface(input.surfaceId)
     lastInput.value = input
+    const savedSnapshot = analysisStore.currentComparisonSnapshot
+    if (!input.forceRefresh && savedSnapshot && isCurrentInput(input)) {
+      // The analysis store owns this snapshot, including legacy keys and deleted templates.
+      controller.hydrateReady({ ...savedSnapshot, analysisKey: input.identity.analysisKey }, input.identity)
+      syncState()
+      return sessionState.value
+    }
     await ensureProgressListener()
 
     const request = controller.startRequest(input.identity, {
@@ -204,6 +228,7 @@ export const useComparisonStore = defineStore('comparison', () => {
     syncState()
 
     if (request.restoredFromCache) {
+      await persistSnapshotIfCurrent(input.identity, sessionState.value.snapshot)
       return sessionState.value
     }
 
@@ -219,9 +244,9 @@ export const useComparisonStore = defineStore('comparison', () => {
         return sessionState.value
       }
 
-      controller.completeRequest(request.requestId, snapshot)
+      const accepted = controller.completeRequest(request.requestId, snapshot)
       syncState()
-      await persistSnapshotIfCurrent(input.identity, sessionState.value.snapshot)
+      if (accepted) await persistSnapshotIfCurrent(input.identity, sessionState.value.snapshot)
       return sessionState.value
     } catch (error) {
       controller.failRequest(request.requestId, {

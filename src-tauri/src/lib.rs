@@ -219,6 +219,8 @@ pub fn run() {
             commands::update_analysis_history_comparison,
             commands::get_analysis_history,
             commands::get_analysis_history_page,
+            commands::query_training_history,
+            commands::update_training_metadata,
             commands::delete_analysis_history,
             commands::process_image,
             commands::draw_pose_on_image,

@@ -16,7 +16,9 @@ import {
 import { Button } from "@/components/ui/button"
 import { useAnalysisStore } from "@/stores/analysis"
 import { formatTime } from "@/lib/analysis-utils"
-import { getShotTypeName } from "@/types"
+import { getShotTypeName, getRecordShotType, type AnalysisHistory } from "@/types"
+import { buildAnalysisReport, saveReportFile } from "@/lib/training-report"
+import { localDate } from "@/lib/training-comparison.js"
 import AngleAnalysisChart from "@/components/analysis/AngleAnalysisChart.vue"
 import AngleDeviationCards from "@/components/analysis/AngleDeviationCards.vue"
 import AISuggestionList from "@/components/analysis/AISuggestionList.vue"
@@ -35,12 +37,10 @@ const frames = computed(() => videoAnalysis.value?.frames ?? [])
 const hasPlayableFrames = computed(() => frames.value.length > 1)
 
 const shotTypeName = computed(() => {
-    if (videoAnalysis.value) {
-        return getShotTypeName(videoAnalysis.value.overallShotType) ?? "一段式投篮"
-    }
-    const a = analysis.value
-    if (!a) return "一段式投篮"
-    return getShotTypeName(a.shotType) ?? "一段式投篮"
+    return getShotTypeName(getRecordShotType({
+        analysis: analysis.value,
+        videoAnalysis: videoAnalysis.value,
+    }))
 })
 
 const displayAnalysis = computed(() => {
@@ -55,7 +55,7 @@ const confidencePercent = computed(() => {
     if (videoAnalysis.value) {
         return Math.round((videoAnalysis.value.overallShotTypeConfidence ?? 0) * 1000) / 10
     }
-    if (!analysis.value) return 54.8
+    if (!analysis.value) return 0
     return Math.round((analysis.value.shotTypeConfidence ?? 0) * 1000) / 10
 })
 
@@ -71,7 +71,7 @@ const analysisReasons = computed(() => {
         return videoAnalysis.value.overallReasons
     }
     if (!analysis.value || !analysis.value.shotTypeReasons?.length) {
-        return ["整体动作流畅，投篮发力较好，出手稳定性中等，建议优化起跳与手肘的协同发力。"]
+        return ["当前没有足够的判断依据，请结合清晰的完整动作片段分析。"]
     }
     return analysis.value.shotTypeReasons
 })
@@ -293,8 +293,56 @@ const startPlayback = () => {
     }, interval)
 }
 
-const handleExport = () => {
-    window.alert("导出报告功能开发中")
+const actionMessage = ref("")
+const isExporting = ref(false)
+const reportRecord = (): AnalysisHistory => ({
+    id: analysisStore.currentHistoryId ?? 0,
+    imagePath: analysisStore.currentImage,
+    annotatedImagePath: analysisStore.currentAnnotatedImage,
+    analysis: analysis.value!,
+    comparison: analysisStore.currentComparisonSnapshot,
+    suggestions: analysisStore.currentRuleSuggestions,
+    aiCoachingSummary:
+        analysisStore.coachingSources.ai.state === "done"
+            ? analysisStore.coachingSources.ai.summary
+            : null,
+    aiCoachingSuggestions:
+        analysisStore.coachingSources.ai.state === "done"
+            ? analysisStore.coachingSources.ai.data
+            : null,
+    videoAnalysis: videoAnalysis.value
+        ? { ...videoAnalysis.value, bestFrameIndex: currentFrameIndex.value }
+        : null,
+    createdAt: analysis.value!.timestamp,
+    ...analysisStore.currentTrainingMetadata,
+    trainingDate:
+        analysisStore.currentTrainingMetadata.trainingDate || localDate(analysis.value!.timestamp),
+})
+const handleSave = async () => {
+    actionMessage.value = ""
+    try {
+        const id = await analysisStore.saveToHistory()
+        actionMessage.value = `已保存记录 #${id}，可到历史记录编辑训练日期和备注。`
+    } catch (error) {
+        actionMessage.value = `保存失败，请重试：${String(error)}`
+    }
+}
+const handleExport = async (extension: "html" | "json" = "html") => {
+    if (!analysis.value || isExporting.value) return
+    isExporting.value = true
+    actionMessage.value = ""
+    try {
+        const record = reportRecord()
+        const content =
+            extension === "html" ? buildAnalysisReport(record) : JSON.stringify(record, null, 2)
+        actionMessage.value = (await saveReportFile(content, extension))
+            ? "报告已导出"
+            : "已取消导出"
+    } catch (error) {
+        actionMessage.value = `导出失败：${String(error)}`
+    } finally {
+        isExporting.value = false
+    }
 }
 
 const handleGenerateAiCoaching = async () => {
@@ -359,7 +407,12 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <div class="analysis-workbench">
+    <div v-if="!analysis" class="analysis-workbench p-8">
+        <h1>尚无分析结果</h1>
+        <p class="my-4">请先上传清晰的单人投篮图片或短视频。</p>
+        <Button @click="router.push('/upload')">上传素材</Button>
+    </div>
+    <div v-else class="analysis-workbench">
         <header class="analysis-workbench__topbar">
             <div class="analysis-workbench__topbar-left">
                 <div class="analysis-workbench__heading">
@@ -375,10 +428,38 @@ onUnmounted(() => {
                     >分析完成</span
                 >
                 <div class="analysis-workbench__topbar-actions">
-                    <Button variant="outline" size="sm" @click="handleExport">
-                        保存历史记录
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        :disabled="
+                            analysisStore.isSavingHistory ||
+                            analysisStore.currentHistoryId != null ||
+                            analysisStore.coachingSources.rule.state === 'loading'
+                        "
+                        @click="handleSave"
+                    >
+                        {{
+                            analysisStore.isSavingHistory
+                                ? "保存中…"
+                                : analysisStore.currentHistoryId != null
+                                  ? "已保存历史记录"
+                                  : "保存历史记录"
+                        }}
                     </Button>
-                    <Button variant="accent" size="sm" @click="handleExport"> 导出报告 </Button>
+                    <Button
+                        variant="accent"
+                        size="sm"
+                        :disabled="isExporting"
+                        @click="handleExport('html')"
+                        >导出 HTML 报告</Button
+                    >
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        :disabled="isExporting"
+                        @click="handleExport('json')"
+                        >导出 JSON</Button
+                    >
                     <Button v-if="analysis" variant="outline" size="sm" @click="goToCompare">
                         <GitCompareArrows class="h-4 w-4" />
                         球星对比
@@ -387,7 +468,8 @@ onUnmounted(() => {
             </div>
         </header>
 
-        <div class="analysis-workbench__body">
+        <p v-if="actionMessage" role="status" class="px-6 py-3">{{ actionMessage }}</p>
+        <div class="analysis-workbench__body" data-allow-copy="true">
             <div class="analysis-workbench__left">
                 <div class="analysis-workbench__top-row">
                     <section class="analysis-workbench__conclusion">
@@ -463,10 +545,22 @@ onUnmounted(() => {
                                 ref="videoCanvasRef"
                                 class="analysis-workbench__canvas"
                             />
+                            <img
+                                v-else-if="
+                                    analysisStore.currentAnnotatedImage ||
+                                    analysisStore.currentImage
+                                "
+                                :src="
+                                    analysisStore.currentAnnotatedImage ||
+                                    analysisStore.currentImage
+                                "
+                                alt="图片姿态分析"
+                                class="analysis-image"
+                            />
                             <div v-else class="analysis-workbench__video-empty">
                                 <Play class="h-8 w-8" />
                             </div>
-                            <div class="analysis-workbench__video-controls">
+                            <div v-if="frames.length" class="analysis-workbench__video-controls">
                                 <button
                                     class="analysis-workbench__video-play-btn"
                                     @click="togglePlayback"
@@ -524,7 +618,11 @@ onUnmounted(() => {
                                 <BarChart3 class="h-4 w-4" />
                                 图表
                             </button>
-                            <button class="analysis-workbench__chart-toggle-btn">
+                            <button
+                                class="analysis-workbench__chart-toggle-btn"
+                                disabled
+                                title="当前展示角度图表；数值可在报告中查看"
+                            >
                                 <TableIcon class="h-4 w-4" />
                                 数据表
                             </button>
@@ -533,7 +631,7 @@ onUnmounted(() => {
                     <AngleAnalysisChart :angles="chartAnalysis?.angles ?? []" />
                 </section>
 
-                <section class="analysis-workbench__timeline-section">
+                <section v-if="frames.length" class="analysis-workbench__timeline-section">
                     <div class="analysis-workbench__section-header">
                         <div class="analysis-workbench__section-header-left">
                             <h3 class="analysis-workbench__section-title">关键帧时间轴</h3>
@@ -561,7 +659,7 @@ onUnmounted(() => {
                         </button>
                         <div class="analysis-workbench__timeline-frames">
                             <button
-                                v-for="(frame, idx) in frames.slice(0, 12)"
+                                v-for="(frame, idx) in frames"
                                 :key="idx"
                                 class="analysis-workbench__timeline-frame"
                                 :class="{
@@ -628,6 +726,16 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+.analysis-image {
+    display: block;
+    width: 100%;
+    max-height: 500px;
+    object-fit: contain;
+}
+.analysis-workbench__topbar-actions {
+    flex-wrap: wrap;
+}
+
 .analysis-workbench {
     padding: clamp(3.75rem, 6vh, 4.5rem) 28px 32px;
     display: flex;

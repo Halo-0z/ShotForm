@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from "vue"
 import type { AnalysisHistory } from "@/types"
 import { getAngleDisplayName } from "@/types"
+import { trainingTrendPoints } from "@/lib/training-comparison.js"
 
 const props = defineProps<{
     records: AnalysisHistory[]
@@ -18,7 +19,7 @@ const angleNames = computed(() => {
 
 const selectedAngle = ref<string>("")
 
-const sortedRecords = computed(() => [...props.records].sort((a, b) => a.createdAt - b.createdAt))
+const sortedRecords = computed(() => [...props.records].sort((a, b) => (a.trainingDate || "").localeCompare(b.trainingDate || "") || a.createdAt - b.createdAt))
 
 watch(
     () => props.records,
@@ -48,19 +49,7 @@ const buildOption = () => {
     const angleName = selectedAngle.value
     if (!angleName) return {}
 
-    const dataPoints = sortedRecords.value
-        .map((r) => {
-            const angle = r.analysis.angles.find((a) => a.name === angleName)
-            return {
-                time: r.createdAt,
-                value: angle?.value ?? null,
-                normalMin: angle?.normalRange?.[0] ?? null,
-                normalMax: angle?.normalRange?.[1] ?? null,
-            }
-        })
-        .filter((dp) => dp.value != null)
-
-    if (!dataPoints.length) return {}
+    const dataPoints = trainingTrendPoints(sortedRecords.value, angleName)
 
     return {
         tooltip: {
@@ -68,7 +57,7 @@ const buildOption = () => {
             formatter: (params: Array<{ name: string; seriesName: string; value: number }>) => {
                 const point = params[0]
                 if (!point) return ""
-                return `${new Date(Number(point.name)).toLocaleDateString("zh-CN")}<br/>${point.seriesName}: ${point.value.toFixed(1)}°`
+                return `${point.name}<br/>${point.seriesName}: ${point.value.toFixed(1)}°`
             },
         },
         grid: { top: 24, right: 20, bottom: 24, left: 48 },
@@ -105,10 +94,13 @@ const buildOption = () => {
 }
 
 const renderChart = async () => {
-    if (!chartContainer.value || !selectedAngle.value) return
+    const container = chartContainer.value
+    if (!container || !selectedAngle.value) return
     const echarts = await importEcharts()
+    // Filtering/unmounting may remove the chart while its modules are loading.
+    if (chartContainer.value !== container || !container.isConnected) return
     if (!chartInstance) {
-        chartInstance = echarts.init(chartContainer.value, undefined, {
+        chartInstance = echarts.init(container, undefined, {
             devicePixelRatio: window.devicePixelRatio,
         })
     }

@@ -75,6 +75,12 @@ export const getShotTypeName = (type: string | null | undefined): string => {
   return SHOT_TYPE_NAMES[normalizeShotType(type)]
 }
 
+// An explicit unknown video result stays unknown; only absent legacy fields fall back.
+export const getRecordShotType = (record: {
+  analysis?: { shotType?: string | null } | null
+  videoAnalysis?: { overallShotType?: string | null } | null
+}): ShotType => normalizeShotType(record.videoAnalysis?.overallShotType || record.analysis?.shotType)
+
 export const getShotTypeGuidance = (
   type: string | null | undefined,
   confidence: number,
@@ -319,5 +325,8 @@ export interface AnalysisHistory {
   sourceIdentifier?: string | null
   videoAnalysis?: VideoShotAnalysis | null
   createdAt: number
+  trainingDate?: string
+  notes?: string
+  tags?: string[]
 }
 

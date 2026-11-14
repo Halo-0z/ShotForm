@@ -1,6 +1,8 @@
 use crate::models::{JointAngle, Keypoint};
 use nalgebra::{Vector2, Vector3};
 
+const MIN_ANGLE_CONFIDENCE: f32 = 0.55;
+
 pub fn calculate_angle(p1: &Keypoint, p2: &Keypoint, p3: &Keypoint) -> f32 {
     let v1 = Vector2::new(p1.x - p2.x, p1.y - p2.y);
     let v2 = Vector2::new(p3.x - p2.x, p3.y - p2.y);
@@ -46,7 +48,6 @@ pub fn calculate_all_angles(keypoints: &[Keypoint]) -> Vec<JointAngle> {
         get_kp(13),
         get_kp(15),
         (90.0, 130.0),
-        0.45,
         false,
     );
     push_angle(
@@ -56,7 +57,6 @@ pub fn calculate_all_angles(keypoints: &[Keypoint]) -> Vec<JointAngle> {
         get_kp(14),
         get_kp(16),
         (90.0, 130.0),
-        0.45,
         false,
     );
     push_angle(
@@ -66,7 +66,6 @@ pub fn calculate_all_angles(keypoints: &[Keypoint]) -> Vec<JointAngle> {
         get_kp(11),
         get_kp(13),
         (30.0, 90.0),
-        0.45,
         false,
     );
     push_angle(
@@ -76,7 +75,6 @@ pub fn calculate_all_angles(keypoints: &[Keypoint]) -> Vec<JointAngle> {
         get_kp(12),
         get_kp(14),
         (30.0, 90.0),
-        0.45,
         false,
     );
     push_angle(
@@ -86,7 +84,6 @@ pub fn calculate_all_angles(keypoints: &[Keypoint]) -> Vec<JointAngle> {
         get_kp(25),
         get_kp(27),
         (140.0, 170.0),
-        0.55,
         leg_overlap.left_leg_unreliable,
     );
     push_angle(
@@ -96,7 +93,6 @@ pub fn calculate_all_angles(keypoints: &[Keypoint]) -> Vec<JointAngle> {
         get_kp(26),
         get_kp(28),
         (140.0, 170.0),
-        0.55,
         leg_overlap.right_leg_unreliable,
     );
     push_angle(
@@ -106,7 +102,6 @@ pub fn calculate_all_angles(keypoints: &[Keypoint]) -> Vec<JointAngle> {
         get_kp(23),
         get_kp(25),
         (160.0, 180.0),
-        0.55,
         leg_overlap.left_leg_unreliable,
     );
     push_angle(
@@ -116,7 +111,6 @@ pub fn calculate_all_angles(keypoints: &[Keypoint]) -> Vec<JointAngle> {
         get_kp(24),
         get_kp(26),
         (160.0, 180.0),
-        0.55,
         leg_overlap.right_leg_unreliable,
     );
 
@@ -129,7 +123,7 @@ pub fn calculate_all_angles(keypoints: &[Keypoint]) -> Vec<JointAngle> {
             "shoulder_tilt",
             shoulder_tilt,
             (0.0, 10.0),
-            joint_confidence(&[left_shoulder, right_shoulder], 0.4),
+            joint_confidence(&[left_shoulder, right_shoulder]),
             false,
         ));
     }
@@ -154,7 +148,7 @@ pub fn calculate_all_angles(keypoints: &[Keypoint]) -> Vec<JointAngle> {
             "trunk_tilt",
             trunk_angle,
             (0.0, 15.0),
-            joint_confidence(&[nose, left_shoulder, right_shoulder], 0.4),
+            joint_confidence(&[nose, left_shoulder, right_shoulder]),
             false,
         ));
     }
@@ -169,11 +163,10 @@ fn push_angle(
     p2: Option<&Keypoint>,
     p3: Option<&Keypoint>,
     normal_range: (f32, f32),
-    min_confidence: f32,
     unreliable: bool,
 ) {
     if let (Some(p1), Some(p2), Some(p3)) = (p1, p2, p3) {
-        let confidence = joint_confidence(&[p1, p2, p3], min_confidence);
+        let confidence = joint_confidence(&[p1, p2, p3]);
         let value = calculate_angle(p1, p2, p3);
         angles.push(make_angle(
             name,
@@ -192,7 +185,7 @@ fn make_angle(
     confidence: f32,
     unreliable: bool,
 ) -> JointAngle {
-    let status = if unreliable || confidence < 0.55 {
+    let status = if unreliable || confidence < MIN_ANGLE_CONFIDENCE {
         "low_confidence".to_string()
     } else {
         get_angle_status(value, normal_range)
@@ -207,9 +200,10 @@ fn make_angle(
     }
 }
 
-fn joint_confidence(points: &[&Keypoint], min_confidence: f32) -> f32 {
+fn joint_confidence(points: &[&Keypoint]) -> f32 {
     let visibility = points.iter().map(|point| point.visibility).sum::<f32>() / points.len() as f32;
-    visibility.clamp(min_confidence, 1.0)
+    // Keep measured visibility separate from the angle acceptance threshold.
+    visibility.clamp(0.0, 1.0)
 }
 
 fn get_angle_status(angle: f32, normal_range: (f32, f32)) -> String {
@@ -257,8 +251,8 @@ fn detect_leg_overlap(keypoints: &[Keypoint]) -> LegOverlapInfo {
     let knee_gap = (left_knee.x - right_knee.x).abs() / hip_width;
     let ankle_gap = (left_ankle.x - right_ankle.x).abs() / hip_width;
 
-    let left_leg_conf = joint_confidence(&[left_hip, left_knee, left_ankle], 0.0);
-    let right_leg_conf = joint_confidence(&[right_hip, right_knee, right_ankle], 0.0);
+    let left_leg_conf = joint_confidence(&[left_hip, left_knee, left_ankle]);
+    let right_leg_conf = joint_confidence(&[right_hip, right_knee, right_ankle]);
     let legs_overlap = knee_gap < 0.22 || ankle_gap < 0.18;
 
     if !legs_overlap {
@@ -297,7 +291,7 @@ pub fn get_shooting_arm_angles(keypoints: &[Keypoint], is_right_handed: bool) ->
     if let (Some(shoulder), Some(elbow), Some(wrist)) =
         (get_kp(shoulder_id), get_kp(elbow_id), get_kp(wrist_id))
     {
-        let confidence = joint_confidence(&[shoulder, elbow, wrist], 0.45);
+        let confidence = joint_confidence(&[shoulder, elbow, wrist]);
         let elbow_angle = calculate_angle(shoulder, elbow, wrist);
         angles.push(make_angle(
             "shooting_elbow_angle",
@@ -375,6 +369,53 @@ mod tests {
             .expect("expected trunk angle");
 
         assert!(trunk_angle.abs() < 0.01);
+    }
+
+    #[test]
+    fn separated_low_visibility_legs_keep_real_confidence() {
+        let mut points = vec![
+            keypoint(11, "left_shoulder", -20.0, 0.0),
+            keypoint(12, "right_shoulder", 20.0, 0.0),
+            keypoint(23, "left_hip", -20.0, 40.0),
+            keypoint(24, "right_hip", 20.0, 40.0),
+            keypoint(25, "left_knee", -20.0, 80.0),
+            keypoint(26, "right_knee", 20.0, 80.0),
+            keypoint(27, "left_ankle", -20.0, 120.0),
+            keypoint(28, "right_ankle", 20.0, 120.0),
+        ];
+        for visibility in [0.1, 1.0] {
+            for point in &mut points {
+                point.visibility = visibility;
+            }
+            let overlap = detect_leg_overlap(&points);
+            assert!(!overlap.left_leg_unreliable && !overlap.right_leg_unreliable);
+            let angles = calculate_all_angles(&points);
+            for name in [
+                "left_knee_angle",
+                "right_knee_angle",
+                "left_hip_angle",
+                "right_hip_angle",
+            ] {
+                let angle = angles.iter().find(|a| a.name == name).expect("leg angle");
+                assert!((angle.confidence - visibility).abs() < 0.0001);
+                assert_eq!(
+                    angle.status == "low_confidence",
+                    visibility < MIN_ANGLE_CONFIDENCE
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn confidence_threshold_does_not_modify_measured_confidence() {
+        for confidence in [0.0, 0.1, 0.54, 0.55, 1.0] {
+            let angle = make_angle("knee", 150.0, (140.0, 170.0), confidence, false);
+            assert_eq!(angle.confidence, confidence);
+            assert_eq!(
+                angle.status == "low_confidence",
+                confidence < MIN_ANGLE_CONFIDENCE
+            );
+        }
     }
 
     #[test]

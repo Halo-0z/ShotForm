@@ -81,6 +81,8 @@ const resetAll = () => {
     uploadState.value = "empty"
 }
 
+const selectUploadMode = (mode: "image" | "video") => { resetAll(); uploadMode.value = mode }
+
 const getFileExtension = (name: string) => name.split(".").pop()?.toLowerCase() ?? ""
 
 const readAsDataURL = (file: File): Promise<string> =>
@@ -91,7 +93,25 @@ const readAsDataURL = (file: File): Promise<string> =>
         reader.readAsDataURL(file)
     })
 
+const validateFile = (file: File, kind: "image" | "video") => {
+    const extensions = kind === "image" ? IMAGE_EXTS : VIDEO_EXTS
+    if (!extensions.includes(getFileExtension(file.name))) {
+        handoffError.value = "不支持此文件格式"
+        return false
+    }
+    if (file.size > 200 * 1024 * 1024) {
+        handoffError.value = "文件不能超过 200MB"
+        return false
+    }
+    if (!file.size) {
+        handoffError.value = "文件为空，请重新选择"
+        return false
+    }
+    handoffError.value = ""
+    return true
+}
 const applyVideoFile = async (file: File, path = "") => {
+    if (!validateFile(file, "video")) return
     revokePreviewUrl()
     previewUrl.value = URL.createObjectURL(file)
     videoPath.value = path
@@ -104,6 +124,8 @@ const applyVideoFile = async (file: File, path = "") => {
 }
 
 const applyImageFile = async (file: File) => {
+    if (!validateFile(file, "image")) return
+    revokePreviewUrl()
     uploadState.value = "uploading"
     try {
         const dataUrl = await readAsDataURL(file)
@@ -158,14 +180,7 @@ const pickVideo = async () => {
 
 const pickImage = async () => {
     if (!hasTauriRuntime()) {
-        const input = document.createElement("input")
-        input.type = "file"
-        input.accept = IMAGE_EXTS.map((e) => `.${e}`).join(",")
-        input.onchange = () => {
-            const file = input.files?.[0]
-            if (file) applyImageFile(file)
-        }
-        input.click()
+        browserFileInputRef.value?.click()
         return
     }
     try {
@@ -177,7 +192,8 @@ const pickImage = async () => {
         })
         if (!selected || Array.isArray(selected)) return
         const bytes = await readFile(selected)
-        const mime = "image/jpeg"
+        const ext = getFileExtension(selected)
+        const mime = `image/${ext === "jpg" ? "jpeg" : ext}`
         const blob = new Blob([bytes], { type: mime })
         const filename = await basename(selected)
         await applyImageFile(new File([blob], filename, { type: mime }))
@@ -197,6 +213,10 @@ const handleDrop = async (event: DragEvent) => {
         await applyImageFile(first)
     } else if (VIDEO_EXTS.includes(ext)) {
         uploadMode.value = "video"
+        if (hasTauriRuntime()) {
+            handoffError.value = "请点击选择视频，以获得桌面端可读取的文件路径。"
+            return
+        }
         await applyVideoFile(first)
     } else {
         handoffError.value = `不支持的文件类型：.${ext}`
@@ -273,6 +293,10 @@ const handleVideoLoaded = async (payload: {
             window.alert(handoffError.value)
             return
         }
+        if (!payload.filePath) {
+            handoffError.value = "请通过选择视频按钮重新选择文件"
+            return
+        }
         await analysisStore.analyzeVideo(payload.filePath, payload.trimStartMs, payload.trimEndMs)
         await navigateWithFogTransition(router, "/analysis")
     } catch (error) {
@@ -312,6 +336,23 @@ onUnmounted(() => {
 
 <template>
     <div class="upload-workbench">
+        <div class="flex gap-3" aria-label="素材类型">
+            <Button
+                :variant="uploadMode === 'image' ? 'default' : 'outline'"
+                :disabled="isBusy"
+                @click="selectUploadMode('image')"
+                >图片分析</Button
+            >
+            <Button
+                :variant="uploadMode === 'video' ? 'default' : 'outline'"
+                :disabled="isBusy"
+                @click="selectUploadMode('video')"
+                >视频分析</Button
+            >
+        </div>
+        <p v-if="!hasTauriRuntime()" data-browser-preview-note>
+            浏览器仅供预览与片段裁剪，姿态分析请使用桌面端。
+        </p>
         <input
             ref="browserFileInputRef"
             type="file"
@@ -336,10 +377,17 @@ onUnmounted(() => {
                     <Film class="h-10 w-10" />
                 </div>
                 <p class="upload-workbench__dropzone-title">
-                    拖拽视频到此处，或<em @click.stop="pickVideo">点击上传</em>
+                    {{ uploadMode === "video" ? "选择投篮视频，或" : "拖拽投篮图片到此处，或"
+                    }}<em @click.stop="uploadMode === 'video' ? pickVideo() : pickImage()"
+                        >点击上传</em
+                    >
                 </p>
                 <p class="upload-workbench__dropzone-hint">
-                    建议 2 到 6 秒，包含单球制出手的完整片段
+                    {{
+                        uploadMode === "video"
+                            ? "建议 2 到 6 秒，包含一次投篮的完整动作"
+                            : "建议单人、全身可见、拍摄角度固定"
+                    }}
                 </p>
                 <Button
                     class="upload-workbench__dropzone-btn"
@@ -348,7 +396,13 @@ onUnmounted(() => {
                     <UploadIcon class="h-4 w-4" />
                     {{ uploadMode === "video" ? "选择视频" : "选择图片" }}
                 </Button>
-                <p class="upload-workbench__dropzone-exts">支持 MP4 / MOV / AVI / WEBM</p>
+                <p class="upload-workbench__dropzone-exts">
+                    {{
+                        uploadMode === "video"
+                            ? "支持 MP4 / MOV / AVI / WEBM"
+                            : "支持 JPG / PNG / WEBP / BMP / GIF"
+                    }}
+                </p>
                 <p class="upload-workbench__dropzone-size">文件大小不超过 200MB</p>
             </div>
 
@@ -366,7 +420,10 @@ onUnmounted(() => {
                             @pause="onVideoPause"
                         />
                         <img v-else :src="previewUrl" alt="预览图" />
-                        <div class="upload-workbench__video-thumb-overlay">
+                        <div
+                            v-if="uploadMode === 'video'"
+                            class="upload-workbench__video-thumb-overlay"
+                        >
                             <button class="upload-workbench__video-thumb-play" type="button">
                                 <Play v-if="!isPlaying" class="h-6 w-6" />
                                 <Pause v-else class="h-6 w-6" />
@@ -386,7 +443,7 @@ onUnmounted(() => {
                             <span>大小 {{ videoSize }}</span>
                             <span>分辨率 {{ videoResolution }}</span>
                         </div>
-                        <div class="upload-workbench__trim-section">
+                        <div v-if="uploadMode === 'video'" class="upload-workbench__trim-section">
                             <p class="upload-workbench__trim-label">
                                 选择需要分析的片段（建议 2 到 6 秒）
                             </p>
@@ -418,11 +475,13 @@ onUnmounted(() => {
                         </Button>
                         <Button
                             :loading="isBusy"
+                            :disabled="isBusy || !hasTauriRuntime()"
+                            :data-analysis-cta="uploadMode"
                             class="upload-workbench__cta"
                             @click="handleStartAnalysis"
                         >
                             <Play v-if="!isBusy" class="h-4 w-4" />
-                            开始分析
+                            {{ hasTauriRuntime() ? "开始分析" : "请在桌面端分析" }}
                         </Button>
                     </div>
                 </div>

@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const source = readFileSync(
-  resolve('D:/智能投篮分析/.worktrees/cinematic-home-ui/src/components/home/HomeWorkspace.vue'),
+  resolve('src/components/home/HomeWorkspace.vue'),
   'utf8'
 )
 

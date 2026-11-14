@@ -151,6 +151,8 @@ const loadAnalysisStoreModule = async (options = {}) => {
         return createAnalysis({ timestamp: 1710000200 })
       }
 
+      if (command === 'save_analysis_history') return 42
+      if (command === 'get_correction_suggestions') return []
       return null
     },
     listen: async (eventName, handler) => {
@@ -172,6 +174,7 @@ const loadAnalysisStoreModule = async (options = {}) => {
     ['pinia', PINIA_MODULE_URL],
     ['vue', VUE_MODULE_URL],
     ['@/types', TYPES_MODULE_URL],
+    ['@/lib/tauri-runtime', toDataUrl('export const hasTauriRuntime = () => false')],
     ['@/lib/ai-analysis-flow.js', AI_FLOW_MODULE_URL],
     ['@/lib/comparison-history.js', COMPARISON_HISTORY_MODULE_URL],
     ['@tauri-apps/api/core', CORE_MODULE_URL],
@@ -301,6 +304,7 @@ test('saveToHistory and updateHistoryComparison send history-safe snapshot paylo
   }))
 
   await store.updateHistoryComparison(9, comparisonWithoutSelectedDetail)
+  store.currentHistoryId = null // Exercise a new save with a restored legacy snapshot.
   await store.saveToHistory('image.png', 'annotated.png')
 
   const updateCall = invokeCalls.find(call => call.command === 'update_analysis_history_comparison')
@@ -343,10 +347,167 @@ test('saveToHistory does not persist stale legacy history ids when the target ro
     analysis: createAnalysis({ timestamp: 1710000600 })
   }))
 
+  store.currentHistoryId = null // Exercise a new save with a restored legacy snapshot.
   await store.saveToHistory('image.png', 'annotated.png')
 
   const saveCall = invokeCalls.find(call => call.command === 'save_analysis_history')
   assert.ok(saveCall)
   assert.equal(saveCall.args.comparison.analysisKey, 'legacy-player-23')
   assert.equal(Object.hasOwn(saveCall.args.comparison, 'historyId'), false)
+})
+
+
+test('saving is coalesced, returns id, and prevents duplicate inserts', async () => {
+  let complete
+  const { store, invokeCalls } = await createStoreHarness({ invokeImpl: (command) => command === 'save_analysis_history' ? new Promise(resolve => { complete = resolve }) : [] })
+  store.setCurrentAnalysis(createAnalysis())
+  const first = store.saveToHistory('data:image/png;base64,AA==')
+  const second = store.saveToHistory()
+  assert.equal(store.isSavingHistory, true)
+  complete(123)
+  assert.equal(await first, 123)
+  assert.equal(await second, 123)
+  assert.equal(await store.saveToHistory(), 123)
+  assert.equal(store.currentHistoryId, 123)
+  assert.equal(invokeCalls.filter(c => c.command === 'save_analysis_history').length, 1)
+})
+
+test('failed saves allow retry and stale saves do not attach to a new analysis', async () => {
+  let attempt = 0, complete
+  const { store } = await createStoreHarness({ invokeImpl: (command) => {
+    if (command !== 'save_analysis_history') return []
+    if (++attempt === 1) throw new Error('disk full')
+    return new Promise(resolve => { complete = resolve })
+  } })
+  store.setCurrentAnalysis(createAnalysis())
+  await assert.rejects(store.saveToHistory(), /disk full/)
+  assert.equal(store.currentHistoryId, null)
+  const saving = store.saveToHistory()
+  store.setCurrentAnalysis(createAnalysis({ timestamp: 99 }))
+  complete(77); await saving
+  assert.equal(store.currentHistoryId, null)
+  assert.equal(store.isSavingHistory, false)
+})
+
+test('restored video retains comparison and saved AI, including selected frame', async () => {
+  const { store } = await createStoreHarness()
+  const record = createHistoryRecord({ aiCoachingSummary: 'cached', aiCoachingSuggestions: [] })
+  record.videoAnalysis = { bestFrameIndex: 0, videoPath: 'missing.mp4', overallShotType: 'one_motion', frames: [{ analysis: record.analysis, imageData: 'embedded', annotatedImageData: 'pose' }] }
+  store.setCurrentHistoryRecord(record)
+  assert.equal(store.currentComparisonSnapshot.selectedPlayerId, 23)
+  assert.equal(store.coachingSources.ai.summary, 'cached')
+  assert.equal(store.currentImage, record.imagePath)
+  assert.equal(store.currentHistoryId, record.id)
+})
+
+
+test('AI failure preserves local results and still permits saving without AI content', async () => {
+  const { store, invokeCalls } = await createStoreHarness({ invokeImpl: async command => {
+    if (command === 'get_ai_correction_suggestions') throw new Error('API not configured')
+    if (command === 'save_analysis_history') return 88
+    if (command === 'get_correction_suggestions') return [{ bodyPart: '肘部', suggestion: '规则建议' }]
+    return []
+  } })
+  store.setCurrentAnalysis(createAnalysis())
+  await store.loadRuleSuggestions(store.currentAnalysis)
+  await store.generateAiCoaching()
+  assert.equal(store.coachingSources.ai.state, 'error')
+  assert.equal(store.coachingSources.rule.data.length, 1)
+  await store.saveToHistory()
+  const args = invokeCalls.find(c => c.command === 'save_analysis_history').args
+  assert.equal(args.suggestions.length, 1)
+  assert.equal(args.aiCoachingSummary, null)
+  assert.equal(store.currentHistoryId, 88)
+})
+
+test('late AI result never overwrites a different analysis session', async () => {
+  let resolveAi
+  const { store } = await createStoreHarness({ invokeImpl: command => command === 'get_ai_correction_suggestions' ? new Promise(resolve => { resolveAi = resolve }) : [] })
+  store.setCurrentAnalysis(createAnalysis({ timestamp: 1 }))
+  const running = store.generateAiCoaching()
+  store.setCurrentAnalysis(createAnalysis({ timestamp: 2 }))
+  resolveAi({ summary: 'old session', suggestions: [] })
+  await running
+  assert.equal(store.coachingSources.ai.state, 'idle')
+  assert.equal(store.coachingSources.ai.summary, '')
+})
+
+const ruleSuggestion = label => ({ bodyPart: '膝部', suggestion: label, priority: 'medium' })
+const deferredRulesHarness = async () => {
+  const requests = []
+  const harness = await createStoreHarness({ invokeImpl: command => {
+    if (command === 'get_correction_suggestions') return new Promise((resolve, reject) => requests.push({ resolve, reject }))
+    if (command === 'save_analysis_history') return 51
+    return null
+  } })
+  const frames = [100, 150].map((value, index) => ({
+    index, timestampMs: index * 200, imageData: `frame-${index}`,
+    // Deliberately identical timestamps: timestamp alone cannot identify a frame.
+    analysis: createAnalysis({ timestamp: 42, angles: [{ name: 'left_knee_angle', value, status: 'normal' }] })
+  }))
+  harness.store.setCurrentAnalysis(frames[0].analysis)
+  harness.store.currentVideoAnalysis = { frames, bestFrameIndex: 0, videoPath: 'test.mp4', overallShotType: 'unknown' }
+  return { ...harness, requests }
+}
+
+for (const outcome of ['resolve', 'reject']) {
+  test(`switching frames clears old suggestions while pending and after ${outcome}`, async () => {
+    const { store, requests, invokeCalls } = await deferredRulesHarness()
+    const first = store.selectVideoFrame(0)
+    requests[0].resolve([ruleSuggestion('frame A')]); await first
+    assert.equal(store.currentRuleSuggestions[0].suggestion, 'frame A')
+    const next = store.selectVideoFrame(1)
+    assert.equal(store.coachingSources.rule.state, 'loading')
+    assert.deepEqual(store.coachingSources.rule.data, [])
+    assert.equal(store.coachingSources.rule.summary, '')
+    assert.deepEqual(store.currentRuleSuggestions, [])
+    await store.saveToHistory()
+    const pendingSave = invokeCalls.find(c => c.command === 'save_analysis_history').args
+    assert.equal(pendingSave.analysis.angles[0].value, 150)
+    assert.equal(pendingSave.videoAnalysis.bestFrameIndex, 1)
+    assert.deepEqual(pendingSave.suggestions, [])
+    requests[1][outcome](outcome === 'resolve' ? [ruleSuggestion('frame B')] : new Error('rules failed'))
+    await next
+    assert.equal(store.coachingSources.rule.state, outcome === 'resolve' ? 'done' : 'error')
+    store.currentHistoryId = null
+    await store.saveToHistory()
+    const saved = invokeCalls.filter(c => c.command === 'save_analysis_history').at(-1).args
+    assert.deepEqual(saved.suggestions, outcome === 'resolve' ? [ruleSuggestion('frame B')] : [])
+    if (outcome === 'reject') {
+      assert.deepEqual(store.coachingSources.rule.data, [])
+      assert.equal(store.coachingSources.rule.summary, '')
+      assert.match(store.coachingSources.rule.error, /rules failed/)
+    }
+  })
+
+  test(`late ${outcome} cannot overwrite newer frame after A to B to A`, async () => {
+    const { store, requests } = await deferredRulesHarness()
+    const firstA = store.selectVideoFrame(0)
+    const frameB = store.selectVideoFrame(1)
+    const secondA = store.selectVideoFrame(0)
+    requests[2].resolve([ruleSuggestion('latest A')]); await secondA
+    requests[0][outcome](outcome === 'resolve' ? [ruleSuggestion('obsolete A')] : new Error('obsolete failure'))
+    requests[1][outcome](outcome === 'resolve' ? [ruleSuggestion('obsolete B')] : new Error('obsolete failure'))
+    await Promise.all([firstA, frameB])
+    assert.equal(store.coachingSources.rule.state, 'done')
+    assert.equal(store.coachingSources.rule.error, '')
+    assert.deepEqual(store.currentRuleSuggestions, [ruleSuggestion('latest A')])
+  })
+}
+
+test('restored suggestions stay bound to saved frame and invalidate outstanding requests', async () => {
+  const { store, requests, invokeCalls } = await deferredRulesHarness()
+  const pending = store.selectVideoFrame(1)
+  const record = createHistoryRecord({ analysis: store.currentAnalysis, suggestions: [ruleSuggestion('saved frame')] })
+  record.videoAnalysis = { ...store.currentVideoAnalysis, bestFrameIndex: 1 }
+  store.setCurrentHistoryRecord(record)
+  requests[0].resolve([ruleSuggestion('outdated request')]); await pending
+  assert.equal(invokeCalls.filter(c => c.command === 'get_correction_suggestions').length, 1)
+  assert.deepEqual(store.currentRuleSuggestions, record.suggestions)
+  const key = store.coachingSources.rule.analysisKey
+  store.setCurrentAnalysis(createAnalysis({ timestamp: 42 }))
+  store.coachingSources.rule = { analysisKey: key, state: 'done', data: record.suggestions }
+  assert.deepEqual(store.currentRuleSuggestions, [])
+  await store.saveToHistory()
+  assert.deepEqual(invokeCalls.find(c => c.command === 'save_analysis_history').args.suggestions, [])
 })

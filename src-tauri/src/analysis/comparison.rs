@@ -578,7 +578,8 @@ pub fn get_default_player_templates() -> Vec<PlayerTemplate> {
             id: 1,
             name: "斯蒂芬·库里".to_string(),
             team: "金州勇士".to_string(),
-            description: "NBA 历史级射手，典型 1 段式投篮代表。".to_string(),
+            description: "【示例参考数据，非实测】NBA 历史级射手，典型 1 段式投篮代表。"
+                .to_string(),
             pose_data: PoseData {
                 keypoints: vec![],
                 width: 640,
@@ -620,7 +621,7 @@ pub fn get_default_player_templates() -> Vec<PlayerTemplate> {
             id: 2,
             name: "科比·布莱恩特".to_string(),
             team: "洛杉矶湖人".to_string(),
-            description: "NBA 传奇球星，典型 2 段式投篮代表。".to_string(),
+            description: "【示例参考数据，非实测】NBA 传奇球星，典型 2 段式投篮代表。".to_string(),
             pose_data: PoseData {
                 keypoints: vec![],
                 width: 640,
@@ -662,7 +663,7 @@ pub fn get_default_player_templates() -> Vec<PlayerTemplate> {
             id: 3,
             name: "迈克尔·乔丹".to_string(),
             team: "芝加哥公牛".to_string(),
-            description: "篮球之神，经典后仰与中距离投篮代表。".to_string(),
+            description: "【示例参考数据，非实测】篮球之神，经典后仰与中距离投篮代表。".to_string(),
             pose_data: PoseData {
                 keypoints: vec![],
                 width: 640,
@@ -704,7 +705,8 @@ pub fn get_default_player_templates() -> Vec<PlayerTemplate> {
             id: 4,
             name: "克莱·汤普森".to_string(),
             team: "金州勇士".to_string(),
-            description: "顶级 3D 球员，典型 1.5 段式投篮代表。".to_string(),
+            description: "【示例参考数据，非实测】顶级 3D 球员，典型 1.5 段式投篮代表。"
+                .to_string(),
             pose_data: PoseData {
                 keypoints: vec![],
                 width: 640,

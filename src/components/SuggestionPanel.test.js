@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
-const componentPath = resolve('D:/智能投篮分析/src/components/SuggestionPanel/index.vue')
+const componentPath = resolve('src/components/SuggestionPanel/index.vue')
 const source = readFileSync(componentPath, 'utf8')
 
 test('SuggestionPanel resolves AI image inputs before invoking coaching generation', () => {

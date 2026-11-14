@@ -24,4 +24,10 @@ pub struct DbAnalysisHistory {
     pub source_identifier: Option<String>,
     pub video_analysis_json: Option<String>,
     pub created_at: i64,
+    #[sqlx(default)]
+    pub training_date: String,
+    #[sqlx(default)]
+    pub notes: String,
+    #[sqlx(default)]
+    pub tags_json: String,
 }

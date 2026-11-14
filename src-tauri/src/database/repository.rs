@@ -97,6 +97,16 @@ async fn initialize_database_schema(pool: &SqlitePool) -> Result<()> {
     )
     .await?;
 
+    for statement in [
+        "ALTER TABLE analysis_history ADD COLUMN training_date TEXT NOT NULL DEFAULT ''",
+        "ALTER TABLE analysis_history ADD COLUMN notes TEXT NOT NULL DEFAULT ''",
+        "ALTER TABLE analysis_history ADD COLUMN tags_json TEXT NOT NULL DEFAULT '[]'",
+    ] {
+        ensure_database_column(pool, statement).await?;
+    }
+    sqlx::query("UPDATE analysis_history SET training_date = date(created_at / 1000, 'unixepoch', 'localtime') WHERE training_date = ''")
+        .execute(pool).await?;
+
     Ok(())
 }
 
@@ -354,9 +364,9 @@ pub async fn save_analysis_history(
             ai_coaching_suggestions_json,
             source_identifier,
             video_analysis_json,
-            created_at
+            created_at, training_date
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, date('now', 'localtime'))
         "#,
     )
     .bind(image_path)
@@ -453,13 +463,43 @@ pub async fn get_analysis_history_paginated(
     limit: Option<i64>,
     offset: Option<i64>,
 ) -> Result<Vec<AnalysisHistory>> {
-    let query = "SELECT * FROM analysis_history ORDER BY created_at DESC LIMIT ? OFFSET ?";
-    let limit_val = limit.unwrap_or(-1);
-    let offset_val = offset.unwrap_or(0);
+    query_training_history(pool, limit, offset, None, None, None, None).await
+}
 
+pub async fn query_training_history(
+    pool: &SqlitePool,
+    limit: Option<i64>,
+    offset: Option<i64>,
+    date_from: Option<String>,
+    date_to: Option<String>,
+    tag: Option<String>,
+    shot_type: Option<String>,
+) -> Result<Vec<AnalysisHistory>> {
+    let shot_type = shot_type.map(|value| value.replace('_', "").to_ascii_lowercase());
+    // Fixed SQL and bound values: filters apply before pagination, including exact JSON tags.
+    let query = "SELECT * FROM analysis_history
+        WHERE (? IS NULL OR training_date >= ?)
+        AND (? IS NULL OR training_date <= ?)
+        AND (? IS NULL OR EXISTS (SELECT 1 FROM json_each(tags_json) WHERE value = ?))
+        AND (? IS NULL OR CASE lower(replace(COALESCE(
+            NULLIF(json_extract(video_analysis_json, '$.overallShotType'), ''),
+            json_extract(analysis_json, '$.shotType'), 'unknown'), '_', ''))
+            WHEN 'onemotion' THEN 'onemotion'
+            WHEN 'onepointfivemotion' THEN 'onepointfivemotion'
+            WHEN 'twomotion' THEN 'twomotion'
+            ELSE 'unknown' END = ?)
+        ORDER BY training_date DESC, created_at DESC, id DESC LIMIT ? OFFSET ?";
     let rows = sqlx::query_as::<_, DbAnalysisHistory>(query)
-        .bind(limit_val)
-        .bind(offset_val)
+        .bind(&date_from)
+        .bind(&date_from)
+        .bind(&date_to)
+        .bind(&date_to)
+        .bind(&tag)
+        .bind(&tag)
+        .bind(&shot_type)
+        .bind(&shot_type)
+        .bind(limit.unwrap_or(-1))
+        .bind(offset.unwrap_or(0).max(0))
         .fetch_all(pool)
         .await?;
 
@@ -477,7 +517,7 @@ pub async fn get_analysis_history_paginated(
                 .and_then(|json| serde_json::from_str(&json).ok());
             let video_analysis = row
                 .video_analysis_json
-                .and_then(|json| serde_json::from_str(&json).ok());
+                .and_then(|json| deserialize_video_analysis(&json, &analysis));
 
             AnalysisHistory {
                 id: row.id,
@@ -491,11 +531,33 @@ pub async fn get_analysis_history_paginated(
                 source_identifier: row.source_identifier,
                 video_analysis,
                 created_at: row.created_at as u64,
+                training_date: row.training_date,
+                notes: row.notes,
+                tags: serde_json::from_str(&row.tags_json).unwrap_or_default(),
             }
         })
         .collect();
 
     Ok(history)
+}
+
+fn deserialize_video_analysis(json: &str, analysis: &ShotAnalysis) -> Option<VideoShotAnalysis> {
+    let mut value: serde_json::Value = serde_json::from_str(json).ok()?;
+    // Keep legacy missing classifications consistent with the SQL filter and UI fallback.
+    let shot_type = match value.get("overallShotType").and_then(|v| v.as_str()) {
+        None | Some("") => analysis.shot_type.clone(),
+        Some(kind) => match kind.replace('_', "").to_ascii_lowercase().as_str() {
+            "onemotion" => crate::models::ShotType::OneMotion,
+            "onepointfivemotion" => crate::models::ShotType::OnePointFiveMotion,
+            "twomotion" => crate::models::ShotType::TwoMotion,
+            _ => crate::models::ShotType::Unknown,
+        },
+    };
+    value.as_object_mut()?.insert(
+        "overallShotType".into(),
+        serde_json::to_value(shot_type).ok()?,
+    );
+    serde_json::from_value(value).ok()
 }
 
 fn deserialize_comparison_snapshot(
@@ -689,8 +751,181 @@ mod tests {
         .execute(&pool)
         .await
         .expect("create analysis_history");
-
+        initialize_database_schema(&pool)
+            .await
+            .expect("migrate legacy schema");
         pool
+    }
+
+    #[tokio::test]
+    async fn video_type_filter_prefers_overall_type_and_preserves_image_pagination() {
+        let pool = setup_in_memory_pool().await;
+        let mut analysis = sample_analysis();
+        analysis.shot_type = ShotType::OneMotion;
+        let video = VideoShotAnalysis {
+            overall_shot_type: ShotType::TwoMotion,
+            ..Default::default()
+        };
+        let video_id = save_analysis_history(
+            &pool,
+            "image",
+            "pose",
+            &analysis,
+            None,
+            &[],
+            None,
+            None,
+            None,
+            Some(&video),
+        )
+        .await
+        .unwrap();
+        for _ in 0..22 {
+            save_analysis_history(
+                &pool,
+                "image",
+                "pose",
+                &analysis,
+                None,
+                &[],
+                None,
+                None,
+                None,
+                None,
+            )
+            .await
+            .unwrap();
+        }
+        let rows = query_training_history(
+            &pool,
+            Some(20),
+            Some(0),
+            None,
+            None,
+            None,
+            Some("two_motion".into()),
+        )
+        .await
+        .unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].id, video_id);
+        assert_eq!(rows[0].analysis.shot_type, ShotType::OneMotion);
+        assert_eq!(
+            rows[0].video_analysis.as_ref().unwrap().overall_shot_type,
+            ShotType::TwoMotion
+        );
+        let first = query_training_history(
+            &pool,
+            Some(20),
+            Some(0),
+            None,
+            None,
+            None,
+            Some("one_motion".into()),
+        )
+        .await
+        .unwrap();
+        let second = query_training_history(
+            &pool,
+            Some(20),
+            Some(20),
+            None,
+            None,
+            None,
+            Some("one_motion".into()),
+        )
+        .await
+        .unwrap();
+        assert_eq!(first.len(), 20);
+        assert_eq!(second.len(), 2);
+        assert!(first
+            .iter()
+            .chain(second.iter())
+            .all(|row| row.video_analysis.is_none()));
+    }
+
+    #[test]
+    fn legacy_video_classification_matches_filter_fallback() {
+        let mut analysis = sample_analysis();
+        analysis.shot_type = ShotType::OneMotion;
+        let mut value = serde_json::to_value(VideoShotAnalysis::default()).unwrap();
+        for kind in [serde_json::Value::Null, serde_json::json!("")] {
+            value["overallShotType"] = kind;
+            assert_eq!(
+                deserialize_video_analysis(&value.to_string(), &analysis)
+                    .unwrap()
+                    .overall_shot_type,
+                ShotType::OneMotion
+            );
+        }
+        value.as_object_mut().unwrap().remove("overallShotType");
+        assert_eq!(
+            deserialize_video_analysis(&value.to_string(), &analysis)
+                .unwrap()
+                .overall_shot_type,
+            ShotType::OneMotion
+        );
+        value["overallShotType"] = serde_json::json!("unknown");
+        assert_eq!(
+            deserialize_video_analysis(&value.to_string(), &analysis)
+                .unwrap()
+                .overall_shot_type,
+            ShotType::Unknown
+        );
+    }
+
+    #[tokio::test]
+    async fn metadata_migration_filters_before_pagination_and_validates_dates() {
+        let pool = setup_in_memory_pool().await;
+        for i in 0..25 {
+            let id = save_analysis_history(
+                &pool,
+                "data:image/png;base64,AA==",
+                "",
+                &sample_analysis(),
+                None,
+                &[],
+                None,
+                None,
+                None,
+                None,
+            )
+            .await
+            .unwrap();
+            let tag = if i == 0 { "target" } else { "other" };
+            update_training_metadata(
+                &pool,
+                id,
+                "2026-11-15",
+                "<script>备注</script>",
+                &[tag.to_string()],
+            )
+            .await
+            .unwrap();
+        }
+        let rows = query_training_history(
+            &pool,
+            Some(20),
+            Some(0),
+            Some("2026-11-15".into()),
+            Some("2026-11-15".into()),
+            Some("target".into()),
+            Some("unknown".into()),
+        )
+        .await
+        .unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].notes, "<script>备注</script>");
+        assert!(
+            update_training_metadata(&pool, rows[0].id, "2026-02-30", "", &[])
+                .await
+                .is_err()
+        );
+        assert!(update_training_metadata(&pool, -1, "2026-11-15", "", &[])
+            .await
+            .is_err());
+        initialize_database_schema(&pool).await.unwrap();
+        assert_eq!(get_analysis_history(&pool).await.unwrap().len(), 25);
     }
 
     fn sample_analysis() -> ShotAnalysis {
@@ -1351,4 +1586,53 @@ mod tests {
             format!("legacy-history-{}-player-1", history_id)
         );
     }
+}
+
+/// Metadata edits never rewrite the captured analysis or original creation time.
+pub async fn update_training_metadata(
+    pool: &SqlitePool,
+    id: i64,
+    training_date: &str,
+    notes: &str,
+    tags: &[String],
+) -> Result<()> {
+    let parts: Vec<&str> = training_date.split('-').collect();
+    let valid_shape = parts.len() == 3
+        && parts[0].len() == 4
+        && parts[1].len() == 2
+        && parts[2].len() == 2
+        && training_date
+            .chars()
+            .all(|c| c.is_ascii_digit() || c == '-');
+    let normalized: Option<String> = sqlx::query_scalar("SELECT date(?, '+0 days')")
+        .bind(training_date)
+        .fetch_one(pool)
+        .await?;
+    if !valid_shape || normalized.as_deref() != Some(training_date) {
+        bail!("训练日期无效");
+    }
+    if notes.chars().count() > 2000
+        || tags.len() > 10
+        || tags
+            .iter()
+            .any(|tag| tag.trim().is_empty() || tag.chars().count() > 30)
+    {
+        bail!("备注最多 2000 字，标签最多 10 个，每个最多 30 字");
+    }
+    let mut clean_tags: Vec<String> = tags.iter().map(|tag| tag.trim().to_string()).collect();
+    clean_tags.sort();
+    clean_tags.dedup();
+    let result = sqlx::query(
+        "UPDATE analysis_history SET training_date = ?, notes = ?, tags_json = ? WHERE id = ?",
+    )
+    .bind(training_date)
+    .bind(notes)
+    .bind(serde_json::to_string(&clean_tags)?)
+    .bind(id)
+    .execute(pool)
+    .await?;
+    if result.rows_affected() == 0 {
+        bail!("记录不存在或已删除");
+    }
+    Ok(())
 }

@@ -14,11 +14,11 @@ test('upload route renders a dedicated workbench page instead of homepage chrome
 })
 
 test('upload route presents one clear primary task region for the workbench', () => {
-  assert.match(source, /<div class="upload-page__content">[\s\S]*<UploadWorkbenchPage \/>/)
-  assert.match(
-    workbenchSource,
-    /<section class="upload-workbench__main(?: upload-workbench__deck)?">[\s\S]*upload-workbench__mode-strip[\s\S]*upload-workbench__surface[\s\S]*upload-workbench__status-rail/
-  )
+  assert.match(source, /<div\s*class="upload-page__content">[\s\S]*<UploadWorkbenchPage\s*\/>/)
+  assert.match(workbenchSource, /class="upload-workbench__body"/)
+  assert.match(workbenchSource, /VideoTrimFilmstrip/)
+  assert.match(workbenchSource, /@click="handleStartAnalysis"/)
+
 })
 
 test('upload route atmosphere stays quiet so content remains visually dominant', () => {
@@ -29,14 +29,13 @@ test('upload route atmosphere stays quiet so content remains visually dominant',
 })
 
 test('upload route reveal remains smooth but not theatrical', () => {
-  assert.match(source, /\.upload-page__content\s*\{[\s\S]*transition:[\s\S]*opacity 240ms/)
+  assert.match(source, /\.upload-page__content\s*\{[\s\S]*transition:[\s\S]*opacity\s*240ms/)
   assert.match(source, /\.upload-page__content\s*\{[\s\S]*transform:\s*translate3d\(0,\s*6px,\s*0\)/)
-  assert.match(source, /\.upload-page--reveal \.upload-page__content\s*\{/)
+  assert.match(source, /\.upload-page--reveal\s*\.upload-page__content\s*\{/)
 })
 
-test('upload workbench keeps Home and History actions visible but secondary', () => {
-  assert.match(workbenchSource, /<Button variant="ghost" size="sm" @click="goHome">/)
-  assert.match(workbenchSource, /<Button variant="outline" size="sm" @click="goHistory">/)
-  assert.doesNotMatch(workbenchSource, /variant="default" size="sm" @click="goHome"/)
-  assert.doesNotMatch(workbenchSource, /variant="default" size="sm" @click="goHistory"/)
+test('global sidebar supplies Home and History navigation', () => {
+  const sidebar = readFileSync(new URL('../components/AppSidebar.vue', import.meta.url), 'utf8')
+  assert.match(sidebar, /path: ["']\/["']/)
+  assert.match(sidebar, /path: ["']\/history["']/)
 })

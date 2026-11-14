@@ -182,3 +182,39 @@ mod tests {
         );
     }
 }
+
+#[tauri::command]
+pub async fn query_training_history(
+    pool: State<'_, SqlitePool>,
+    limit: i64,
+    offset: i64,
+    date_from: Option<String>,
+    date_to: Option<String>,
+    tag: Option<String>,
+    shot_type: Option<String>,
+) -> Result<Vec<AnalysisHistory>, String> {
+    crate::database::query_training_history(
+        &pool,
+        Some(limit.clamp(1, 100)),
+        Some(offset.max(0)),
+        date_from,
+        date_to,
+        tag,
+        shot_type,
+    )
+    .await
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn update_training_metadata(
+    pool: State<'_, SqlitePool>,
+    id: i64,
+    training_date: String,
+    notes: String,
+    tags: Vec<String>,
+) -> Result<(), String> {
+    crate::database::update_training_metadata(&pool, id, &training_date, &notes, &tags)
+        .await
+        .map_err(|e| e.to_string())
+}

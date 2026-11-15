@@ -1,0 +1,53 @@
+{
+    "schemaVersion": 1,
+    "lang": "zh",
+    "project": "ShotForm · 三种训练工作台",
+    "brief": "同一段投篮、同一组内容，比较回放、复盘和动作序列三种阅读方式。候选为静态视觉稿，按钮暂未接入业务；分析数值与结论是共用排版夹具，不代表视频实测。现状截图来自前一轮审计。",
+    "round": "01",
+    "nativeViewport": "1440x900",
+    "serve": {
+        "command": "python -m http.server 1423 --bind 127.0.0.1 --directory docs/ui-audit/2026-11-15/explore",
+        "cwd": "D:/工作/毕业论文/ShotForm",
+        "url": "http://127.0.0.1:1423/style-explorer.html"
+    },
+    "candidates": [
+        {
+            "id": "baseline",
+            "name": "重构前 · 当前分析页",
+            "concept": "保留当前画面作为层级与空间分配的参照。",
+            "typography": "当前应用字体与组件",
+            "palette": ["#141922", "#F3EEE6", "#C9823D"],
+            "traits": ["审计截图", "当前多面板布局"],
+            "baseline": true,
+            "kind": "image",
+            "source": "../baseline/dark-analysis-fixture.png"
+        },
+        {
+            "id": "a",
+            "name": "A · 球场回放台",
+            "concept": "先看清这次出手，再追问判断依据。",
+            "typography": "HarmonyOS Sans SC；紧凑工具标题与 14–16px 正文，数值等宽对齐",
+            "palette": ["#0A0D12", "#141922", "#5D7396", "#C9823D", "#F3F0EA"],
+            "traits": ["大幅动作画面", "近邻时间轴", "判断依据侧栏"],
+            "source": "a.html"
+        },
+        {
+            "id": "b",
+            "name": "B · 教练复盘册",
+            "concept": "把训练结论和下一步组织成一份可阅读的复盘记录。",
+            "typography": "HarmonyOS Sans SC；结论标题领读，连续正文与页边记录建立层级",
+            "palette": ["#F3EEE6", "#FAF7F2", "#1C2128", "#5D7396", "#C9823D"],
+            "traits": ["结论先行", "横向连续证据", "开放纸面排版"],
+            "source": "b.html"
+        },
+        {
+            "id": "c",
+            "name": "C · 动作序列台",
+            "concept": "让一次出手的时间顺序成为界面本身。",
+            "typography": "HarmonyOS Sans SC；时间与帧序列突出，注释围绕当前画面展开",
+            "palette": ["#0A0D12", "#141922", "#5D7396", "#C9823D", "#F3F0EA"],
+            "traits": ["关键帧主导航", "中央选中画面", "就地读取角度"],
+            "source": "c.html"
+        }
+    ]
+}

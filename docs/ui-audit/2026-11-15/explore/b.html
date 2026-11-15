@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ShotForm · 教练复盘册</title>
+  <style>
+    @font-face{font-family:Harmony;src:url('assets/shotform-ui.ttf') format('truetype');font-weight:400;font-display:swap}
+    *{box-sizing:border-box}body{margin:0;width:1440px;height:900px;overflow:hidden;background:#F3EEE6;color:#1C2128;font:15px/1.6 Harmony,'Microsoft YaHei',sans-serif;-webkit-font-smoothing:antialiased}button{font:inherit;border:0;cursor:default}button svg{width:17px;height:17px;vertical-align:-3px;margin-right:7px}svg{fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}a{text-decoration:none;color:inherit}
+    .topnav{height:64px;border-bottom:1px solid #d8d2c8;display:flex;align-items:center;padding:0 52px;gap:54px;background:#FAF7F2}.brand{font-size:19px;letter-spacing:-.5px;font-weight:bold;display:flex;gap:11px;align-items:center}.brand svg{width:25px;height:25px;color:#A76730}.navlinks{display:flex;gap:33px;height:64px;align-items:stretch}.navlinks span{display:flex;align-items:center;font-size:14px;color:#647080;position:relative}.navlinks .selected{color:#3F587B;font-weight:bold}.navlinks .selected:after{position:absolute;bottom:0;left:0;right:0;content:'';height:3px;background:#5D7396}.settings{margin-left:auto;font-size:14px;color:#647080;display:flex;gap:9px;align-items:center}.settings svg{width:18px;height:18px}
+    main{width:1288px;margin:0 auto}.recordline{display:flex;justify-content:space-between;align-items:center;margin-top:23px}.recordline .location{font-size:14px;color:#697482;display:flex;gap:13px;align-items:center}.location strong{font-weight:400;color:#1C2128}.location span.sep{color:#9b9d9c}.actions{display:flex;gap:10px}.actions button{height:38px;padding:0 17px;border-radius:6px;font-size:14px;background:transparent;border:1px solid #c9c7c0}.actions .primary{background:#536B90;color:white;border-color:#536B90}.headline{display:flex;justify-content:space-between;align-items:flex-end;margin-top:19px}.headline h1{font-size:36px;line-height:1.24;letter-spacing:-1.1px;margin:0 0 9px;font-weight:bold}.headline p{margin:0;color:#5e6875;font-size:15px}.reading{display:flex;align-items:center;gap:24px;padding-bottom:3px}.reading .classification{font-size:17px;line-height:1.5}.reading .classification small{display:block;font-size:13px;color:#737d89;margin-bottom:3px}.reading .confidence{padding-left:24px;border-left:1px solid #cbc5ba}.reading .confidence strong{font-size:27px;font-weight:400;line-height:1.1;font-variant-numeric:tabular-nums}.reading .confidence small{display:block;font-size:13px;color:#737d89;margin-top:3px}
+    .evidence-heading{margin-top:24px;display:flex;align-items:center;justify-content:space-between;font-size:14px;margin-bottom:10px}.evidence-heading h2{margin:0;font-size:15px;font-weight:bold}.evidence-heading .range{font-size:13px;color:#687280;display:flex;gap:22px}.evidence{display:grid;grid-template-columns:repeat(5,1fr);background:#222933;height:270px;gap:3px}.moment{margin:0;position:relative;overflow:hidden;height:270px}.moment img{display:block;width:100%;height:100%;object-fit:contain;object-position:center}.moment:nth-child(3){box-shadow:inset 0 0 0 2px #C9823D}.moment:nth-child(3):after{content:'';position:absolute;inset:0;border:2px solid #C9823D;pointer-events:none}.caption{display:grid;grid-template-columns:repeat(5,1fr);margin-top:8px;font-size:13px;color:#657080;font-variant-numeric:tabular-nums}.caption span{display:flex;justify-content:space-between;padding-right:14px}.caption .current{color:#8A521F;font-weight:bold}.caption em{font-size:13px;font-style:normal;margin-right:10px}.caption .index{color:#91958f}.below{display:grid;grid-template-columns:784px 1fr;gap:66px;margin-top:22px}.below h2{margin:0;font-size:18px;line-height:1.5}.section-intro{font-size:14px;color:#697482;margin:3px 0 14px}.data{width:100%;border-collapse:collapse;font-size:14px}.data th{font-weight:400;color:#77818c;text-align:left;font-size:13px;padding:0 0 9px;border-bottom:1px solid #d3cec4}.data td{padding:10px 0;border-bottom:1px solid #ded8ce}.data td:nth-child(2){font-size:19px;font-variant-numeric:tabular-nums;width:127px}.data th:nth-child(1){width:186px}.data th:nth-child(3){width:150px}.data td:last-child{color:#6a7480;font-size:13px}.data .copper{color:#925722}.data .unreliable{font-size:14px!important;color:#7e8792}.annotation{margin-top:10px;font-size:13px;color:#697482;display:flex;align-items:center;gap:7px}.annotation svg{width:14px;height:14px;flex-shrink:0}.next h2{margin-bottom:10px}.next p{font-size:15px;line-height:1.8;margin:0;color:#3f4956}.note{margin-top:23px}.note .notehead{display:flex;justify-content:space-between;align-items:center}.note .notehead h3{font-size:14px;margin:0;color:#687280;font-weight:400}.note .notehead button{background:transparent;color:#4c6384;padding:0;font-size:13px}.note p{margin-top:6px;font-size:14px;color:#687280;line-height:1.65}.footer{height:32px;display:flex;align-items:center;justify-content:space-between;margin-top:17px;font-size:12px;color:#77818a}.footer .tags{display:flex;gap:10px}.footer .tags span{padding:1px 7px;border:1px solid #d2cdc3;border-radius:3px}
+  </style>
+</head>
+<body>
+  <nav class="topnav" aria-label="主导航">
+    <div class="brand"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3v18M5 5c7 4 7 10 0 14M19 5c-7 4-7 10 0 14"/></svg>ShotForm</div>
+    <div class="navlinks"><span>首页</span><span>上传素材</span><span class="selected">动作分析</span><span>训练历史</span><span>球星对比</span></div>
+    <span class="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="m9 3-.8 2.4-2.5.6-.8 2.7L3 10v4l1.9 1.3.8 2.7 2.5.6L9 21h6l.8-2.4 2.5-.6.8-2.7L21 14v-4l-1.9-1.3-.8-2.7-2.5-.6L15 3Z"/></svg>设置</span>
+  </nav>
+  <main>
+    <div class="recordline">
+      <div class="location"><strong>定点投篮 · 第 2 组</strong><span class="sep">/</span><span>2026 年 11 月 15 日</span></div>
+      <div class="actions"><button><svg viewBox="0 0 24 24"><path d="M12 3v12m-4-4 4 4 4-4M5 15v5h14v-5"/></svg>导出报告</button><button class="primary"><svg viewBox="0 0 24 24"><path d="M5 3h12l3 3v15H4V3Zm3 0v6h8V3M8 21v-7h8v7"/></svg>保存训练</button></div>
+    </div>
+    <header class="headline">
+      <div><h1>上举与出手衔接连续</h1><p>从屈膝到出手，球的上升过程保持连贯。</p></div>
+      <div class="reading"><div class="classification"><small>动作分型</small>一段式投篮</div><div class="confidence"><strong>71%</strong><small>判断置信度 · 中等</small></div></div>
+    </header>
+    <div class="evidence-heading"><h2>回看这次出手</h2><div class="range"><span>完整片段 2.97 秒</span><span>当前帧 00:01.25</span></div></div>
+    <section class="evidence" aria-label="投篮动作五帧">
+      <figure class="moment"><img src="assets/frame-1.jpg" alt="投篮视频 0.25 秒画面"></figure>
+      <figure class="moment"><img src="assets/frame-2.jpg" alt="投篮视频 0.75 秒画面"></figure>
+      <figure class="moment"><img src="assets/frame-3.jpg" alt="投篮视频 1.25 秒画面"></figure>
+      <figure class="moment"><img src="assets/frame-4.jpg" alt="投篮视频 1.75 秒画面"></figure>
+      <figure class="moment"><img src="assets/frame-5.jpg" alt="投篮视频 2.25 秒画面"></figure>
+    </section>
+    <div class="caption"><span><b class="index">01</b>00:00.25</span><span><b class="index">02</b>00:00.75</span><span class="current"><em>当前帧</em>00:01.25</span><span><b class="index">04</b>00:01.75</span><span><b class="index">05</b>00:02.25</span></div>
+    <div class="below">
+      <section>
+        <h2>用角度核对动作</h2>
+        <p class="section-intro">当前帧的角度是观察依据，不是投篮水平评分。</p>
+        <table class="data"><thead><tr><th>观察位置</th><th>当前角度</th><th>参考范围</th><th>阅读提示</th></tr></thead><tbody>
+          <tr><td>右肘</td><td>91°</td><td>80°–110°</td><td>位于参考范围内</td></tr>
+          <tr><td>左膝</td><td class="copper">132°</td><td>140°–170°</td><td>结合屈膝时刻查看</td></tr>
+          <tr><td>右膝</td><td class="unreliable">暂不判断</td><td>—</td><td>识别不稳定</td></tr>
+        </tbody></table>
+        <div class="annotation"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/></svg>右膝识别不稳定，暂不用于判断。</div>
+      </section>
+      <aside class="next"><h2>下一次，先改善拍摄角度</h2><p>下次从侧面拍摄，让全身与球始终留在画面中。</p><div class="note"><div class="notehead"><h3>训练备注</h3><button>编辑备注</button></div><p>定点投篮，关注上举与出手的衔接。</p></div></aside>
+    </div>
+
+  </main>
+</body>
+</html>

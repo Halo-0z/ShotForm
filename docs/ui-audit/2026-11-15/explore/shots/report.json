@@ -1,0 +1,80 @@
+[
+    {
+        "file": "a.png",
+        "target": "D:\\工作\\毕业论文\\ShotForm\\docs\\ui-audit\\2026-11-15\\explore\\a.html",
+        "name": "A · 球场回放台",
+        "state": null,
+        "size": "1440x900",
+        "zoom": 1,
+        "thumb": true,
+        "animationWaitMs": 0,
+        "issues": [],
+        "lint": []
+    },
+    {
+        "file": "b.png",
+        "target": "D:\\工作\\毕业论文\\ShotForm\\docs\\ui-audit\\2026-11-15\\explore\\b.html",
+        "name": "B · 教练复盘册",
+        "state": null,
+        "size": "1440x900",
+        "zoom": 1,
+        "thumb": true,
+        "animationWaitMs": 0,
+        "issues": [],
+        "lint": []
+    },
+    {
+        "file": "c.png",
+        "target": "D:\\工作\\毕业论文\\ShotForm\\docs\\ui-audit\\2026-11-15\\explore\\c.html",
+        "name": "C · 动作序列台",
+        "state": null,
+        "size": "1440x900",
+        "zoom": 1,
+        "thumb": true,
+        "animationWaitMs": 0,
+        "issues": [],
+        "lint": []
+    },
+    {
+        "file": "sheet.png",
+        "width": 2000,
+        "height": 480,
+        "columns": 3,
+        "items": [
+            {
+                "naturalWidth": 720,
+                "naturalHeight": 450,
+                "width": 640,
+                "height": 400,
+                "labelHeight": 32,
+                "x": 24,
+                "y": 24,
+                "label": "A · 球场回放台",
+                "labelY": 432
+            },
+            {
+                "naturalWidth": 720,
+                "naturalHeight": 450,
+                "width": 640,
+                "height": 400,
+                "labelHeight": 32,
+                "x": 680,
+                "y": 24,
+                "label": "B · 教练复盘册",
+                "labelY": 432
+            },
+            {
+                "naturalWidth": 720,
+                "naturalHeight": 450,
+                "width": 640,
+                "height": 400,
+                "labelHeight": 32,
+                "x": 1336,
+                "y": 24,
+                "label": "C · 动作序列台",
+                "labelY": 432
+            }
+        ],
+        "issues": []
+    }
+]

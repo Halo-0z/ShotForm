@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>A · 球场回放台</title>
+<style>
+@font-face{font-family:Harmony;src:url('{{FONT_URL}}') format('truetype');font-weight:400;font-display:block}
+*{box-sizing:border-box}body{margin:0;background:#141922;color:#f3f0ea;font-family:Harmony,'Microsoft YaHei',sans-serif;font-size:14px;line-height:1.6}button{font:inherit;border:0;color:inherit;background:none}svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.65;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}.app{width:1440px;height:900px;display:grid;grid-template-columns:156px 1fr;overflow:hidden}.rail{background:#10151d;border-right:1px solid #2a313b;padding:28px 14px 22px;display:flex;flex-direction:column}.brand{display:flex;align-items:center;gap:9px;font-size:18px;font-weight:700;margin:0 8px 45px;letter-spacing:-.5px}.brand svg{color:#c9823d;width:22px;height:22px}.nav{display:flex;flex-direction:column;gap:8px}.nav-item{display:flex;align-items:center;gap:11px;height:44px;padding:0 12px;color:#aeb8c6;border-radius:6px;font-size:14px;white-space:nowrap}.nav-item.active{background:#29374c;color:#f0f4fa;box-shadow:inset 2px 0 #91a9cc}.nav-item.active svg{color:#a9bedb}.rail-bottom{margin-top:auto;color:#aeb8c6}.local{margin:18px 12px 0;padding-top:16px;border-top:1px solid #2a313b;font-size:12px;color:#8f9ba9;display:flex;gap:8px;align-items:center}.local i{height:5px;width:5px;background:#8bada0;border-radius:50%}.main{display:flex;flex-direction:column;min-width:0}.topbar{height:74px;display:flex;align-items:center;justify-content:space-between;padding:0 30px;border-bottom:1px solid #2a313b;background:#141922}.file{display:flex;align-items:center;gap:15px}.file-icon{width:35px;height:35px;background:#202833;border-radius:6px;display:grid;place-items:center;color:#b6c0cc}.file-name{font-size:15px;font-weight:700;line-height:1.5}.file-meta{font-size:12px;color:#93a1b2;line-height:1.6;margin-top:1px}.actions{display:flex;align-items:center;gap:10px}.button{height:38px;display:flex;align-items:center;gap:8px;padding:0 16px;border-radius:6px;border:1px solid #3b4656;color:#dce3eb}.button.primary{background:#5d7396;border-color:#5d7396;color:#fff;font-weight:700}.button svg{width:16px;height:16px}.heading{display:flex;align-items:flex-end;justify-content:space-between;padding:23px 30px 19px}h1{font-size:26px;line-height:1.25;margin:0;letter-spacing:-.7px;font-weight:700}.heading-right{color:#b6c0cc;display:flex;align-items:center;gap:8px;font-size:13px}.heading-right .dot{width:6px;height:6px;background:#91b5a5;border-radius:50%}.workbench{display:grid;grid-template-columns:minmax(0,1fr) 324px;gap:28px;padding:0 30px 24px;flex:1;min-height:0}.viewer{display:flex;flex-direction:column;min-width:0}.view-tools{height:43px;display:flex;align-items:center;justify-content:space-between;font-size:13px;color:#aeb8c6}.view-tabs{display:flex;align-items:center;gap:24px;height:100%}.view-tabs span{height:100%;display:flex;align-items:center}.view-tabs .selected{color:#f3f0ea;border-bottom:2px solid #b7c8e1}.view-tools button{display:flex;align-items:center;gap:7px;font-size:13px;color:#b6c0cc}.view-tools svg{width:15px;height:15px}.film{height:492px;position:relative;background:#080b10;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:2px}.film>img{height:100%;width:auto;object-fit:contain;max-width:100%}.film-label{position:absolute;left:18px;top:16px;font-size:12px;letter-spacing:.03em;color:#a7b0bc}.film-caption{position:absolute;left:18px;bottom:15px;display:flex;align-items:center;gap:8px;color:#e0e5eb;font-size:12px}.film-caption i{width:5px;height:5px;border-radius:50%;background:#c9823d}.frame-count{position:absolute;bottom:15px;right:18px;color:#aeb8c6;font-family:'Cascadia Code',monospace;font-size:12px}.playbar{height:53px;display:flex;align-items:center;justify-content:space-between}.playgroup{display:flex;align-items:center;gap:18px}.play{height:30px;width:30px;background:#e8edf4;border-radius:50%;color:#1b2330;display:grid;place-items:center}.play svg{height:13px;width:13px;fill:currentColor;stroke-width:0;margin-left:2px}.step{display:grid;place-items:center;color:#bec8d4;padding:0}.step svg{width:16px;height:16px}.time{font-family:'Cascadia Code',monospace;font-size:13px;letter-spacing:-.3px;color:#f2f4f7;margin-left:6px}.time small{font-family:Harmony,sans-serif;color:#8e9bac;font-size:12px;padding-left:9px}.play-right{display:flex;align-items:center;gap:17px;color:#b6c0cc;font-size:13px}.speed{display:flex;gap:7px;align-items:center}.speed svg{width:12px;height:12px}.filmstrip{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;height:67px;position:relative}.thumb{position:relative;background:#202833;overflow:hidden;border-radius:2px}.thumb img{height:100%;width:100%;object-fit:cover;object-position:center 38%;opacity:.62}.thumb.active{outline:2px solid #c9823d;outline-offset:-2px}.thumb.active img{opacity:1}.thumb .stamp{position:absolute;bottom:5px;left:7px;font-size:11px;color:white;text-shadow:0 1px 4px #000;font-family:'Cascadia Code',monospace}.ticks{display:flex;justify-content:space-between;font-size:11px;font-family:'Cascadia Code',monospace;color:#8996a6;padding-top:7px}.note{font-size:13px;color:#b4bfcd;padding-top:19px;display:flex;align-items:center;gap:10px}.note svg{width:15px;height:15px;color:#8290a2}.note span{color:#7f8e9e;margin-right:2px}.inspector{border-left:1px solid #303846;padding-left:25px;padding-top:9px;display:flex;flex-direction:column}.section-label{font-size:13px;color:#aeb8c6;margin:0 0 15px;display:flex;align-items:center;justify-content:space-between}.section-label svg{width:15px;height:15px}.classification{display:flex;align-items:center;gap:8px;margin-bottom:10px;color:#d6a06b;font-size:13px}.classification i{width:5px;height:5px;border-radius:50%;background:#c9823d}.judgment{font-size:26px;line-height:1.4;letter-spacing:-.5px;font-weight:700;margin:0 0 14px;max-width:270px}.reason{color:#b6c0cc;font-size:14px;line-height:1.85;margin:0 0 23px}.confidence{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px}.confidence span{font-size:12px;color:#a8b4c4}.confidence strong{font-size:19px;font-weight:400;font-family:'Cascadia Code',monospace;color:#e3e8ef}.confidence-track{height:3px;background:#303a47}.confidence-track div{height:3px;width:71%;background:#b98450}.confidence-note{font-size:12px;color:#8f9daf;margin:9px 0 0}.angles{margin-top:28px;border-top:1px solid #303846;padding-top:22px}.angles h2{font-size:15px;font-weight:700;margin:0 0 15px}.angle-row{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid #252e3a}.angle-name{font-size:14px;color:#c4ceda}.angle-meta{font-size:11px;color:#91a0b2;margin-top:2px}.angle-value{font-family:'Cascadia Code',monospace;font-size:23px;color:#f3f0ea}.angle-value.warning{color:#d7a16b}.uncertain{display:flex;align-items:flex-start;gap:8px;margin-top:15px;font-size:12px;color:#a4b1c2;line-height:1.75}.uncertain svg{width:14px;height:14px;margin-top:3px;flex-shrink:0}.next{margin-top:auto;padding-top:22px;border-top:1px solid #303846}.next h2{margin:0 0 9px;font-size:15px;font-weight:700}.next p{margin:0;font-size:14px;line-height:1.9;color:#b6c0cc}.next-link{margin-top:16px;display:flex;gap:7px;align-items:center;color:#b7c9e4;font-size:13px}.next-link svg{width:15px;height:15px}
+</style>
+</head>
+<body>
+<svg style="position:absolute;width:0;height:0" aria-hidden="true"><defs>
+<symbol id="home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10H4V10"/><path d="M9 20v-7h6v7"/></symbol>
+<symbol id="upload" viewBox="0 0 24 24"><path d="M12 16V3m-5 5 5-5 5 5M4 15v5h16v-5"/></symbol>
+<symbol id="activity" viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></symbol>
+<symbol id="history" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2"/></symbol>
+<symbol id="compare" viewBox="0 0 24 24"><path d="M7 4v16M17 4v16M3 8l4-4 4 4m2 8 4 4 4-4"/></symbol>
+<symbol id="settings" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="8" cy="6" r="2" fill="#10151d"/><circle cx="16" cy="12" r="2" fill="#10151d"/><circle cx="10" cy="18" r="2" fill="#10151d"/></symbol>
+<symbol id="video" viewBox="0 0 24 24"><rect x="3" y="5" width="13" height="14" rx="2"/><path d="m16 10 5-3v10l-5-3"/></symbol>
+<symbol id="save" viewBox="0 0 24 24"><path d="M5 3h11l4 4v14H4V3h1m4 0v6h7V3M8 21v-7h8v7"/></symbol>
+<symbol id="export" viewBox="0 0 24 24"><path d="M12 16V3m-4 4 4-4 4 4M5 13v7h14v-7"/></symbol>
+<symbol id="expand" viewBox="0 0 24 24"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/></symbol>
+<symbol id="info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v.1"/></symbol>
+<symbol id="arrow" viewBox="0 0 24 24"><path d="M4 12h16m-5-5 5 5-5 5"/></symbol>
+<symbol id="note" viewBox="0 0 24 24"><path d="M5 3h14v18H5zm4 5h6m-6 4h6m-6 4h4"/></symbol>
+</defs></svg>
+<div class="app">
+<aside class="rail">
+  <div class="brand"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c-5 5-5 13 0 18m0-18c5 5 5 13 0 18"/></svg>ShotForm</div>
+  <nav class="nav">
+    <div class="nav-item"><svg><use href="#home"/></svg>首页</div>
+    <div class="nav-item"><svg><use href="#upload"/></svg>上传素材</div>
+    <div class="nav-item active"><svg><use href="#activity"/></svg>动作分析</div>
+    <div class="nav-item"><svg><use href="#history"/></svg>训练历史</div>
+    <div class="nav-item"><svg><use href="#compare"/></svg>球星对比</div>
+  </nav>
+  <div class="rail-bottom"><div class="nav-item"><svg><use href="#settings"/></svg>设置</div><div class="local"><i></i>基础分析在本机完成</div></div>
+</aside>
+<main class="main">
+  <header class="topbar">
+    <div class="file"><div class="file-icon"><svg><use href="#video"/></svg></div><div><div class="file-name">{{FILE}}</div><div class="file-meta">{{DATE}}　·　{{DURATION}}</div></div></div>
+    <div class="actions"><button class="button"><svg><use href="#export"/></svg>{{EXPORT}}</button><button class="button primary"><svg><use href="#save"/></svg>{{SAVE}}</button></div>
+  </header>
+  <div class="heading"><h1>{{TITLE}}</h1><div class="heading-right"><span class="dot"></span>分析完成</div></div>
+  <div class="workbench">
+    <section class="viewer">
+      <div class="view-tools"><div class="view-tabs"><span class="selected">原始画面</span><span>姿态叠加</span></div><button><svg><use href="#expand"/></svg>放大画面</button></div>
+      <div class="film"><img src="assets/frame-3.jpg" alt="当前投篮动作帧"><span class="film-label">定点投篮 / 当前帧</span><span class="film-caption"><i></i>上举</span><span class="frame-count">{{TIME}}</span></div>
+      <div class="playbar"><div class="playgroup"><button class="step" aria-label="上一帧"><svg viewBox="0 0 24 24"><path d="M6 5v14m12-14-9 7 9 7z"/></svg></button><button class="play" aria-label="播放"><svg viewBox="0 0 24 24"><path d="m6 3 15 9-15 9z"/></svg></button><button class="step" aria-label="下一帧"><svg viewBox="0 0 24 24"><path d="M18 5v14M6 5l9 7-9 7z"/></svg></button><div class="time">{{TIME}}<small>/ 00:02.97</small></div></div><div class="play-right"><span>逐帧回看</span><span class="speed">0.5×<svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></span></div></div>
+      <div class="filmstrip"><div class="thumb"><img src="assets/frame-1.jpg" alt="准备动作"><span class="stamp">00:00.25</span></div><div class="thumb"><img src="assets/frame-2.jpg" alt="屈膝动作"><span class="stamp">00:00.75</span></div><div class="thumb active"><img src="assets/frame-3.jpg" alt="上举动作"><span class="stamp">00:01.25</span></div><div class="thumb"><img src="assets/frame-4.jpg" alt="出手动作"><span class="stamp">00:01.75</span></div><div class="thumb"><img src="assets/frame-5.jpg" alt="随球动作"><span class="stamp">00:02.25</span></div></div>
+      <div class="ticks"><span>00:00</span><span>00:01</span><span>00:02</span><span>00:02.97</span></div>
+      <div class="note"><svg><use href="#note"/></svg><span>训练备注</span>{{NOTE}}</div>
+    </section>
+    <aside class="inspector">
+      <div class="section-label">本次判断<svg><use href="#info"/></svg></div>
+      <div class="classification"><i></i>{{SHOT}}</div>
+      <h2 class="judgment">{{CONCLUSION}}</h2>
+      <p class="reason">{{REASON}}</p>
+      <div class="confidence"><span>分型置信度</span><strong>{{CONFIDENCE}}</strong></div><div class="confidence-track"><div></div></div><p class="confidence-note">中等置信度，结合完整动作复核。</p>
+      <section class="angles"><h2>当前帧角度</h2><div class="angle-row"><div><div class="angle-name">右肘</div><div class="angle-meta">参考范围 80–110°</div></div><div class="angle-value">{{ELBOW}}</div></div><div class="angle-row"><div><div class="angle-name">左膝</div><div class="angle-meta">参考范围 140–170°</div></div><div class="angle-value warning">{{KNEE}}</div></div><div class="uncertain"><svg><use href="#info"/></svg><span>{{CAUTION}}</span></div></section>
+      <section class="next"><h2>下一次训练</h2><p>{{NEXT}}</p><div class="next-link">与球星模板对比<svg><use href="#arrow"/></svg></div></section>
+    </aside>
+  </div>
+</main>
+</div>
+</body>
+</html>

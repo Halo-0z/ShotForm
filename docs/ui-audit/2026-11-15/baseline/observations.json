@@ -1,0 +1,606 @@
+[
+    {
+        "name": "light-home",
+        "viewport": {
+            "width": 1440,
+            "height": 900
+        },
+        "theme": "",
+        "text": "ShotForm\n投篮分析大师\n首页\n上传视频\n历史记录\n模板管理\n设置\nCoach\n专业版\nBASKETBALL SHOT ANALYZER\n看见你的\n出手节奏\n\n基于姿态识别与关键帧分析，帮助你更清晰地理解投篮动作，\n出手节奏与发力结构，持续提升投篮表现。\n\n开始分析\n精准识别\n\nAI 姿态识别，捕捉关键动作节点\n\n节奏分析\n\n分析出手节奏与发力顺序\n\n可视化报告\n\n直观图表与对比，定位提升空间\n\n隐私与安全保障\n\n基础分析在本地完成，AI 分析会将图像和分析数据发送至腾讯混元云服务处理。\n\n本地处理",
+        "overflow": []
+    },
+    {
+        "name": "light-upload",
+        "viewport": {
+            "width": 1440,
+            "height": 900
+        },
+        "theme": "",
+        "text": "ShotForm\n投篮分析大师\n首页\n上传视频\n历史记录\n模板管理\n设置\nCoach\n专业版\n\nUPLOAD\n\n上传素材\n\n选择图片或视频，整理好素材后再进入最终分析。\n\n图片分析\n视频分析\n\n浏览器仅供预览与片段裁剪，姿态分析请使用桌面端。\n\n选择投篮视频，或点击上传\n\n建议 2 到 6 秒，包含一次投篮的完整动作\n\n选择视频\n\n支持 MP4 / MOV / AVI / WEBM\n\n文件大小不超过 200MB",
+        "overflow": [
+            {
+                "className": "titlebar workbench",
+                "client": 1230,
+                "scroll": 1238
+            },
+            {
+                "className": "upload-page upload-page--reveal upload-page--reduced-motion",
+                "client": 1222,
+                "scroll": 1228
+            }
+        ]
+    },
+    {
+        "name": "light-analysis-empty",
+        "viewport": {
+            "width": 1440,
+            "height": 900
+        },
+        "theme": "",
+        "text": "ShotForm\n投篮分析大师\n首页\n上传视频\n历史记录\n模板管理\n设置\nCoach\n专业版\n尚无分析结果\n\n请先上传清晰的单人投篮图片或短视频。\n\n上传素材",
+        "overflow": [
+            {
+                "className": "titlebar workbench",
+                "client": 1230,
+                "scroll": 1238
+            }
+        ]
+    },
+    {
+        "name": "light-history",
+        "viewport": {
+            "width": 1440,
+            "height": 900
+        },
+        "theme": "",
+        "text": "ShotForm\n投篮分析大师\n首页\n上传视频\n历史记录\n模板管理\n设置\nCoach\n专业版\n\nHISTORY\n\n历史记录\n开始日期\n结束日期\n标签\n分型\n全部分型\n一段式\n1.5 段式\n二段式\n待确认\n筛选\n重置\n\n加载失败：TypeError: Cannot read properties of undefined (reading 'invoke')\n\n已选 0/2 条记录用于训练对比。\n\n还没有投篮档案记录\n\n完成第一次分析后，这里会按来源文件分组记录每次训练结果，并提供查看分析入口。",
+        "overflow": [
+            {
+                "className": "titlebar workbench",
+                "client": 1230,
+                "scroll": 1238
+            },
+            {
+                "className": "history-page",
+                "client": 1222,
+                "scroll": 1228
+            }
+        ]
+    },
+    {
+        "name": "light-compare-ready",
+        "viewport": {
+            "width": 1440,
+            "height": 900
+        },
+        "theme": "",
+        "text": "ShotForm\n投篮分析大师\n首页\n上传视频\n历史记录\n模板管理\n设置\nCoach\n专业版\n\nCOMPARISON\n\n球星对比\n\n当前对比基于本次分析结果与选中模板的关键角度差异。\n\n管理球星模板\n\n球星模板\n\nCurry 是当前最接近的模板，可切换其他球星查看完整详情。\n\n刷新对比\n管理模板\n\nCurry\n\nPreview Warriors\n\n94.0%\n\n视频级对比\n\nCurry is closest on release rhythm and elbow path.\n\nCurry\n\nThompson\n\nPreview Warriors\n\n87.0%\n\n单帧回退\n\nThompson gives a cleaner set-point reference.\n\n相似度评分\n视频级对比\n\n94.0%\n\n匹配度\n\n你与 Curry 的动作相似度\n\n角度对比雷达图\n详细角度差异\n关节名称\n你的角度\n球星角度\n差异\n差异可视化\n出手角\n55.0°\n52.0°\n+3.0°\n右肘角\n91.0°\n88.0°\n+3.0°\n右膝角\n140.0°\n142.0°\n-2.0°\n如何向这位球星学习\n\nStart with Curry's release rhythm, then compare the largest angle gaps.\n\nCurry release line\n\nKeep the elbow path compact before extending.\n\nCurry lower-body load\n\nMatch the knee bend before speeding up the shot.",
+        "overflow": [
+            {
+                "className": "titlebar workbench",
+                "client": 1230,
+                "scroll": 1238
+            },
+            {
+                "className": "compare-page",
+                "client": 1222,
+                "scroll": 1228
+            }
+        ]
+    },
+    {
+        "name": "light-compare-error",
+        "viewport": {
+            "width": 1440,
+            "height": 900
+        },
+        "theme": "",
+        "text": "ShotForm\n投篮分析大师\n首页\n上传视频\n历史记录\n模板管理\n设置\nCoach\n专业版\n\nCOMPARISON\n\n球星对比\n\n当前对比基于本次分析结果与选中模板的关键角度差异。\n\n管理球星模板\n\n球星模板\n\nPreview template load failed.\n\n刷新对比\n管理模板\n\n对比进度\n\nPreview template load failed.\n\n25%\n重新加载\n\n球星对比加载失败\n\nPreview template load failed.",
+        "overflow": [
+            {
+                "className": "titlebar workbench",
+                "client": 1230,
+                "scroll": 1238
+            },
+            {
+                "className": "compare-page",
+                "client": 1222,
+                "scroll": 1228
+            }
+        ]
+    },
+    {
+        "name": "light-compare-empty",
+        "viewport": {
+            "width": 1440,
+            "height": 900
+        },
+        "theme": "",
+        "text": "ShotForm\n投篮分析大师\n首页\n上传视频\n历史记录\n模板管理\n设置\nCoach\n专业版\n\nCOMPARISON\n\n球星对比\n\n当前对比基于本次分析结果与选中模板的关键角度差异。\n\n管理球星模板\n\n球星模板\n\n当前没有可用球星模板，请先进入模板管理导入或保存模板。\n\n刷新对比\n管理模板\n\n暂无球星模板\n\n先保存或导入模板后，再回到这里进行对比。\n\n去管理模板",
+        "overflow": [
+            {
+                "className": "titlebar workbench",
+                "client": 1230,
+                "scroll": 1238
+            },
+            {
+                "className": "compare-page",
+                "client": 1222,
+                "scroll": 1228
+            }
+        ]
+    },
+    {
+        "name": "light-compare-loading",
+        "viewport": {
+            "width": 1440,
+            "height": 900
+        },
+        "theme": "",
+        "text": "ShotForm\n投篮分析大师\n首页\n上传视频\n历史记录\n模板管理\n设置\nCoach\n专业版\n\nCOMPARISON\n\n球星对比\n\n当前对比基于本次分析结果与选中模板的关键角度差异。\n\n管理球星模板\n\n球星模板\n\n正在按真实阶段构建球星对比，不再使用假等待计时。\n\n刷新对比\n管理模板\n\n对比进度\n\nLoading preview templates...\n\n25%",
+        "overflow": [
+            {
+                "className": "titlebar workbench",
+                "client": 1230,
+                "scroll": 1238
+            },
+            {
+                "className": "compare-page",
+                "client": 1222,
+                "scroll": 1228
+            }
+        ]
+    },
+    {
+        "name": "light-templates",
+        "viewport": {
+            "width": 1440,
+            "height": 900
+        },
+        "theme": "",
+        "text": "ShotForm\n投篮分析大师\n首页\n上传视频\n历史记录\n模板管理\n设置\nCoach\n专业版\n\nTEMPLATES\n\n球星模板管理\n\n请先上传并分析一段有来源的参考投篮视频，再将整段动作画像保存为模板，供后续球星对比直接复用。\n\n刷新模板列表\n从当前视频分析生成模板\n\n模板描述请记录素材来源、拍摄条件和片段时间。内置无视频画像的模板为示例数值，不是球星实测数据。\n\n当前没有可保存的视频模板\n\n请先上传并分析一段完整投篮视频，再回到这里保存模板。这样导入的数据才包含整段动作节奏、关键帧和阶段角度画像。\n\n前往上传分析\n已导入模板\n\n默认内置模板会在首次启动时自动写入，新增模板会继续叠加，不覆盖已有数据。\n\nCannot read properties of undefined (reading 'invoke')\n\n模板库仍为空\n\n先用完整投篮视频保存一个球星模板，后续球星对比页才能给出更稳定的整段动作匹配结果。",
+        "overflow": [
+            {
+                "className": "titlebar workbench",
+                "client": 1230,
+                "scroll": 1238
+            },
+            {
+                "className": "templates-page",
+                "client": 1222,
+                "scroll": 1228
+            }
+        ]
+    },
+    {
+        "name": "light-analysis-fixture",
+        "viewport": {
+            "width": 1440,
+            "height": 900
+        },
+        "theme": "",
+        "text": "ShotForm\n投篮分析大师\n首页\n上传视频\n历史记录\n模板管理\n设置\nCoach\n专业版\n\nANALYSIS\n\n投篮姿势分析\n\n基于动作识别和关键帧分析，为你提供专业的投篮姿势评估。\n\n分析完成\n保存历史记录\n导出 HTML 报告\n导出 JSON\n球星对比\n本次分析结论\n当前判断：一段式投篮\n\n整体动作流畅，投篮发力较好，出手稳定性中等，建议优化起跳与手肘的协同发力。\n\n投篮类型\n一段式投篮\n标准动作\n置信度\n71%\n中等置信度\n本次分析依据\nUI 审计夹具，不代表实测结果\n动作可视化\n关节角度分析\n图表\n数据表\n180°\n90°\n0°\n关键角度偏差\n偏差较大\n偏差一般\n表现良好\nAI姿势建议\n当前规则未给出修正建议；请同时检查关键点置信度，不能据此认定动作正确。\n生成完整 AI 报告",
+        "overflow": [
+            {
+                "className": "titlebar workbench",
+                "client": 1230,
+                "scroll": 1238
+            }
+        ]
+    },
+    {
+        "name": "light-history-fixture",
+        "viewport": {
+            "width": 1440,
+            "height": 900
+        },
+        "theme": "",
+        "text": "ShotForm\n投篮分析大师\n首页\n上传视频\n历史记录\n模板管理\n设置\nCoach\n专业版\n\nHISTORY\n\n历史记录\n开始日期\n结束日期\n标签\n分型\n全部分型\n一段式\n1.5 段式\n二段式\n待确认\n筛选\n重置\n\n已选 0/2 条记录用于训练对比。\n\n图片分析\n1 条记录\n\n训练日期 2026-11-15\n\n6小时前\n2026/11/15 08:00:01\n一段式投篮\n分析结果已保存\n\n定点投篮，检查肘部与膝部的配合  · 定点\n\n 对比\n编辑训练\n查看分析\n图片分析\n1 条记录\n\n训练日期 2026-11-15\n\n6小时前\n2026/11/15 08:00:02\n一段式投篮\n分析结果已保存\n\n第二组训练  · 定点\n\n 对比\n编辑训练\n查看分析\n\n以下趋势仅展示已加载记录的代表帧角度，跨素材变化不自动代表训练进步。\n\n训练趋势\n右肘角\n左膝角\n右膝角",
+        "overflow": [
+            {
+                "className": "titlebar workbench",
+                "client": 1230,
+                "scroll": 1238
+            },
+            {
+                "className": "history-page",
+                "client": 1222,
+                "scroll": 1228
+            }
+        ]
+    },
+    {
+        "name": "light-history-editor",
+        "viewport": {
+            "width": 1440,
+            "height": 900
+        },
+        "theme": "",
+        "text": "ShotForm\n投篮分析大师\n首页\n上传视频\n历史记录\n模板管理\n设置\nCoach\n专业版\n\nHISTORY\n\n历史记录\n开始日期\n结束日期\n标签\n分型\n全部分型\n一段式\n1.5 段式\n二段式\n待确认\n筛选\n重置\n\n已选 0/2 条记录用于训练对比。\n\n图片分析\n1 条记录\n\n训练日期 2026-11-15\n\n6小时前\n2026/11/15 08:00:01\n一段式投篮\n分析结果已保存\n\n定点投篮，检查肘部与膝部的配合  · 定点\n\n 对比\n编辑训练\n查看分析\n训练日期\n标签（逗号分隔，最多 10 个）\n训练备注\n保存训练信息\n取消\n图片分析\n1 条记录\n\n训练日期 2026-11-15\n\n6小时前\n2026/11/15 08:00:02\n一段式投篮\n分析结果已保存\n\n第二组训练  · 定点\n\n 对比\n编辑训练\n查看分析\n\n以下趋势仅展示已加载记录的代表帧角度，跨素材变化不自动代表训练进步。\n\n训练趋势\n右肘角\n左膝角\n右膝角",
+        "overflow": [
+            {
+                "className": "titlebar workbench",
+                "client": 1230,
+                "scroll": 1238
+            },
+            {
+                "className": "history-page",
+                "client": 1222,
+                "scroll": 1228
+            }
+        ]
+    },
+    {
+        "name": "light-training-comparison",
+        "viewport": {
+            "width": 1440,
+            "height": 900
+        },
+        "theme": "",
+        "text": "ShotForm\n投篮分析大师\n首页\n上传视频\n历史记录\n模板管理\n设置\nCoach\n专业版\n\nHISTORY\n\n历史记录\n开始日期\n结束日期\n标签\n分型\n全部分型\n一段式\n1.5 段式\n二段式\n待确认\n筛选\n重置\n\n已选 2/2 条记录用于训练对比。\n\n清空选择\n两次训练对比\n清空选择\n\n选择同一训练者、相近拍摄条件的两条记录，并手动对齐动作阶段。变化值＝后一次－前一次，不代表进步评分。\n\n前一次 · 2026-11-15 · #1\n\n定点投篮，检查肘部与膝部的配合\n\n后一次 · 2026-11-15 · #2\n\n第二组训练\n\n指标\t前一次\t后一次\t变化（°）\t说明\n右肘角\t91.0°\t91.0°\t0.0\t可比较\n左膝角\t132.0°\t132.0°\t0.0\t可比较\n右膝角\t151.0°\t151.0°\t—\t关键点置信度不足\n右肘角\n0.0°\n左膝角\n0.0°\n导出对比报告\n\n图片分析\n1 条记录\n训练日期\n标签（逗号分隔，最多 10 个）\n训练备注\n保存训练信息\n取消\n图片分析\n1 条记录\n\n训练日期 2026-11-15\n\n6小时前\n2026/11/15 08:00:02\n一段式投篮\n分析结果已保存\n\n第二组训练  · 定点\n\n 对比\n编辑训练\n查看分析\n\n以下趋势仅展示已加载记录的代表帧角度，跨素材变化不自动代表训练进步。\n\n训练趋势\n右肘角\n左膝角\n右膝角",
+        "overflow": [
+            {
+                "className": "titlebar workbench",
+                "client": 1230,
+                "scroll": 1238
+            },
+            {
+                "className": "history-page",
+                "client": 1222,
+                "scroll": 1228
+            }
+        ]
+    },
+    {
+        "name": "dark-home",
+        "viewport": {
+            "width": 1440,
+            "height": 900
+        },
+        "theme": "dark",
+        "text": "ShotForm\n投篮分析大师\n首页\n上传视频\n历史记录\n模板管理\n设置\nCoach\n专业版\nBASKETBALL SHOT ANALYZER\n看见你的\n出手节奏\n\n基于姿态识别与关键帧分析，帮助你更清晰地理解投篮动作，\n出手节奏与发力结构，持续提升投篮表现。\n\n开始分析\n精准识别\n\nAI 姿态识别，捕捉关键动作节点\n\n节奏分析\n\n分析出手节奏与发力顺序\n\n可视化报告\n\n直观图表与对比，定位提升空间\n\n隐私与安全保障\n\n基础分析在本地完成，AI 分析会将图像和分析数据发送至腾讯混元云服务处理。\n\n本地处理",
+        "overflow": []
+    },
+    {
+        "name": "dark-upload",
+        "viewport": {
+            "width": 1440,
+            "height": 900
+        },
+        "theme": "dark",
+        "text": "ShotForm\n投篮分析大师\n首页\n上传视频\n历史记录\n模板管理\n设置\nCoach\n专业版\n\nUPLOAD\n\n上传素材\n\n选择图片或视频，整理好素材后再进入最终分析。\n\n图片分析\n视频分析\n\n浏览器仅供预览与片段裁剪，姿态分析请使用桌面端。\n\n选择投篮视频，或点击上传\n\n建议 2 到 6 秒，包含一次投篮的完整动作\n\n选择视频\n\n支持 MP4 / MOV / AVI / WEBM\n\n文件大小不超过 200MB",
+        "overflow": [
+            {
+                "className": "titlebar workbench",
+                "client": 1230,
+                "scroll": 1238
+            },
+            {
+                "className": "upload-page upload-page--reveal upload-page--reduced-motion",
+                "client": 1222,
+                "scroll": 1228
+            }
+        ]
+    },
+    {
+        "name": "dark-analysis-empty",
+        "viewport": {
+            "width": 1440,
+            "height": 900
+        },
+        "theme": "dark",
+        "text": "ShotForm\n投篮分析大师\n首页\n上传视频\n历史记录\n模板管理\n设置\nCoach\n专业版\n尚无分析结果\n\n请先上传清晰的单人投篮图片或短视频。\n\n上传素材",
+        "overflow": [
+            {
+                "className": "titlebar workbench",
+                "client": 1230,
+                "scroll": 1238
+            }
+        ]
+    },
+    {
+        "name": "dark-history",
+        "viewport": {
+            "width": 1440,
+            "height": 900
+        },
+        "theme": "dark",
+        "text": "ShotForm\n投篮分析大师\n首页\n上传视频\n历史记录\n模板管理\n设置\nCoach\n专业版\n\nHISTORY\n\n历史记录\n开始日期\n结束日期\n标签\n分型\n全部分型\n一段式\n1.5 段式\n二段式\n待确认\n筛选\n重置\n\n加载失败：TypeError: Cannot read properties of undefined (reading 'invoke')\n\n已选 0/2 条记录用于训练对比。\n\n还没有投篮档案记录\n\n完成第一次分析后，这里会按来源文件分组记录每次训练结果，并提供查看分析入口。",
+        "overflow": [
+            {
+                "className": "titlebar workbench",
+                "client": 1230,
+                "scroll": 1238
+            },
+            {
+                "className": "history-page",
+                "client": 1222,
+                "scroll": 1228
+            }
+        ]
+    },
+    {
+        "name": "dark-compare-ready",
+        "viewport": {
+            "width": 1440,
+            "height": 900
+        },
+        "theme": "dark",
+        "text": "ShotForm\n投篮分析大师\n首页\n上传视频\n历史记录\n模板管理\n设置\nCoach\n专业版\n\nCOMPARISON\n\n球星对比\n\n当前对比基于本次分析结果与选中模板的关键角度差异。\n\n管理球星模板\n\n球星模板\n\nCurry 是当前最接近的模板，可切换其他球星查看完整详情。\n\n刷新对比\n管理模板\n\nCurry\n\nPreview Warriors\n\n94.0%\n\n视频级对比\n\nCurry is closest on release rhythm and elbow path.\n\nCurry\n\nThompson\n\nPreview Warriors\n\n87.0%\n\n单帧回退\n\nThompson gives a cleaner set-point reference.\n\n相似度评分\n视频级对比\n\n94.0%\n\n匹配度\n\n你与 Curry 的动作相似度\n\n角度对比雷达图\n详细角度差异\n关节名称\n你的角度\n球星角度\n差异\n差异可视化\n出手角\n55.0°\n52.0°\n+3.0°\n右肘角\n91.0°\n88.0°\n+3.0°\n右膝角\n140.0°\n142.0°\n-2.0°\n如何向这位球星学习\n\nStart with Curry's release rhythm, then compare the largest angle gaps.\n\nCurry release line\n\nKeep the elbow path compact before extending.\n\nCurry lower-body load\n\nMatch the knee bend before speeding up the shot.",
+        "overflow": [
+            {
+                "className": "titlebar workbench",
+                "client": 1230,
+                "scroll": 1238
+            },
+            {
+                "className": "compare-page",
+                "client": 1222,
+                "scroll": 1228
+            }
+        ]
+    },
+    {
+        "name": "dark-compare-error",
+        "viewport": {
+            "width": 1440,
+            "height": 900
+        },
+        "theme": "dark",
+        "text": "ShotForm\n投篮分析大师\n首页\n上传视频\n历史记录\n模板管理\n设置\nCoach\n专业版\n\nCOMPARISON\n\n球星对比\n\n当前对比基于本次分析结果与选中模板的关键角度差异。\n\n管理球星模板\n\n球星模板\n\nPreview template load failed.\n\n刷新对比\n管理模板\n\n对比进度\n\nPreview template load failed.\n\n25%\n重新加载\n\n球星对比加载失败\n\nPreview template load failed.",
+        "overflow": [
+            {
+                "className": "titlebar workbench",
+                "client": 1230,
+                "scroll": 1238
+            },
+            {
+                "className": "compare-page",
+                "client": 1222,
+                "scroll": 1228
+            }
+        ]
+    },
+    {
+        "name": "dark-compare-empty",
+        "viewport": {
+            "width": 1440,
+            "height": 900
+        },
+        "theme": "dark",
+        "text": "ShotForm\n投篮分析大师\n首页\n上传视频\n历史记录\n模板管理\n设置\nCoach\n专业版\n\nCOMPARISON\n\n球星对比\n\n当前对比基于本次分析结果与选中模板的关键角度差异。\n\n管理球星模板\n\n球星模板\n\n当前没有可用球星模板，请先进入模板管理导入或保存模板。\n\n刷新对比\n管理模板\n\n暂无球星模板\n\n先保存或导入模板后，再回到这里进行对比。\n\n去管理模板",
+        "overflow": [
+            {
+                "className": "titlebar workbench",
+                "client": 1230,
+                "scroll": 1238
+            },
+            {
+                "className": "compare-page",
+                "client": 1222,
+                "scroll": 1228
+            }
+        ]
+    },
+    {
+        "name": "dark-compare-loading",
+        "viewport": {
+            "width": 1440,
+            "height": 900
+        },
+        "theme": "dark",
+        "text": "ShotForm\n投篮分析大师\n首页\n上传视频\n历史记录\n模板管理\n设置\nCoach\n专业版\n\nCOMPARISON\n\n球星对比\n\n当前对比基于本次分析结果与选中模板的关键角度差异。\n\n管理球星模板\n\n球星模板\n\n正在按真实阶段构建球星对比，不再使用假等待计时。\n\n刷新对比\n管理模板\n\n对比进度\n\nLoading preview templates...\n\n25%",
+        "overflow": [
+            {
+                "className": "titlebar workbench",
+                "client": 1230,
+                "scroll": 1238
+            },
+            {
+                "className": "compare-page",
+                "client": 1222,
+                "scroll": 1228
+            }
+        ]
+    },
+    {
+        "name": "dark-templates",
+        "viewport": {
+            "width": 1440,
+            "height": 900
+        },
+        "theme": "dark",
+        "text": "ShotForm\n投篮分析大师\n首页\n上传视频\n历史记录\n模板管理\n设置\nCoach\n专业版\n\nTEMPLATES\n\n球星模板管理\n\n请先上传并分析一段有来源的参考投篮视频，再将整段动作画像保存为模板，供后续球星对比直接复用。\n\n刷新模板列表\n从当前视频分析生成模板\n\n模板描述请记录素材来源、拍摄条件和片段时间。内置无视频画像的模板为示例数值，不是球星实测数据。\n\n当前没有可保存的视频模板\n\n请先上传并分析一段完整投篮视频，再回到这里保存模板。这样导入的数据才包含整段动作节奏、关键帧和阶段角度画像。\n\n前往上传分析\n已导入模板\n\n默认内置模板会在首次启动时自动写入，新增模板会继续叠加，不覆盖已有数据。\n\nCannot read properties of undefined (reading 'invoke')\n\n模板库仍为空\n\n先用完整投篮视频保存一个球星模板，后续球星对比页才能给出更稳定的整段动作匹配结果。",
+        "overflow": [
+            {
+                "className": "titlebar workbench",
+                "client": 1230,
+                "scroll": 1238
+            },
+            {
+                "className": "templates-page",
+                "client": 1222,
+                "scroll": 1228
+            }
+        ]
+    },
+    {
+        "name": "dark-analysis-fixture",
+        "viewport": {
+            "width": 1440,
+            "height": 900
+        },
+        "theme": "dark",
+        "text": "ShotForm\n投篮分析大师\n首页\n上传视频\n历史记录\n模板管理\n设置\nCoach\n专业版\n\nANALYSIS\n\n投篮姿势分析\n\n基于动作识别和关键帧分析，为你提供专业的投篮姿势评估。\n\n分析完成\n保存历史记录\n导出 HTML 报告\n导出 JSON\n球星对比\n本次分析结论\n当前判断：一段式投篮\n\n整体动作流畅，投篮发力较好，出手稳定性中等，建议优化起跳与手肘的协同发力。\n\n投篮类型\n一段式投篮\n标准动作\n置信度\n71%\n中等置信度\n本次分析依据\nUI 审计夹具，不代表实测结果\n动作可视化\n关节角度分析\n图表\n数据表\n180°\n90°\n0°\n关键角度偏差\n偏差较大\n偏差一般\n表现良好\nAI姿势建议\n当前规则未给出修正建议；请同时检查关键点置信度，不能据此认定动作正确。\n生成完整 AI 报告",
+        "overflow": [
+            {
+                "className": "titlebar workbench",
+                "client": 1230,
+                "scroll": 1238
+            }
+        ]
+    },
+    {
+        "name": "dark-history-fixture",
+        "viewport": {
+            "width": 1440,
+            "height": 900
+        },
+        "theme": "dark",
+        "text": "ShotForm\n投篮分析大师\n首页\n上传视频\n历史记录\n模板管理\n设置\nCoach\n专业版\n\nHISTORY\n\n历史记录\n开始日期\n结束日期\n标签\n分型\n全部分型\n一段式\n1.5 段式\n二段式\n待确认\n筛选\n重置\n\n已选 0/2 条记录用于训练对比。\n\n图片分析\n1 条记录\n\n训练日期 2026-11-15\n\n6小时前\n2026/11/15 08:00:01\n一段式投篮\n分析结果已保存\n\n定点投篮，检查肘部与膝部的配合  · 定点\n\n 对比\n编辑训练\n查看分析\n图片分析\n1 条记录\n\n训练日期 2026-11-15\n\n6小时前\n2026/11/15 08:00:02\n一段式投篮\n分析结果已保存\n\n第二组训练  · 定点\n\n 对比\n编辑训练\n查看分析\n\n以下趋势仅展示已加载记录的代表帧角度，跨素材变化不自动代表训练进步。\n\n训练趋势\n右肘角\n左膝角\n右膝角",
+        "overflow": [
+            {
+                "className": "titlebar workbench",
+                "client": 1230,
+                "scroll": 1238
+            },
+            {
+                "className": "history-page",
+                "client": 1222,
+                "scroll": 1228
+            }
+        ]
+    },
+    {
+        "name": "dark-history-editor",
+        "viewport": {
+            "width": 1440,
+            "height": 900
+        },
+        "theme": "dark",
+        "text": "ShotForm\n投篮分析大师\n首页\n上传视频\n历史记录\n模板管理\n设置\nCoach\n专业版\n\nHISTORY\n\n历史记录\n开始日期\n结束日期\n标签\n分型\n全部分型\n一段式\n1.5 段式\n二段式\n待确认\n筛选\n重置\n\n已选 0/2 条记录用于训练对比。\n\n图片分析\n1 条记录\n\n训练日期 2026-11-15\n\n6小时前\n2026/11/15 08:00:01\n一段式投篮\n分析结果已保存\n\n定点投篮，检查肘部与膝部的配合  · 定点\n\n 对比\n编辑训练\n查看分析\n训练日期\n标签（逗号分隔，最多 10 个）\n训练备注\n保存训练信息\n取消\n图片分析\n1 条记录\n\n训练日期 2026-11-15\n\n6小时前\n2026/11/15 08:00:02\n一段式投篮\n分析结果已保存\n\n第二组训练  · 定点\n\n 对比\n编辑训练\n查看分析\n\n以下趋势仅展示已加载记录的代表帧角度，跨素材变化不自动代表训练进步。\n\n训练趋势\n右肘角\n左膝角\n右膝角",
+        "overflow": [
+            {
+                "className": "titlebar workbench",
+                "client": 1230,
+                "scroll": 1238
+            },
+            {
+                "className": "history-page",
+                "client": 1222,
+                "scroll": 1228
+            }
+        ]
+    },
+    {
+        "name": "dark-training-comparison",
+        "viewport": {
+            "width": 1440,
+            "height": 900
+        },
+        "theme": "dark",
+        "text": "ShotForm\n投篮分析大师\n首页\n上传视频\n历史记录\n模板管理\n设置\nCoach\n专业版\n\nHISTORY\n\n历史记录\n开始日期\n结束日期\n标签\n分型\n全部分型\n一段式\n1.5 段式\n二段式\n待确认\n筛选\n重置\n\n已选 2/2 条记录用于训练对比。\n\n清空选择\n两次训练对比\n清空选择\n\n选择同一训练者、相近拍摄条件的两条记录，并手动对齐动作阶段。变化值＝后一次－前一次，不代表进步评分。\n\n前一次 · 2026-11-15 · #1\n\n定点投篮，检查肘部与膝部的配合\n\n后一次 · 2026-11-15 · #2\n\n第二组训练\n\n指标\t前一次\t后一次\t变化（°）\t说明\n右肘角\t91.0°\t91.0°\t0.0\t可比较\n左膝角\t132.0°\t132.0°\t0.0\t可比较\n右膝角\t151.0°\t151.0°\t—\t关键点置信度不足\n右肘角\n0.0°\n左膝角\n0.0°\n导出对比报告\n\n图片分析\n1 条记录\n训练日期\n标签（逗号分隔，最多 10 个）\n训练备注\n保存训练信息\n取消\n图片分析\n1 条记录\n\n训练日期 2026-11-15\n\n6小时前\n2026/11/15 08:00:02\n一段式投篮\n分析结果已保存\n\n第二组训练  · 定点\n\n 对比\n编辑训练\n查看分析\n\n以下趋势仅展示已加载记录的代表帧角度，跨素材变化不自动代表训练进步。\n\n训练趋势\n右肘角\n左膝角\n右膝角",
+        "overflow": [
+            {
+                "className": "titlebar workbench",
+                "client": 1230,
+                "scroll": 1238
+            },
+            {
+                "className": "history-page",
+                "client": 1222,
+                "scroll": 1228
+            }
+        ]
+    },
+    {
+        "name": "narrow-home",
+        "viewport": {
+            "width": 960,
+            "height": 640
+        },
+        "theme": "dark",
+        "text": "ShotForm\n投篮分析大师\n首页\n上传视频\n历史记录\n模板管理\n设置\nCoach\n专业版\nBASKETBALL SHOT ANALYZER\n看见你的\n出手节奏\n\n基于姿态识别与关键帧分析，帮助你更清晰地理解投篮动作，\n出手节奏与发力结构，持续提升投篮表现。\n\n开始分析\n精准识别\n\nAI 姿态识别，捕捉关键动作节点\n\n节奏分析\n\n分析出手节奏与发力顺序\n\n可视化报告\n\n直观图表与对比，定位提升空间\n\n隐私与安全保障\n\n基础分析在本地完成，AI 分析会将图像和分析数据发送至腾讯混元云服务处理。\n\n本地处理",
+        "overflow": []
+    },
+    {
+        "name": "narrow-upload",
+        "viewport": {
+            "width": 960,
+            "height": 640
+        },
+        "theme": "dark",
+        "text": "ShotForm\n投篮分析大师\n首页\n上传视频\n历史记录\n模板管理\n设置\nCoach\n专业版\n\nUPLOAD\n\n上传素材\n\n选择图片或视频，整理好素材后再进入最终分析。\n\n图片分析\n视频分析\n\n浏览器仅供预览与片段裁剪，姿态分析请使用桌面端。\n\n选择投篮视频，或点击上传\n\n建议 2 到 6 秒，包含一次投篮的完整动作\n\n选择视频\n\n支持 MP4 / MOV / AVI / WEBM\n\n文件大小不超过 200MB",
+        "overflow": [
+            {
+                "className": "titlebar workbench",
+                "client": 750,
+                "scroll": 758
+            }
+        ]
+    },
+    {
+        "name": "narrow-compare",
+        "viewport": {
+            "width": 960,
+            "height": 640
+        },
+        "theme": "dark",
+        "text": "ShotForm\n投篮分析大师\n首页\n上传视频\n历史记录\n模板管理\n设置\nCoach\n专业版\n\nCOMPARISON\n\n球星对比\n\n当前对比基于本次分析结果与选中模板的关键角度差异。\n\n管理球星模板\n\n球星模板\n\nCurry 是当前最接近的模板，可切换其他球星查看完整详情。\n\n刷新对比\n管理模板\n\nCurry\n\nPreview Warriors\n\n94.0%\n\n视频级对比\n\nCurry is closest on release rhythm and elbow path.\n\nCurry\n\nThompson\n\nPreview Warriors\n\n87.0%\n\n单帧回退\n\nThompson gives a cleaner set-point reference.\n\n相似度评分\n视频级对比\n\n94.0%\n\n匹配度\n\n你与 Curry 的动作相似度\n\n角度对比雷达图\n详细角度差异\n关节名称\n你的角度\n球星角度\n差异\n差异可视化\n出手角\n55.0°\n52.0°\n+3.0°\n右肘角\n91.0°\n88.0°\n+3.0°\n右膝角\n140.0°\n142.0°\n-2.0°\n如何向这位球星学习\n\nStart with Curry's release rhythm, then compare the largest angle gaps.\n\nCurry release line\n\nKeep the elbow path compact before extending.\n\nCurry lower-body load\n\nMatch the knee bend before speeding up the shot.",
+        "overflow": [
+            {
+                "className": "titlebar workbench",
+                "client": 750,
+                "scroll": 758
+            }
+        ]
+    },
+    {
+        "name": "zoom200-upload",
+        "viewport": {
+            "width": 1440,
+            "height": 900
+        },
+        "theme": "dark",
+        "text": "ShotForm\n投篮分析大师\n首页\n上传视频\n历史记录\n模板管理\n设置\nCoach\n专业版\n\nUPLOAD\n\n上传素材\n\n选择图片或视频，整理好素材后再进入最终分析。\n\n图片分析\n视频分析\n\n浏览器仅供预览与片段裁剪，姿态分析请使用桌面端。\n\n选择投篮视频，或点击上传\n\n建议 2 到 6 秒，包含一次投篮的完整动作\n\n选择视频\n\n支持 MP4 / MOV / AVI / WEBM\n\n文件大小不超过 200MB",
+        "overflow": [
+            {
+                "className": "titlebar workbench",
+                "client": 510,
+                "scroll": 518
+            }
+        ]
+    },
+    {
+        "name": "dark-upload-video",
+        "viewport": {
+            "width": 1440,
+            "height": 900
+        },
+        "theme": "dark",
+        "text": "ShotForm\n投篮分析大师\n首页\n上传视频\n历史记录\n模板管理\n设置\nCoach\n专业版\n\nUPLOAD\n\n上传素材\n\n选择图片或视频，整理好素材后再进入最终分析。\n\n图片分析\n视频分析\n\n浏览器仅供预览与片段裁剪，姿态分析请使用桌面端。\n\nupload-sample.mp4\n时长 0:03\n大小 197 KB\n分辨率 592x1280\n\n选择需要分析的片段（建议 2 到 6 秒）\n\n适合分析\n动作区间清晰\n设为起点\n设为终点\n起点\n0:00.00\n片段\n0:02.97\n终点\n0:02.97\n建议从举球开始，到球离手为止，可获得更准确的分析结果。\n清空\n请在桌面端分析",
+        "overflow": [
+            {
+                "className": "titlebar workbench",
+                "client": 1230,
+                "scroll": 1238
+            },
+            {
+                "className": "upload-page upload-page--reveal upload-page--reduced-motion",
+                "client": 1222,
+                "scroll": 1228
+            }
+        ]
+    },
+    {
+        "name": "dark-upload-error",
+        "viewport": {
+            "width": 1440,
+            "height": 900
+        },
+        "theme": "dark",
+        "text": "ShotForm\n投篮分析大师\n首页\n上传视频\n历史记录\n模板管理\n设置\nCoach\n专业版\n\nUPLOAD\n\n上传素材\n\n选择图片或视频，整理好素材后再进入最终分析。\n\n图片分析\n视频分析\n\n浏览器仅供预览与片段裁剪，姿态分析请使用桌面端。\n\nupload-sample.mp4\n时长 0:03\n大小 197 KB\n分辨率 592x1280\n\n选择需要分析的片段（建议 2 到 6 秒）\n\n适合分析\n动作区间清晰\n设为起点\n设为终点\n起点\n0:00.00\n片段\n0:02.97\n终点\n0:02.97\n建议从举球开始，到球离手为止，可获得更准确的分析结果。\n清空\n请在桌面端分析\n\n不支持此文件格式",
+        "overflow": [
+            {
+                "className": "titlebar workbench",
+                "client": 1230,
+                "scroll": 1238
+            },
+            {
+                "className": "upload-page upload-page--reveal upload-page--reduced-motion",
+                "client": 1222,
+                "scroll": 1228
+            }
+        ]
+    }
+]

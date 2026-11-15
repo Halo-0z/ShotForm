@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="zh-CN">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width,initial-scale=1" />
+        <title>ShotForm · 实验人工标注</title>
+        <style>
+            * {
+                box-sizing: border-box;
+            }
+            body {
+                margin: 0;
+                background: #f3eee6;
+                color: #1c2128;
+                font:
+                    15px/1.5 "Microsoft YaHei",
+                    sans-serif;
+            }
+            header {
+                padding: 18px 28px;
+                border-bottom: 1px solid #d1c8b9;
+            }
+            h1 {
+                font-size: 24px;
+                margin: 0 0 6px;
+            }
+            p {
+                margin: 6px 0;
+                color: #566171;
+            }
+            main {
+                display: grid;
+                grid-template-columns: minmax(340px, 1fr) 390px;
+                gap: 24px;
+                max-width: 1380px;
+                margin: 20px auto;
+                padding: 0 24px;
+            }
+            .stage {
+                background: #222933;
+                display: flex;
+                justify-content: center;
+                align-items: flex-start;
+                overflow: auto;
+                min-height: 650px;
+                padding: 12px;
+            }
+            canvas {
+                max-width: 100%;
+                max-height: 850px;
+                width: auto;
+                height: auto;
+                touch-action: none;
+                cursor: crosshair;
+            }
+            aside {
+                background: #faf7f2;
+                padding: 20px;
+                border: 1px solid #ded6cb;
+            }
+            label {
+                display: block;
+                margin: 10px 0;
+            }
+            input,
+            select,
+            textarea,
+            button {
+                font: inherit;
+            }
+            input,
+            select,
+            textarea {
+                max-width: 100%;
+                padding: 7px;
+                border: 1px solid #b8b4ad;
+                border-radius: 5px;
+                background: white;
+            }
+            textarea {
+                width: 100%;
+                height: 60px;
+            }
+            button {
+                padding: 7px 10px;
+                border: 1px solid #b8b4ad;
+                border-radius: 5px;
+                background: #faf7f2;
+                color: #1c2128;
+                cursor: pointer;
+            }
+            button:disabled {
+                opacity: 0.5;
+                cursor: default;
+            }
+            button.primary,
+            button.active {
+                background: #5d7396;
+                color: white;
+                border-color: #5d7396;
+            }
+            .row {
+                display: flex;
+                gap: 8px;
+                align-items: center;
+                flex-wrap: wrap;
+            }
+            .points {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 6px;
+                margin: 12px 0;
+            }
+            .points button {
+                text-align: left;
+                font-size: 13px;
+            }
+            .points button.marked {
+                border-left: 4px solid #c9823d;
+            }
+            #status {
+                min-height: 45px;
+                color: #9a3c2b;
+                white-space: pre-wrap;
+            }
+            #frameInfo {
+                font-family: monospace;
+                font-size: 13px;
+                overflow-wrap: anywhere;
+            }
+            .small {
+                font-size: 12px;
+            }
+            input:focus,
+            button:focus-visible,
+            select:focus,
+            textarea:focus {
+                outline: 2px solid #6e84a8;
+                outline-offset: 2px;
+            }
+            @media (max-width: 800px) {
+                main {
+                    grid-template-columns: 1fr;
+                }
+                .stage {
+                    min-height: 300px;
+                }
+                canvas {
+                    max-height: 650px;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <header>
+            <h1>实验人工标注</h1>
+            <p>
+                先框定同一投篮者，再标 12
+                个关节中心。左右以人物自身为准；遮挡且无法判断时选“未知”。此页不显示模型预测。
+            </p>
+        </header>
+        <main>
+            <section>
+                <div class="row">
+                    <button id="prev">← 上一帧</button><button id="next">下一帧 →</button
+                    ><label
+                        >跳转 <input id="jump" type="number" min="1" style="width: 75px" /></label
+                    ><span id="progress"></span>
+                </div>
+                <p id="frameInfo"></p>
+                <div class="stage"><canvas id="canvas"></canvas></div>
+            </section>
+            <aside>
+                <label>标注者 <input id="annotator" placeholder="姓名或稳定代号" /></label>
+                <label
+                    >目标人物
+                    <select id="present">
+                        <option value="">未确认</option>
+                        <option value="true">在画面中</option>
+                        <option value="false">不在画面中</option>
+                    </select></label
+                >
+                <div class="row">
+                    <button id="box" class="primary">拖动标目标框</button
+                    ><button id="clearBox">清除框</button>
+                </div>
+                <p class="small">
+                    框用于归属检测到的人物，不会裁剪模型输入。人物重叠时可能仍无法唯一匹配，应保留失败记录。
+                </p>
+                <div id="points" class="points"></div>
+                <label
+                    >当前点状态
+                    <select id="pointState">
+                        <option value="visible">可见</option>
+                        <option value="occluded">遮挡但可可靠判断</option>
+                        <option value="unknown">未知（不计算角度）</option>
+                    </select></label
+                ><button id="unknown">当前点设为未知</button>
+                <label
+                    >本帧遮挡分组
+                    <select id="occlusion">
+                        <option value="unlabeled">未确认</option>
+                        <option value="clear">关节清晰</option>
+                        <option value="arm_occluded">手臂遮挡</option>
+                        <option value="leg_occluded">腿部遮挡</option>
+                        <option value="both_occluded">手臂与腿部遮挡</option>
+                        <option value="other">其他／模糊（在备注说明）</option>
+                    </select></label
+                >
+                <label
+                    >备注<textarea
+                        id="notes"
+                        placeholder="目标衣服/号码、看不清的部位、来源说明"
+                    ></textarea>
+                </label>
+                <label
+                    ><input type="checkbox" id="review" />
+                    我已逐点检查本帧（修改后需重新确认）</label
+                >
+                <p id="status" role="status"></p>
+                <hr />
+                <div class="row">
+                    <button id="export" class="primary">导出标注 JSON</button
+                    ><button id="importButton">导入继续</button
+                    ><input id="import" type="file" accept=".json" hidden />
+                </div>
+                <p class="small">
+                    离线工作，无上传。未确认帧可保存草稿，但不参与误差计算。切帧保留本次修改；关闭页面前请导出
+                    JSON，重新打开后导入继续。
+                </p>
+            </aside>
+        </main>
+        <script id="payload" type="application/json">
+            /*__PAYLOAD__*/
+        </script>
+        <script>
+            "use strict"
+            const payload = JSON.parse(document.getElementById("payload").textContent),
+                base = payload.dataset
+            let data = structuredClone(base),
+                index = 0,
+                mode = "box",
+                drag = null,
+                picture = new Image(),
+                imageReady = false
+            data.annotation_review_required = true
+            const $ = (id) => document.getElementById(id),
+                canvas = $("canvas"),
+                ctx = canvas.getContext("2d")
+            const joints = [
+                ["11", "左肩"],
+                ["12", "右肩"],
+                ["13", "左肘"],
+                ["14", "右肘"],
+                ["15", "左腕"],
+                ["16", "右腕"],
+                ["23", "左髋"],
+                ["24", "右髋"],
+                ["25", "左膝"],
+                ["26", "右膝"],
+                ["27", "左踝"],
+                ["28", "右踝"],
+            ]
+            const fields = [
+                "subject_present",
+                "target_bbox",
+                "manual_keypoints",
+                "annotator",
+                "occlusion",
+                "notes",
+                "reviewed_at",
+            ]
+            const frame = () => data.frames[index]
+            function message(s) {
+                $("status").textContent = s
+            }
+            function changed() {
+                frame().reviewed_at = null
+                $("review").checked = false
+                refreshButtons()
+            }
+            function valid(f, review = false) {
+                const finite = (v) => typeof v === "number" && Number.isFinite(v),
+                    p = f.manual_keypoints
+                if (![true, false, null].includes(f.subject_present)) throw Error("目标状态无效")
+                if (!p || typeof p !== "object" || Array.isArray(p)) throw Error("点位数据无效")
+                for (const k of ["annotator", "occlusion", "notes"])
+                    if (typeof f[k] !== "string") throw Error("文字字段无效")
+                const b = f.target_bbox
+                if (
+                    b !== null &&
+                    (!Array.isArray(b) ||
+                        b.length !== 4 ||
+                        !b.every(finite) ||
+                        !(
+                            0 <= b[0] &&
+                            b[0] < b[2] &&
+                            b[2] <= f.width &&
+                            0 <= b[1] &&
+                            b[1] < b[3] &&
+                            b[3] <= f.height
+                        ))
+                )
+                    throw Error("目标框超出图片或没有面积")
+                for (const [id, v] of Object.entries(p)) {
+                    if (
+                        !joints.some((j) => j[0] === id) ||
+                        !v ||
+                        !["visible", "occluded", "unknown"].includes(v.state)
+                    )
+                        throw Error("点位或状态无效")
+                    if (v.state === "unknown") {
+                        if (v.x != null || v.y != null) throw Error("未知点不能携带猜测坐标")
+                    } else if (
+                        !finite(v.x) ||
+                        !finite(v.y) ||
+                        v.x < 0 ||
+                        v.x > f.width ||
+                        v.y < 0 ||
+                        v.y > f.height
+                    )
+                        throw Error("关节点坐标无效")
+                }
+                if (review || f.reviewed_at) {
+                    if (!f.annotator.trim() || f.subject_present === null)
+                        throw Error("请填写标注者并确认目标是否在画面中")
+                    if (
+                        f.subject_present &&
+                        (b === null ||
+                            Object.keys(p).length !== 12 ||
+                            ![
+                                "clear",
+                                "arm_occluded",
+                                "leg_occluded",
+                                "both_occluded",
+                                "other",
+                            ].includes(f.occlusion))
+                    )
+                        throw Error(
+                            "请画目标框、确认遮挡分组，并逐一标记 12 个点；看不准的点设为未知",
+                        )
+                    if (f.subject_present === false && (b !== null || Object.keys(p).length))
+                        throw Error("无目标帧不能有目标框和点")
+                }
+            }
+            function refreshButtons() {
+                for (const [id, label] of joints) {
+                    const b = $("point-" + id),
+                        point = frame().manual_keypoints[id]
+                    b.textContent =
+                        label +
+                        (point
+                            ? " · " +
+                              { visible: "已标", occluded: "遮挡", unknown: "未知" }[point.state]
+                            : "")
+                    b.className = (mode === id ? "active " : "") + (point ? "marked" : "")
+                    b.disabled = frame().subject_present !== true
+                }
+                $("box").classList.toggle("active", mode === "box")
+                $("box").disabled = frame().subject_present !== true
+                $("unknown").disabled = mode === "box" || frame().subject_present !== true
+                $("pointState").disabled = mode === "box" || frame().subject_present !== true
+                $("progress").textContent =
+                    `${index + 1} / ${data.frames.length} · 已确认 ${data.frames.filter((f) => f.reviewed_at).length}`
+            }
+            function draw() {
+                if (!imageReady) return
+                ctx.clearRect(0, 0, canvas.width, canvas.height)
+                ctx.drawImage(picture, 0, 0)
+                const b = frame().target_bbox
+                ctx.lineWidth = Math.max(2, canvas.width / 200)
+                ctx.strokeStyle = "#e7a35c"
+                if (b) ctx.strokeRect(b[0], b[1], b[2] - b[0], b[3] - b[1])
+                for (const [id, p] of Object.entries(frame().manual_keypoints))
+                    if (p.state !== "unknown") {
+                        ctx.fillStyle = p.state === "occluded" ? "#ffc75a" : "#5ee1c6"
+                        ctx.beginPath()
+                        ctx.arc(p.x, p.y, Math.max(4, canvas.width / 100), 0, Math.PI * 2)
+                        ctx.fill()
+                        ctx.font = `${Math.max(16, canvas.width / 28)}px sans-serif`
+                        ctx.fillText(joints.find((j) => j[0] === id)[1], p.x + 10, p.y - 10)
+                    }
+            }
+            function show() {
+                const f = frame()
+                drag = null
+                imageReady = false
+                ctx.clearRect(0, 0, canvas.width, canvas.height)
+                $("annotator").value = f.annotator
+                $("present").value = f.subject_present === null ? "" : String(f.subject_present)
+                $("occlusion").value = f.occlusion
+                $("notes").value = f.notes
+                $("review").checked = !!f.reviewed_at
+                $("jump").value = index + 1
+                $("jump").max = data.frames.length
+                $("prev").disabled = index === 0
+                $("next").disabled = index === data.frames.length - 1
+                $("frameInfo").textContent =
+                    `${f.id} · 源帧 ${f.frame_index} · ${(f.timestamp_ms / 1000).toFixed(3)} s · ${f.width}×${f.height}`
+                const nextImage = new Image(),
+                    selected = index
+                nextImage.onload = () => {
+                    if (selected !== index || picture !== nextImage) return
+                    canvas.width = f.width
+                    canvas.height = f.height
+                    imageReady = true
+                    draw()
+                }
+                picture = nextImage
+                picture.src = payload.images[index]
+                refreshButtons()
+                message("")
+            }
+            for (const [id, label] of joints) {
+                const b = document.createElement("button")
+                b.id = "point-" + id
+                b.textContent = label
+                b.onclick = () => {
+                    mode = id
+                    $("pointState").value = frame().manual_keypoints[id]?.state || "visible"
+                    refreshButtons()
+                }
+                $("points").append(b)
+            }
+            $("box").onclick = () => {
+                mode = "box"
+                refreshButtons()
+            }
+            $("clearBox").onclick = () => {
+                frame().target_bbox = null
+                changed()
+                draw()
+            }
+            function position(e) {
+                const r = canvas.getBoundingClientRect()
+                return [
+                    Math.max(
+                        0,
+                        Math.min(canvas.width, ((e.clientX - r.left) * canvas.width) / r.width),
+                    ),
+                    Math.max(
+                        0,
+                        Math.min(canvas.height, ((e.clientY - r.top) * canvas.height) / r.height),
+                    ),
+                ]
+            }
+            canvas.onpointerdown = (e) => {
+                if (!imageReady || frame().subject_present !== true) return
+                const [x, y] = position(e)
+                if (mode === "box") {
+                    drag = [x, y]
+                    canvas.setPointerCapture(e.pointerId)
+                } else {
+                    if ($("pointState").value === "unknown") {
+                        message("当前为未知；请选择可见或可判断的遮挡状态后点选")
+                        return
+                    }
+                    frame().manual_keypoints[mode] = { x, y, state: $("pointState").value }
+                    changed()
+                    draw()
+                }
+            }
+            canvas.onpointerup = (e) => {
+                if (!drag) return
+                const [x, y] = position(e),
+                    [sx, sy] = drag
+                drag = null
+                if (x === sx || y === sy) {
+                    message("请拖动形成有面积的框")
+                    return
+                }
+                frame().target_bbox = [
+                    Math.min(sx, x),
+                    Math.min(sy, y),
+                    Math.max(sx, x),
+                    Math.max(sy, y),
+                ]
+                changed()
+                draw()
+            }
+            canvas.onpointercancel = () => {
+                drag = null
+            }
+            function unknown() {
+                if (mode === "box" || frame().subject_present !== true) return
+                frame().manual_keypoints[mode] = { state: "unknown" }
+                $("pointState").value = "unknown"
+                changed()
+                draw()
+            }
+            $("unknown").onclick = unknown
+            $("pointState").onchange = () => {
+                if ($("pointState").value === "unknown") unknown()
+                else if (
+                    frame().manual_keypoints[mode]?.state !== "unknown" &&
+                    frame().manual_keypoints[mode]
+                ) {
+                    frame().manual_keypoints[mode].state = $("pointState").value
+                    changed()
+                    draw()
+                }
+            }
+            for (const id of ["annotator", "occlusion", "notes"])
+                $(id).oninput = () => {
+                    frame()[id] = $(id).value
+                    changed()
+                }
+            $("present").onchange = () => {
+                frame().subject_present =
+                    $("present").value === "" ? null : $("present").value === "true"
+                if (frame().subject_present !== true) {
+                    frame().target_bbox = null
+                    frame().manual_keypoints = {}
+                }
+                changed()
+                draw()
+            }
+            $("review").onchange = () => {
+                try {
+                    if ($("review").checked) {
+                        valid(frame(), true)
+                        frame().reviewed_at = new Date().toISOString()
+                        message("本帧已确认")
+                    } else frame().reviewed_at = null
+                    refreshButtons()
+                } catch (e) {
+                    $("review").checked = false
+                    frame().reviewed_at = null
+                    message(e.message)
+                }
+            }
+            function move(n) {
+                if (!Number.isInteger(n) || n < 0 || n >= data.frames.length) return
+                index = n
+                show()
+            }
+            $("prev").onclick = () => move(index - 1)
+            $("next").onclick = () => move(index + 1)
+            $("jump").onchange = () => move(Number($("jump").value) - 1)
+            $("export").onclick = () => {
+                try {
+                    data.frames.forEach((f) => valid(f))
+                    const blob = new Blob([JSON.stringify(data, null, 2)], {
+                            type: "application/json;charset=utf-8",
+                        }),
+                        url = URL.createObjectURL(blob),
+                        a = document.createElement("a")
+                    a.href = url
+                    a.download = "annotations.json"
+                    a.click()
+                    setTimeout(() => URL.revokeObjectURL(url), 1000)
+                    message("已导出；请保留 JSON，用于继续标注及合并验证")
+                } catch (e) {
+                    message(e.message)
+                }
+            }
+            $("importButton").onclick = () => $("import").click()
+            $("import").onchange = async () => {
+                try {
+                    const incoming = JSON.parse(await $("import").files[0].text())
+                    if (
+                        incoming.schema !== base.schema ||
+                        incoming.frames.length !== base.frames.length
+                    )
+                        throw Error("不同的数据集")
+                    const next = structuredClone(base)
+                    next.annotation_review_required = true
+                    next.frames.forEach((f, i) => {
+                        const v = incoming.frames[i]
+                        for (const k of Object.keys(f))
+                            if (
+                                !fields.includes(k) &&
+                                JSON.stringify(v[k]) !== JSON.stringify(f[k])
+                            )
+                                throw Error("帧身份、哈希或来源已改变")
+                        for (const k of fields) if (k in v) f[k] = v[k]
+                        valid(f)
+                    })
+                    data = next
+                    show()
+                    message("已导入；原图片及帧元数据保持一致")
+                } catch (e) {
+                    message("导入失败：" + e.message)
+                } finally {
+                    $("import").value = ""
+                }
+            }
+            show()
+        </script>
+    </body>
+</html>

@@ -1,0 +1,14 @@
+{
+    "purpose": "Previously imported repository video: human annotation pilot, 30 consecutive frames at 30fps; source provenance pending, not a representative accuracy dataset",
+    "samples": [
+        {
+            "id": "shooting-pilot",
+            "path": "../../tests/fixtures/upload-sample.mp4",
+            "kind": "video",
+            "source": "Repository upload-sample.mp4 previously imported by user; original capture/source not yet documented",
+            "condition": "Portrait screen recording, multiple overlapping people, motion blur; human must identify the same shooter; clean single-person group not covered",
+            "start_ms": 1000,
+            "end_ms": 1967
+        }
+    ]
+}

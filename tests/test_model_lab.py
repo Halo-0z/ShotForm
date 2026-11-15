@@ -75,6 +75,33 @@ class ModelLabTests(unittest.TestCase):
         result = evaluate(dataset, predictions)
         self.assertEqual(result['paired_common_angles'], 0)
         self.assertEqual(result['models']['b']['angles']['left_elbow']['all_finite_mae_degrees']['n'], 1)
+        self.assertEqual(result['models']['b']['angles']['left_elbow']['coverage'], 0)
+        self.assertEqual(result['models']['a']['angles']['left_elbow']['coverage'], 1)
+
+    def test_pairwise_remains_available_when_third_model_has_no_valid_angles(self):
+        dataset, predictions = self.fixture()
+        predictions['c'] = copy.deepcopy(predictions['a'])
+        predictions['c']['rows'][0]['points'] = {}
+        result = evaluate(dataset, predictions)
+        self.assertEqual(result['paired_common_angles'], 0)
+        self.assertEqual(result['pairwise'][0]['models'], ['a', 'b'])
+        self.assertEqual(result['pairwise'][0]['common_angles'], 1)
+
+    def test_unknown_middle_frame_breaks_temporal_pairs(self):
+        dataset, predictions = self.fixture()
+        dataset['frames'][0]['kind'] = 'video'
+        for frame_id, ms in [('g', 100), ('h', 200)]:
+            f = copy.deepcopy(dataset['frames'][0])
+            f.update(id=frame_id, timestamp_ms=ms)
+            if frame_id == 'g':
+                f['manual_keypoints']['11']['state'] = 'unknown'
+            dataset['frames'].append(f)
+            for prediction in predictions.values():
+                row = copy.deepcopy(prediction['rows'][0])
+                row['frame_id'] = frame_id
+                prediction['rows'].append(row)
+        metric = evaluate(dataset, predictions)['models']['a']['angles']['left_elbow']['temporal_residual_change_deg_per_s']
+        self.assertEqual(metric['n'], 0)
 
     def test_frame_mismatch_fails_closed(self):
         dataset, predictions = self.fixture()

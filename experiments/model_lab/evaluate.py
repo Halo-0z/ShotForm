@@ -4,6 +4,7 @@ from collections import Counter
 import math
 from pathlib import Path
 import statistics
+from itertools import combinations
 from common import read, write, sha, angle, TRIPLES
 
 
@@ -14,9 +15,9 @@ def summary(values):
             'p95': values[max(0, math.ceil(len(values) * .95) - 1)] if values else None}
 
 
-def truth(frame, ids):
+def truth(frame, ids, review_required=False):
     points = frame.get('manual_keypoints', {})
-    if not frame.get('annotator') or frame.get('subject_present') is not True:
+    if not frame.get('annotator', '').strip() or frame.get('subject_present') is not True or (review_required and not frame.get('reviewed_at')):
         return None
     # Occluded but confidently human-labeled points are allowed; unknown is excluded.
     if any(points.get(str(i), {}).get('state') not in ('visible', 'occluded') for i in ids):
@@ -29,6 +30,9 @@ def evaluate(dataset, predictions):
     if len(frames) != len(dataset['frames']):
         raise ValueError('Duplicate frame ID')
     report, accepted_errors = {}, {}
+    review_required = dataset.get('annotation_review_required', False)
+    def reviewed(frame):
+        return bool(frame.get('annotator', '').strip()) and (not review_required or bool(frame.get('reviewed_at')))
     for name, prediction in predictions.items():
         rows = [r for r in prediction['rows'] if r['repeat'] == 0]
         indexed = {r['frame_id']: r for r in rows}
@@ -41,21 +45,27 @@ def evaluate(dataset, predictions):
         for joint, ids in TRIPLES.items():
             all_errors, accepted = [], []
             residuals = {}
+            labeled_count, joint_skips, groups = 0, Counter(), {}
             for frame_id, frame in frames.items():
-                expected = truth(frame, ids)
+                expected = truth(frame, ids, review_required)
                 points = indexed[frame_id]['points']
                 raw, raw_reason = angle(points, ids)
                 valid, reason = angle(points, ids, .55)
                 if expected is None:
                     skips['unlabeled_or_uncertain'] += 1
                     continue
+                labeled_count += 1
+                group = groups.setdefault(frame.get('occlusion', 'unlabeled'), {'labeled_angles': 0, 'accepted_angles': 0})
+                group['labeled_angles'] += 1
                 if raw is not None:
                     all_errors.append(abs(raw - expected))
                 if valid is None:
                     skips[reason or raw_reason or 'missing'] += 1
+                    joint_skips[reason or raw_reason or 'missing'] += 1
                     continue
                 error = abs(valid - expected)
                 accepted.append(error)
+                group['accepted_angles'] += 1
                 accepted_errors[name][(frame_id, joint)] = error
                 occlusion_errors.setdefault(frame.get('occlusion', 'unlabeled'), []).append(error)
                 residuals[frame_id] = valid - expected
@@ -70,9 +80,12 @@ def evaluate(dataset, predictions):
                         temporal.append(abs(residuals[after['id']] - residuals[before['id']]) / dt)
             errors[joint] = {'all_finite_mae_degrees': summary(all_errors),
                              'accepted_mae_degrees': summary(accepted),
+                             'labeled_angles': labeled_count, 'accepted_angles': len(accepted),
+                             'coverage': len(accepted) / labeled_count if labeled_count else None,
+                             'rejected_reasons': dict(joint_skips), 'coverage_by_occlusion': groups,
                              'temporal_residual_change_deg_per_s': summary(temporal)}
-        labeled = [f for f in frames.values() if f.get('subject_present') is True]
-        absent = [f for f in frames.values() if f.get('subject_present') is False]
+        labeled = [f for f in frames.values() if f.get('subject_present') is True and reviewed(f)]
+        absent = [f for f in frames.values() if f.get('subject_present') is False and reviewed(f)]
         missing = sum(not indexed[f['id']]['points'] for f in labeled)
         occlusion_coverage = {}
         for group in {f.get('occlusion', 'unlabeled') for f in labeled}:
@@ -91,7 +104,15 @@ def evaluate(dataset, predictions):
                         'pipeline_ms_first_pass': summary([r['pipeline_ms'] for r in rows]),
                         'pipeline_ms_warm_passes': summary([r['pipeline_ms'] for r in prediction['rows'] if r['repeat'] > 0])}
     common = set.intersection(*(set(r) for r in accepted_errors.values())) if len(accepted_errors) >= 2 else set()
+    pairs = []
+    for left, right in combinations(accepted_errors, 2):
+        shared = accepted_errors[left].keys() & accepted_errors[right].keys()
+        pairs.append({'models': [left, right], 'common_angles': len(shared),
+                      'mae_degrees': {n: summary([accepted_errors[n][k] for k in shared]) for n in (left, right)},
+                      'right_minus_left_absolute_error_degrees': summary([
+                          accepted_errors[right][k] - accepted_errors[left][k] for k in shared])})
     return {'models': report, 'paired_common_angles': len(common),
+            'pairwise': pairs,
             'paired_mae_degrees': {name: summary([values[k] for k in common]) for name, values in accepted_errors.items()},
             'paired_by_joint': {joint: {name: summary([values[k] for k in common if k[1] == joint])
                                for name, values in accepted_errors.items()} for joint in TRIPLES},
@@ -113,7 +134,7 @@ if __name__ == '__main__':
     for name, status in runs['runs'].items():
         if status['exit_code'] == 0 and status['error'] is None:
             prediction = read(a.run / name / 'predictions.json')
-            # Hash refers to original byte-identical dataset; copy was JSON reserialized.
+            # Dataset copy is byte-identical to the frozen input, including annotations.
             if prediction['dataset_sha256'] != runs['dataset_sha256']:
                 raise ValueError('Dataset version mismatch')
             predictions[name] = prediction

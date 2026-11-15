@@ -2,6 +2,8 @@
 
 ## 2026-11-15 selected direction: A · 球场回放台
 
+Second refinement: the user asks for a more polished, comprehensive basketball-game visual and authorizes generated image assets. Use a cinematic generated arena for the home cover, a tactile 3D court diorama for the upload entry, a dark navigation rail in both themes, and coordinated equipment-like surfaces throughout the workbench. Preserve readable data, real editable controls, the route structure and the existing real player cutouts. Generated artwork is decorative, never analysis evidence. This supersedes the SVG-only asset treatment and permits atmospheric home artwork in both themes.
+
 Follow-up preference: the user selected **basketball game controls with more visible depth and motion**, using original SVG. Preserve the A layout, data hierarchy and dual themes. Use raised steel-blue action plates, illustrated basketball/court icons and responsive press/hover states; these intentionally supersede the previous flat-control treatment. The source is `src/components/basketball/` with shared styling in `src/assets/basketball-game.css`. Avoid decorative animation over analysis evidence and honor reduced motion.
 
 The current implementation follows the selected replay workbench direction. The cover remains a basketball poster; inner routes prioritize actual media, adjacent playback controls, frame selection, and readable evidence. Use the shared light/dark roles in `src/assets/workbench.css`; steel blue denotes interaction and copper denotes evidence. Secondary and semantic colors are adjusted by theme for readability.

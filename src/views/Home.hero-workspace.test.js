@@ -16,7 +16,8 @@ test("home route sends the CTA through fog navigation into /upload", () => {
     assert.match(source, /useRouter/)
     assert.match(source, /navigateWithFogTransition/)
     assert.match(source, /['"]\/upload['"]/)
-    assert.doesNotMatch(source, /['"]\/analysis['"]/)
+    const startHandler = source.match(/const handleStart = async \(\) => \{[\s\S]*?\n\}/)?.[0] ?? ""
+    assert.doesNotMatch(startHandler, /['"]\/analysis['"]/)
     assert.match(source, /@click="handleStart"/)
 })
 

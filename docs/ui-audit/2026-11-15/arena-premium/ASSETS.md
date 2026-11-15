@@ -1,0 +1,15 @@
+# 生成素材记录
+
+生成方式：内置 imagegen 工具；工具未暴露型号选择，未声明使用 image2.5。两张均为新生成装饰素材，不代表真实场馆或分析证据。原图保留在 assets-source/；转换为 WebP 用浏览器 Canvas 编码，仅等比缩小与格式压缩，不重绘内容。
+
+- 球馆原图：assets-source/arena.png；运行文件：public/art/arena-v2.webp，1600×900，84,164 bytes。
+- 透明器材原图：assets-source/court-kit.png；运行文件：public/art/court-kit-v2.webp，900×675，93,498 bytes。透明角点 alpha=0，保留透明通道。
+- 既有球员剪影沿用原素材；按钮、文字、图标与数据使用实际组件。
+
+## 球馆提示词
+
+Use case: stylized-concept. Create a premium cinematic basketball arena environment plate for ShotForm, a desktop basketball training analysis game-like app. Wide landscape 16:9 composition. An empty indoor basketball arena at night, close low-angle view across beautiful dark smoked maple hardwood court with fine real wood grain, thin ivory court markings, a single regulation basketball hoop on the FAR RIGHT upper quadrant, a restrained row of warm amber stadium lights high above, subtle cool steel blue fill light and very fine atmospheric haze. Rich physical materials, exquisitely realistic art direction, AAA sports videogame environment, photographic quality, deep ink navy palette and warm copper light. The LEFT HALF must be very dark, visually quiet, softly graded empty negative space for UI headlines; do not place objects or strong lines there. The center-right lower area must be mostly empty court to composite an existing cutout basketball athlete, so the hoop is distant above and behind. Background only, no athlete, no people, no ball, no audience details, no letters, no text, no logos, no watermark, no UI, no excessive neon or sci-fi. Court occupies lower third, background upper two-thirds. Elegant, tactile and spacious. Soft vignette, matte highlights, avoid blown out whites. Horizontal 1536x1024 or wider.
+
+## 器材提示词
+
+Use case: stylized-concept. Create a single exquisitely crafted 3D basketball training diorama asset with a genuinely transparent background. Three-quarter isometric view, premium AAA basketball game collectible art direction with realistic tactile materials, not toyish cartoon. A regulation orange pebbled leather basketball in the left foreground, a compact freestanding basketball hoop behind on the right with a crystal-clear transparent rectangular glass backboard, dark navy brushed metal frame, orange rim, a delicate ivory rope net, and a beautifully beveled small dark navy half-court plinth with thin cream court lines and a copper edge. All objects form ONE harmonious sculpture; ball approximately one quarter composition height, hoop two-thirds height. Soft amber key light upper left, subtle steel blue rim light right, crisp materials and restrained highlights, detailed basketball grooves and leather texture, soft contact shadow on the plinth only. Center whole object with 10% transparent padding all sides, no clipping. Broad landscape silhouette about 4:3, isolated floating asset for a software upload empty state, beautiful readable at 340 px wide on both warm ivory and dark charcoal UI backgrounds. No background rectangle, no ground beyond the plinth, no people, no text, no numbers, no typography, no logos, no watermark, no dramatic glow.

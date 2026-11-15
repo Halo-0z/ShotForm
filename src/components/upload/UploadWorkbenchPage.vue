@@ -5,7 +5,7 @@ import { open } from "@tauri-apps/plugin-dialog"
 import { readFile } from "@tauri-apps/plugin-fs"
 import { basename } from "@tauri-apps/api/path"
 import BasketballGlyph from "@/components/basketball/BasketballGlyph.vue"
-import CourtIllustration from "@/components/basketball/CourtIllustration.vue"
+import CourtArtwork from "@/components/basketball/CourtArtwork.vue"
 import { AlertCircle, Trash2 } from "lucide-vue-next"
 import { Button } from "@/components/ui/button"
 import { navigateWithFogTransition } from "@/composables/useFogRouteTransition"
@@ -385,34 +385,38 @@ onUnmounted(() => {
         >
             <div v-if="!hasVideo" class="upload-workbench__dropzone">
                 <div class="upload-workbench__dropzone-icon">
-                    <CourtIllustration />
+                    <CourtArtwork />
                 </div>
-                <p class="upload-workbench__dropzone-title">
-                    {{ uploadMode === "video" ? "选择一次完整的投篮动作" : "拖拽投篮图片到此处" }}
-                </p>
-                <p class="upload-workbench__dropzone-hint">
-                    {{
-                        uploadMode === "video"
-                            ? "建议 2 到 6 秒，包含一次投篮的完整动作"
-                            : "建议单人、全身可见、拍摄角度固定"
-                    }}
-                </p>
-                <Button
-                    class="upload-workbench__dropzone-btn"
-                    :disabled="isBusy"
-                    @click="uploadMode === 'video' ? pickVideo() : pickImage()"
-                >
-                    <BasketballGlyph name="upload" />
-                    {{ uploadMode === "video" ? "选择视频" : "选择图片" }}
-                </Button>
-                <p class="upload-workbench__dropzone-exts">
-                    {{
-                        uploadMode === "video"
-                            ? "支持 MP4 / MOV / AVI / WEBM"
-                            : "支持 JPG / PNG / WEBP / BMP / GIF"
-                    }}
-                </p>
-                <p class="upload-workbench__dropzone-size">文件大小不超过 200MB</p>
+                <div class="upload-workbench__dropzone-copy">
+                    <p class="upload-workbench__dropzone-title">
+                        {{
+                            uploadMode === "video" ? "选择一次完整的投篮动作" : "拖拽投篮图片到此处"
+                        }}
+                    </p>
+                    <p class="upload-workbench__dropzone-hint">
+                        {{
+                            uploadMode === "video"
+                                ? "建议 2 到 6 秒，包含一次投篮的完整动作"
+                                : "建议单人、全身可见、拍摄角度固定"
+                        }}
+                    </p>
+                    <Button
+                        class="upload-workbench__dropzone-btn"
+                        :disabled="isBusy"
+                        @click="uploadMode === 'video' ? pickVideo() : pickImage()"
+                    >
+                        <BasketballGlyph name="upload" />
+                        {{ uploadMode === "video" ? "选择视频" : "选择图片" }}
+                    </Button>
+                    <p class="upload-workbench__dropzone-exts">
+                        {{
+                            uploadMode === "video"
+                                ? "支持 MP4 / MOV / AVI / WEBM"
+                                : "支持 JPG / PNG / WEBP / BMP / GIF"
+                        }}
+                    </p>
+                    <p class="upload-workbench__dropzone-size">文件大小不超过 200MB</p>
+                </div>
             </div>
 
             <template v-else>

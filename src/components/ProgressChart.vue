@@ -71,7 +71,7 @@ const buildOption = () => {
                 return `${point.name}<br/>${point.seriesName}: ${point.value.toFixed(1)}°`
             },
         },
-        grid: { top: 24, right: 20, bottom: 24, left: 48 },
+        grid: { top: 44, right: 20, bottom: 24, left: 48 },
         xAxis: {
             type: "category",
             data: dataPoints.map((d) =>
@@ -83,7 +83,8 @@ const buildOption = () => {
         yAxis: {
             type: "value",
             name: "角度 (°)",
-            nameTextStyle: { color: color("--text-muted") },
+            nameGap: 14,
+            nameTextStyle: { color: color("--text-muted"), fontSize: 12, lineHeight: 18 },
             axisLine: { lineStyle: { color: color("--surface-border") } },
             axisLabel: { color: color("--text-muted"), fontSize: 12 },
             splitLine: {

@@ -1,0 +1,526 @@
+/* Tactile arena refinement. Artwork is confined to the cover and empty entry. */
+:root {
+    --arena-line: #d8dce1;
+    --arena-panel-shadow: 0 8px 28px rgb(30 42 60 / 5%), inset 0 1px 0 #fff;
+    --bg-solid: #f1f0ed;
+    --surface-color: #fcfbf8;
+    --card-bg: #fcfbf8;
+    --surface-border: #d9d9d5;
+    --game-edge: #b5bfcc;
+}
+.dark {
+    --game-edge: #0b111a;
+    --bg-solid: #11171f;
+    --surface-color: #1b2430;
+    --card-bg: #1b2430;
+    --surface-border: #35404e;
+    --arena-line: #35404e;
+    --arena-panel-shadow: 0 8px 28px rgb(0 0 0 / 12%), inset 0 1px 0 rgb(255 255 255 / 5%);
+}
+
+/* The navigation rail is a stable dark frame in either reading theme. */
+.app-sidebar.app-sidebar {
+    background: radial-gradient(ellipse at 0 0, #283748, transparent 45%), #121b26;
+    border-right: 1px solid #303d4c;
+    box-shadow: inset -1px 0 0 rgb(255 255 255 / 3%);
+}
+.app-sidebar.app-sidebar .app-sidebar__brand {
+    color: #f5f1e9;
+    letter-spacing: -0.5px;
+}
+.app-sidebar.app-sidebar .app-sidebar__nav {
+    gap: 9px;
+}
+.app-sidebar.app-sidebar .app-sidebar__nav-item {
+    color: #bac8d8;
+    border-radius: 10px;
+}
+.app-sidebar.app-sidebar .app-sidebar__nav-item .basketball-glyph {
+    width: 30px;
+    height: 30px;
+    padding: 4px;
+    border-radius: 7px;
+    background: linear-gradient(145deg, #304055, #1c2837);
+    box-shadow:
+        inset 0 1px 0 #536171,
+        0 2px 3px #0c131d;
+    color: #d7e0eb;
+}
+.app-sidebar.app-sidebar .app-sidebar__nav-item.is-active {
+    color: #fff;
+    background: linear-gradient(105deg, #344c6c, #24374e);
+    border-color: #526782;
+    box-shadow:
+        inset 3px 0 0 #e9b37b,
+        inset 0 1px 0 #61748d,
+        0 4px 10px #0a111a66;
+}
+.app-sidebar.app-sidebar .app-sidebar__nav-item:hover {
+    color: #fff;
+    background-color: #243345;
+}
+.app-sidebar.app-sidebar .app-sidebar__privacy {
+    color: #a6b7ca;
+    border-color: #354151;
+    font-size: 12px;
+}
+.app-sidebar button:focus-visible,
+.app-sidebar a:focus-visible {
+    outline-color: #a5c9fb;
+}
+
+/* Home is a complete arena scene. Both themes retain the cinematic cover. */
+.home-page.home-page {
+    position: relative;
+    isolation: isolate;
+    background: #0b121c;
+    padding: 30px clamp(24px, 4.4vw, 68px) 22px;
+    color: #f8f5ee;
+}
+.home-page::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -2;
+    background:
+        linear-gradient(90deg, #0c1423ee 0%, #0b1423b0 37%, #0b142318 73%),
+        linear-gradient(0deg, #0b121cf0 0%, transparent 45%),
+        url("/art/arena-v2.webp") center / cover;
+}
+.home-page.home-page .home-cover {
+    min-height: 500px;
+    gap: 18px;
+}
+.home-page.home-page .home-copy {
+    padding: 30px 0;
+}
+.home-page.home-page .home-kicker {
+    color: #d5c6b2;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.13em;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 24px;
+}
+.home-status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #e4a465;
+    box-shadow: 0 0 0 4px #e4a46520;
+}
+.home-page.home-page h1 {
+    color: #faf7f1;
+    font-weight: 800;
+    font-size: clamp(44px, 5.2vw, 78px);
+    letter-spacing: -0.045em;
+    line-height: 1.17;
+    text-shadow: 0 4px 22px #03091566;
+}
+.home-page.home-page h1 span {
+    color: #efbc83;
+}
+.home-page.home-page .home-intro {
+    color: #c3cedc;
+    max-width: 27em;
+    font-size: 16px;
+    margin: 25px 0 28px;
+}
+.home-page.home-page .home-formats {
+    color: #afbed0;
+}
+.home-page.home-page .home-art {
+    height: min(64vh, 650px);
+    min-height: 420px;
+}
+.home-page.home-page .home-art::before {
+    background: radial-gradient(ellipse, #efbc8314, transparent 65%);
+}
+.home-page.home-page .carousel__image {
+    filter: drop-shadow(14px 18px 25px #0007);
+}
+.home-page.home-page .home-art-control {
+    color: #d1dbe7;
+    background: #162131e6;
+    border-color: #56616e;
+}
+.home-page.home-page .home-privacy {
+    color: #a8b8ca;
+    border-color: #43506380;
+    margin-top: 24px;
+    padding-top: 16px;
+    font-size: 12px;
+}
+.home-quicklinks {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    position: relative;
+    z-index: 1;
+    margin-top: 20px;
+}
+.home-quicklinks a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 18px;
+    color: #ece9e2;
+    text-decoration: none;
+    border: 1px solid #445267;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #263648d9, #142132eb);
+    box-shadow: inset 0 1px 0 #ffffff0c;
+    transition:
+        border-color 180ms,
+        background 180ms;
+}
+.home-quicklinks a:hover {
+    border-color: #a5b6cc;
+    background: #2c4059;
+}
+.home-quicklinks a:focus-visible {
+    outline-color: #a5c9fb;
+}
+.home-quicklinks .basketball-glyph {
+    width: 30px;
+    height: 30px;
+    color: #ebbb88;
+}
+.home-quicklinks span {
+    display: grid;
+    gap: 3px;
+    font-size: 15px;
+    font-weight: 600;
+}
+.home-quicklinks small {
+    font-size: 12px;
+    font-weight: 400;
+    color: #aebfd2;
+}
+.home-quicklinks a > svg:last-child {
+    width: 16px;
+    height: 16px;
+    margin-left: auto;
+    color: #aebfd2;
+}
+
+/* Smooth metal edges replace repeated SVG border patterns. */
+.button-surface.button-surface {
+    border-radius: 8px;
+    font-weight: 600;
+}
+.button-surface > .court-button-skin {
+    display: none;
+}
+.button-surface[data-variant="default"],
+.button-surface[data-variant="upload-cta"] {
+    background: linear-gradient(175deg, #6785ac, #49658b 55%, #405a7f);
+    border-color: #7791b1;
+    box-shadow:
+        inset 0 1px 0 #b8cbe566,
+        0 3px 0 #263d5b,
+        0 5px 10px #101d3026;
+}
+.button-surface[data-variant="outline"],
+.button-surface[data-variant="secondary"] {
+    box-shadow:
+        inset 0 1px 0 var(--game-highlight),
+        0 2px 0 var(--game-edge),
+        0 3px 6px #0c19260a;
+}
+.home-page.home-page .home-start.button-surface {
+    min-height: 58px;
+    border-radius: 10px;
+    padding-inline: 25px;
+}
+.button-surface:active:not(:disabled) {
+    box-shadow:
+        inset 0 2px 4px #0003,
+        0 1px 0 var(--game-edge);
+}
+.button-surface:disabled {
+    box-shadow: none;
+}
+
+/* Large empty upload entry: art and action form one composition. */
+.upload-page .upload-workbench .upload-workbench__body {
+    border-radius: 16px;
+    box-shadow: var(--arena-panel-shadow);
+    overflow: hidden;
+}
+.upload-page .upload-workbench .upload-workbench__dropzone {
+    min-height: 410px;
+    display: grid;
+    grid-template-columns: minmax(240px, 0.9fr) minmax(0, 1fr);
+    align-items: center;
+    gap: 16px;
+    padding: 42px clamp(24px, 4vw, 64px);
+    text-align: left;
+    border: 0;
+    border-radius: 0;
+    background: radial-gradient(ellipse at 24% 65%, #b8783212, transparent 60%);
+}
+.upload-page .upload-workbench .upload-workbench__dropzone-icon {
+    display: block;
+    width: 100%;
+    height: 300px;
+    margin: 0;
+}
+.upload-workbench__dropzone-copy {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    min-width: 0;
+}
+.upload-page .upload-workbench__dropzone-copy > p {
+    text-align: inherit;
+}
+.upload-page .upload-workbench .upload-workbench__dropzone-title {
+    font-size: 25px;
+    line-height: 1.4;
+    letter-spacing: -0.6px;
+    margin: 0 0 14px;
+}
+.upload-page .upload-workbench .upload-workbench__dropzone-hint {
+    margin: 0 0 24px;
+    color: var(--text-secondary);
+}
+.upload-page .upload-workbench .upload-workbench__dropzone-btn {
+    min-height: 46px;
+    padding-inline: 24px;
+    margin: 0 0 22px;
+}
+.upload-page .upload-workbench .upload-workbench__dropzone-exts {
+    margin: 0 0 5px;
+}
+.upload-page .upload-workbench .upload-workbench__dropzone-size {
+    margin: 0;
+    font-size: 13px;
+}
+.upload-page .upload-workbench .upload-workbench__body--drag-over {
+    outline: 3px solid var(--primary-color);
+    outline-offset: 3px;
+}
+.upload-page .upload-workbench .upload-workbench__body--drag-over .court-artwork {
+    transform: translateY(-6px);
+}
+
+/* Workbench furniture: calm evidence surfaces with fine equipment-like edges. */
+.ui-page .ui-page__header h1 {
+    letter-spacing: -0.75px;
+    font-weight: 750;
+}
+.ui-page .ui-page__header {
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--surface-border);
+}
+.analysis-workbench.ui-page .analysis-workbench__video-player {
+    border: 1px solid #44505e;
+    border-radius: 12px;
+    box-shadow: 0 10px 24px #06101e16;
+}
+.analysis-workbench.ui-page .analysis-workbench__video-controls {
+    border-bottom: 1px solid var(--surface-border);
+    margin-bottom: 14px;
+    padding: 14px 0;
+}
+.analysis-workbench.ui-page .analysis-workbench__right {
+    padding: 20px;
+    border: 1px solid var(--surface-border);
+    border-radius: 12px;
+    background: var(--card-bg);
+    box-shadow: var(--arena-panel-shadow);
+    gap: 22px;
+}
+.analysis-workbench.ui-page .analysis-workbench__timeline-frame {
+    border-radius: 7px;
+}
+.analysis-workbench.ui-page .analysis-workbench__timeline-frame--active {
+    outline: none;
+}
+.ui-page .replay-modes {
+    padding: 4px;
+    background: var(--card-bg);
+    border: 1px solid var(--surface-border);
+    border-radius: 9px;
+}
+.history-page.ui-page .training-filters {
+    padding: 18px;
+    border: 1px solid var(--surface-border);
+    border-radius: 12px;
+    background: var(--card-bg);
+    box-shadow: var(--arena-panel-shadow);
+}
+.history-page.ui-page .history-session-row__preview {
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+.history-page.ui-page .history-session-row:hover {
+    background: color-mix(in srgb, var(--selection-bg), transparent 60%);
+}
+.history-page.ui-page .history-group__icon {
+    color: var(--evidence-text);
+}
+.templates-page.ui-page .templates-panel {
+    background: var(--card-bg);
+    border: 1px solid var(--surface-border);
+    border-radius: 12px;
+    box-shadow: var(--arena-panel-shadow);
+}
+.templates-page.ui-page .templates-panel--library {
+    padding-left: 0;
+}
+.templates-page.ui-page .templates-empty > .basketball-glyph {
+    padding: 9px;
+    width: 62px;
+    height: 62px;
+    border-radius: 14px;
+    background: var(--selection-bg);
+    color: var(--selection-text);
+    box-shadow: inset 0 1px 0 var(--game-highlight);
+}
+.compare-page.ui-page .comparison-ranking-card {
+    border-radius: 10px;
+    background: var(--card-bg);
+}
+.compare-page.ui-page .comparison-ranking-card--active {
+    background: var(--selection-bg);
+    border-color: var(--primary-color);
+}
+.compare-page.ui-page .comparison-detail > .comparison-panel {
+    border: 1px solid var(--surface-border);
+    border-radius: 12px;
+    background: var(--card-bg);
+    box-shadow: var(--arena-panel-shadow);
+}
+.settings-dialog.settings-dialog {
+    border-radius: 16px;
+    box-shadow:
+        0 30px 100px #0005,
+        inset 0 1px 0 var(--game-highlight);
+}
+.settings-dialog .settings-themes label {
+    border-radius: 10px;
+}
+.ui-empty > .basketball-glyph,
+.history-empty-state > .basketball-glyph {
+    padding: 14px;
+    width: 86px;
+    height: 86px;
+    border-radius: 22px;
+    background: var(--selection-bg);
+    color: var(--selection-text);
+    box-shadow:
+        inset 0 1px 0 var(--game-highlight),
+        0 5px 0 var(--surface-border);
+}
+.tray-menu-panel.tray-menu-panel {
+    background: var(--card-bg);
+    box-shadow: inset 0 1px 0 var(--game-highlight);
+}
+
+@media (max-width: 1100px) {
+    .home-page.home-page .home-cover {
+        min-height: 440px;
+    }
+    .home-page.home-page .home-art {
+        height: 55vh;
+        min-height: 360px;
+    }
+    .home-quicklinks a {
+        padding: 12px;
+        gap: 8px;
+    }
+    .home-quicklinks small {
+        font-size: 12px;
+    }
+    .home-quicklinks a > svg:last-child {
+        display: none;
+    }
+    .upload-page .upload-workbench .upload-workbench__dropzone {
+        grid-template-columns: 0.8fr 1fr;
+        padding: 26px;
+    }
+    .upload-page .upload-workbench .upload-workbench__dropzone-icon {
+        height: 250px;
+    }
+}
+@media (max-width: 760px), (max-height: 650px) {
+    .upload-page .upload-workbench .upload-workbench__dropzone {
+        display: flex;
+        min-height: 210px;
+        padding: 26px;
+        justify-content: center;
+        text-align: center;
+    }
+    .upload-page .upload-workbench .upload-workbench__dropzone-icon {
+        display: none;
+    }
+    .upload-workbench__dropzone-copy {
+        align-items: center;
+    }
+    .upload-page .upload-workbench .upload-workbench__dropzone-title {
+        font-size: 20px;
+    }
+    .upload-page .upload-workbench .upload-workbench__dropzone-btn {
+        min-height: 36px;
+        margin-bottom: 14px;
+    }
+    .upload-page .upload-workbench .upload-workbench__dropzone-hint {
+        margin-bottom: 16px;
+    }
+}
+@media (max-width: 700px) {
+    .home-page.home-page .home-art {
+        display: none;
+    }
+    .home-page.home-page .home-cover {
+        grid-template-columns: 1fr;
+        min-height: 420px;
+    }
+    .home-quicklinks {
+        grid-template-columns: 1fr;
+    }
+    .home-quicklinks small {
+        display: none;
+    }
+    .analysis-workbench.ui-page .analysis-workbench__right {
+        padding: 14px;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .upload-page .upload-workbench .upload-workbench__body--drag-over .court-artwork {
+        transform: none;
+    }
+}
+.upload-page .upload-workbench {
+    container-type: inline-size;
+}
+@container (max-width: 700px) {
+    .upload-page .upload-workbench .upload-workbench__dropzone {
+        display: flex;
+        min-height: 210px;
+        padding: 26px;
+        justify-content: center;
+        text-align: center;
+    }
+    .upload-page .upload-workbench .upload-workbench__dropzone-icon {
+        display: none;
+    }
+    .upload-workbench__dropzone-copy {
+        align-items: center;
+        width: 100%;
+    }
+    .upload-page .upload-workbench .upload-workbench__dropzone-title {
+        font-size: 20px;
+    }
+    .upload-page .upload-workbench .upload-workbench__dropzone-btn {
+        min-height: 36px;
+        margin-bottom: 14px;
+    }
+    .upload-page .upload-workbench .upload-workbench__dropzone-hint {
+        margin-bottom: 16px;
+    }
+}

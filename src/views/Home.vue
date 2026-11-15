@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { Button } from "@/components/ui/button"
 import BasketballGlyph from "@/components/basketball/BasketballGlyph.vue"
-import CourtBackdrop from "@/components/basketball/CourtBackdrop.vue"
 import { ref } from "vue"
 import { useRouter } from "vue-router"
 import { ArrowRight, ShieldCheck, Pause, Play } from "lucide-vue-next"
@@ -29,7 +28,7 @@ const handleStart = async () => {
     <main class="home-page">
         <div class="home-cover">
             <div class="home-copy ui-enter">
-                <p class="home-kicker">ShotForm · 投篮动作分析</p>
+                <p class="home-kicker"><span class="home-status-dot" />SHOTFORM / 训练主场</p>
                 <h1>看见你的<br /><span>出手节奏</span></h1>
                 <p class="home-intro">
                     从一次投篮开始。回看关键帧，观察关节角度，留下下一次训练的方向。
@@ -47,7 +46,6 @@ const handleStart = async () => {
                 <p class="home-formats">图片或短视频 · 支持逐帧回看与训练记录</p>
             </div>
             <div class="home-art">
-                <CourtBackdrop />
                 <HomePlayerCarousel
                     aria-hidden="true"
                     :reduce-motion="prefersReducedMotion || coverPaused"
@@ -64,6 +62,22 @@ const handleStart = async () => {
                 </button>
             </div>
         </div>
+        <nav class="home-quicklinks" aria-label="训练快捷入口">
+            <RouterLink to="/analysis"
+                ><BasketballGlyph name="replay" /><span
+                    >动作回放<small>逐帧观察出手细节</small></span
+                ><ArrowRight aria-hidden="true"
+            /></RouterLink>
+            <RouterLink to="/history"
+                ><BasketballGlyph name="history" /><span>训练档案<small>回看每一次训练</small></span
+                ><ArrowRight aria-hidden="true"
+            /></RouterLink>
+            <RouterLink to="/compare"
+                ><BasketballGlyph name="compare" /><span
+                    >动作对比<small>寻找下一步改进方向</small></span
+                ><ArrowRight aria-hidden="true"
+            /></RouterLink>
+        </nav>
         <footer class="home-privacy">
             <ShieldCheck aria-hidden="true" />
             <p>基础分析在本机完成。选择生成 AI 报告时，图像和分析数据会发送至腾讯混元云服务。</p>

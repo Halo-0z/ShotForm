@@ -1,0 +1,763 @@
+{
+  "models": {
+    "heavy-cpu": {
+      "frames": 16,
+      "selected_frames": 10,
+      "selection_failures": {
+        "ambiguous_multiple_people": 6
+      },
+      "annotated_present_frames": 0,
+      "missed_target_frames": null,
+      "miss_rate": null,
+      "annotated_absent_frames": 0,
+      "false_positive_frames": null,
+      "angles": {
+        "left_shoulder": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        },
+        "right_shoulder": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        },
+        "left_elbow": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        },
+        "right_elbow": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        },
+        "left_hip": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        },
+        "right_hip": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        },
+        "left_knee": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        },
+        "right_knee": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        }
+      },
+      "skips": {
+        "unlabeled_or_uncertain": 128
+      },
+      "occlusion_accepted_error": {},
+      "occlusion_coverage": {},
+      "pipeline_ms_first_pass": {
+        "n": 16,
+        "mean": 52.44699374998163,
+        "median": 44.784550000258605,
+        "p95": 68.02870000001349
+      },
+      "pipeline_ms_warm_passes": {
+        "n": 32,
+        "mean": 54.124390624977536,
+        "median": 45.11725000020306,
+        "p95": 71.0639999997511
+      }
+    },
+    "rtmpose-cpu": {
+      "frames": 16,
+      "selected_frames": 1,
+      "selection_failures": {
+        "ambiguous_multiple_people": 15
+      },
+      "annotated_present_frames": 0,
+      "missed_target_frames": null,
+      "miss_rate": null,
+      "annotated_absent_frames": 0,
+      "false_positive_frames": null,
+      "angles": {
+        "left_shoulder": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        },
+        "right_shoulder": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        },
+        "left_elbow": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        },
+        "right_elbow": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        },
+        "left_hip": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        },
+        "right_hip": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        },
+        "left_knee": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        },
+        "right_knee": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        }
+      },
+      "skips": {
+        "unlabeled_or_uncertain": 128
+      },
+      "occlusion_accepted_error": {},
+      "occlusion_coverage": {},
+      "pipeline_ms_first_pass": {
+        "n": 16,
+        "mean": 173.86014375000514,
+        "median": 175.85034999979143,
+        "p95": 208.02659999981188
+      },
+      "pipeline_ms_warm_passes": {
+        "n": 32,
+        "mean": 176.5049875000244,
+        "median": 172.3483999999189,
+        "p95": 230.9239000001071
+      }
+    },
+    "rtmpose-cuda": {
+      "frames": 16,
+      "selected_frames": 1,
+      "selection_failures": {
+        "ambiguous_multiple_people": 15
+      },
+      "annotated_present_frames": 0,
+      "missed_target_frames": null,
+      "miss_rate": null,
+      "annotated_absent_frames": 0,
+      "false_positive_frames": null,
+      "angles": {
+        "left_shoulder": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        },
+        "right_shoulder": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        },
+        "left_elbow": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        },
+        "right_elbow": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        },
+        "left_hip": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        },
+        "right_hip": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        },
+        "left_knee": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        },
+        "right_knee": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        }
+      },
+      "skips": {
+        "unlabeled_or_uncertain": 128
+      },
+      "occlusion_accepted_error": {},
+      "occlusion_coverage": {},
+      "pipeline_ms_first_pass": {
+        "n": 16,
+        "mean": 508.8734937500021,
+        "median": 206.63844999990033,
+        "p95": 5086.19839999983
+      },
+      "pipeline_ms_warm_passes": {
+        "n": 32,
+        "mean": 244.26912812504042,
+        "median": 223.630250000042,
+        "p95": 363.08199999984936
+      }
+    }
+  },
+  "paired_common_angles": 0,
+  "paired_mae_degrees": {
+    "heavy-cpu": {
+      "n": 0,
+      "mean": null,
+      "median": null,
+      "p95": null
+    },
+    "rtmpose-cpu": {
+      "n": 0,
+      "mean": null,
+      "median": null,
+      "p95": null
+    },
+    "rtmpose-cuda": {
+      "n": 0,
+      "mean": null,
+      "median": null,
+      "p95": null
+    }
+  },
+  "paired_by_joint": {
+    "left_shoulder": {
+      "heavy-cpu": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      },
+      "rtmpose-cpu": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      },
+      "rtmpose-cuda": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      }
+    },
+    "right_shoulder": {
+      "heavy-cpu": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      },
+      "rtmpose-cpu": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      },
+      "rtmpose-cuda": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      }
+    },
+    "left_elbow": {
+      "heavy-cpu": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      },
+      "rtmpose-cpu": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      },
+      "rtmpose-cuda": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      }
+    },
+    "right_elbow": {
+      "heavy-cpu": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      },
+      "rtmpose-cpu": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      },
+      "rtmpose-cuda": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      }
+    },
+    "left_hip": {
+      "heavy-cpu": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      },
+      "rtmpose-cpu": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      },
+      "rtmpose-cuda": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      }
+    },
+    "right_hip": {
+      "heavy-cpu": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      },
+      "rtmpose-cpu": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      },
+      "rtmpose-cuda": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      }
+    },
+    "left_knee": {
+      "heavy-cpu": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      },
+      "rtmpose-cpu": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      },
+      "rtmpose-cuda": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      }
+    },
+    "right_knee": {
+      "heavy-cpu": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      },
+      "rtmpose-cpu": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      },
+      "rtmpose-cuda": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      }
+    }
+  },
+  "decision": "No automatic model switch; require labeled paired results and target-machine acceptance",
+  "temporal_definition": "Mean absolute adjacent change of (predicted angle - manual angle)/dt; not raw motion jitter",
+  "failed_runs": {}
+}

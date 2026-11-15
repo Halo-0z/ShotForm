@@ -1,5 +1,7 @@
 # 真实实验操作指南
 
+Heavy / RTMPose 独立环境、点位契约、同帧标注与 CPU/GPU 对照命令见 [模型对照协议](model-comparison.md)。原有脚本继续保留，用于原管线实验；新的全关节配对评估在 `experiments/model_lab/`，不写应用历史。
+
 ## 两类材料必须分开
 
 - `smoke-manifest.json`：仓库现有素材，只验证代码流程，原始拍摄来源未核验，不能当作训练效果数据集。

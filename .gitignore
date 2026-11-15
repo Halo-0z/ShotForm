@@ -18,6 +18,9 @@ models/*.download
 .trae/
 .vscode/
 .venv/
+.venv-model-lab/
+models/experimental/
+experiments/local/
 .learnings/
 .plans/
 .worktrees/

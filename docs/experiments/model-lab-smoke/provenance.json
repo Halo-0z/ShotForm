@@ -1,0 +1,116 @@
+{
+  "heavy-cpu": {
+    "prediction_sha256": "db21551edc40470c9f04499b70fd35e1f2b2071d76a09a0877c060ce6093b0f9",
+    "rows": 48,
+    "model": {
+      "backend": "tasks",
+      "name": "pose_landmarker_heavy.task",
+      "sha256": "64437af838a65d18e5ba7a0d39b465540069bc8aae8308de3e318aad31fcbc7b",
+      "fallback_reasons": [],
+      "providers": [
+        "MediaPipe Tasks CPU"
+      ],
+      "confidence_type": "visibility"
+    },
+    "packages": {
+      "mediapipe": "0.10.21",
+      "numpy": "1.26.4",
+      "opencv-contrib-python": "4.11.0.86"
+    },
+    "load_ms": 1047.2156999999243,
+    "first_frame_pipeline_ms": 44.955900000331894
+  },
+  "rtmpose-cpu": {
+    "prediction_sha256": "d1df39beab8bdba7e24f858edd1383218059dd0448436b98d0df926c5446984d",
+    "rows": 48,
+    "model": {
+      "candidate": "RTMPose-m body7 256x192 + YOLOX-m HumanArt 640x640",
+      "models": {
+        "det": {
+          "url": "https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/onnx_sdk/yolox_m_8xb8-300e_humanart-c2c7a14a.zip",
+          "archive_sha256": "a000224fd8ba283202bc62d4a5fcdfe353adb9f468777dbac1ea2ada2093adde",
+          "path": "det.onnx",
+          "sha256": "3dea6513388889f0fff4b77bf7a26013600321b9eb9ceb0e9a400a82572f5f23",
+          "bytes": 101400344
+        },
+        "pose": {
+          "url": "https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/onnx_sdk/rtmpose-m_simcc-body7_pt-body7_420e-256x192-e48f03d0_20230504.zip",
+          "archive_sha256": "f7fbb6c5c11a1bb70f3d445e4ddec5d144ea89ad5649c081ef976f9b24a0b741",
+          "path": "pose.onnx",
+          "sha256": "5c0a4bf67953e6d2ac43ce15e77dc9d5d354ae18430a47d2c5963a7bc5683e3c",
+          "bytes": 54330655
+        }
+      },
+      "providers": {
+        "det": [
+          "CPUExecutionProvider"
+        ],
+        "pose": [
+          "CPUExecutionProvider"
+        ]
+      },
+      "confidence_type": "raw_simcc_score"
+    },
+    "packages": {
+      "rtmlib": "0.0.16",
+      "onnxruntime-gpu": "1.23.2",
+      "numpy": "1.26.4",
+      "opencv-contrib-python": "4.11.0.86"
+    },
+    "load_ms": 519.6986999999353,
+    "first_frame_pipeline_ms": 147.5561000002017
+  },
+  "rtmpose-cuda": {
+    "prediction_sha256": "e960ba2e26defa3f9298e5a072f969ea48bfada66f69ef16c942a7afa00cd612",
+    "rows": 48,
+    "model": {
+      "candidate": "RTMPose-m body7 256x192 + YOLOX-m HumanArt 640x640",
+      "models": {
+        "det": {
+          "url": "https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/onnx_sdk/yolox_m_8xb8-300e_humanart-c2c7a14a.zip",
+          "archive_sha256": "a000224fd8ba283202bc62d4a5fcdfe353adb9f468777dbac1ea2ada2093adde",
+          "path": "det.onnx",
+          "sha256": "3dea6513388889f0fff4b77bf7a26013600321b9eb9ceb0e9a400a82572f5f23",
+          "bytes": 101400344
+        },
+        "pose": {
+          "url": "https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/onnx_sdk/rtmpose-m_simcc-body7_pt-body7_420e-256x192-e48f03d0_20230504.zip",
+          "archive_sha256": "f7fbb6c5c11a1bb70f3d445e4ddec5d144ea89ad5649c081ef976f9b24a0b741",
+          "path": "pose.onnx",
+          "sha256": "5c0a4bf67953e6d2ac43ce15e77dc9d5d354ae18430a47d2c5963a7bc5683e3c",
+          "bytes": 54330655
+        }
+      },
+      "providers": {
+        "det": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "pose": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ]
+      },
+      "confidence_type": "raw_simcc_score"
+    },
+    "packages": {
+      "rtmlib": "0.0.16",
+      "onnxruntime-gpu": "1.23.2",
+      "numpy": "1.26.4",
+      "opencv-contrib-python": "4.11.0.86"
+    },
+    "load_ms": 916.0200999999688,
+    "first_frame_pipeline_ms": 5086.19839999983
+  },
+  "earlier_first_successful_cuda_session": {
+    "first_frame_pipeline_ms": 57691.63010000011,
+    "load_ms": 804.4027999999344,
+    "note": "Before final run; driver/cuDNN cache state differs. Not merged into final statistics."
+  },
+  "failed_cuda_attempt": {
+    "error": "Could not locate cudnn_engines_tensor_ir64_9.dll; CUDNN_STATUS_SUBLIBRARY_LOADING_FAILED",
+    "exit_code": 1,
+    "resolution": "Add pip NVIDIA bin directories to worker-local DLL search path; no global PATH changes",
+    "stderr_sha256": "a76b55b53720ceb34ec8062494fd3f22f1ba777ec7a6e2827428a0b64a9ef8ff"
+  }
+}

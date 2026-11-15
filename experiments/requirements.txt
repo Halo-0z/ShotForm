@@ -1,0 +1,8 @@
+# Separate venv only; do not install these into the application .venv.
+onnxruntime-gpu[cuda,cudnn]==1.23.2
+numpy==1.26.4
+opencv-contrib-python==4.11.0.86
+psutil==7.2.2
+tqdm==4.70.1
+# Install rtmlib==0.0.16 separately with --no-deps. Its metadata otherwise
+# installs both OpenCV wheels and CPU ORT on top of the GPU provider.

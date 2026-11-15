@@ -1,0 +1,196 @@
+{
+  "schema": "shotform-model-lab-v1",
+  "executed_at_utc": "2026-11-15T05:37:45.932387+00:00",
+  "machine_label": "local-9600x-5060ti",
+  "system": "Windows-11-10.0.26200-SP0",
+  "cpu": "AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD",
+  "logical_cpus": 12,
+  "physical_cpus": 6,
+  "ram_bytes": 24835870720,
+  "gpu": "NVIDIA GeForce RTX 5060 Ti, 617.42, 8151, 2706",
+  "dataset_sha256": "ff6bbbe6609475eda1873db461bd16194bf12327146908eac07b704eef6c7032",
+  "runs": {
+    "heavy-cpu": {
+      "exit_code": 0,
+      "error": null,
+      "process_wall_s": 4.262327599999935,
+      "rss_sampled_peak_bytes": 353038336,
+      "gpu_device_samples": [
+        {
+          "elapsed_s": 0.011936100000184524,
+          "device_snapshot": "NVIDIA GeForce RTX 5060 Ti, 617.42, 8151, 2699",
+          "process_bytes": null
+        },
+        {
+          "elapsed_s": 1.1532643000000462,
+          "device_snapshot": "NVIDIA GeForce RTX 5060 Ti, 617.42, 8151, 2634",
+          "process_bytes": null
+        },
+        {
+          "elapsed_s": 2.295107299999927,
+          "device_snapshot": "NVIDIA GeForce RTX 5060 Ti, 617.42, 8151, 2612",
+          "process_bytes": null
+        },
+        {
+          "elapsed_s": 3.4420576000002256,
+          "device_snapshot": "NVIDIA GeForce RTX 5060 Ti, 617.42, 8151, 2700",
+          "process_bytes": null
+        }
+      ],
+      "gpu_process_peak_bytes": null,
+      "gpu_process_memory_status": "unavailable (e.g. Windows WDDM N/A)",
+      "memory_scope": "Python worker tree summed RSS sampled >=50ms (shared pages may be counted twice); GPU tree >=1s; device snapshots include other apps, never substitute for process VRAM",
+      "source_to_results_wall_s": 4.695697399999972
+    },
+    "rtmpose-cpu": {
+      "exit_code": 0,
+      "error": null,
+      "process_wall_s": 9.449983200000133,
+      "rss_sampled_peak_bytes": 374788096,
+      "gpu_device_samples": [
+        {
+          "elapsed_s": 0.011225600000216218,
+          "device_snapshot": "NVIDIA GeForce RTX 5060 Ti, 617.42, 8151, 2696",
+          "process_bytes": null
+        },
+        {
+          "elapsed_s": 1.1508678000000145,
+          "device_snapshot": "NVIDIA GeForce RTX 5060 Ti, 617.42, 8151, 2700",
+          "process_bytes": null
+        },
+        {
+          "elapsed_s": 2.3100507000003745,
+          "device_snapshot": "NVIDIA GeForce RTX 5060 Ti, 617.42, 8151, 2602",
+          "process_bytes": null
+        },
+        {
+          "elapsed_s": 3.46344420000014,
+          "device_snapshot": "NVIDIA GeForce RTX 5060 Ti, 617.42, 8151, 2697",
+          "process_bytes": null
+        },
+        {
+          "elapsed_s": 4.617367800000011,
+          "device_snapshot": "NVIDIA GeForce RTX 5060 Ti, 617.42, 8151, 2698",
+          "process_bytes": null
+        },
+        {
+          "elapsed_s": 5.798346700000366,
+          "device_snapshot": "NVIDIA GeForce RTX 5060 Ti, 617.42, 8151, 2618",
+          "process_bytes": null
+        },
+        {
+          "elapsed_s": 6.956643800000165,
+          "device_snapshot": "NVIDIA GeForce RTX 5060 Ti, 617.42, 8151, 2705",
+          "process_bytes": null
+        },
+        {
+          "elapsed_s": 8.109169100000145,
+          "device_snapshot": "NVIDIA GeForce RTX 5060 Ti, 617.42, 8151, 2705",
+          "process_bytes": null
+        },
+        {
+          "elapsed_s": 9.250252799999998,
+          "device_snapshot": "NVIDIA GeForce RTX 5060 Ti, 617.42, 8151, 2695",
+          "process_bytes": null
+        }
+      ],
+      "gpu_process_peak_bytes": null,
+      "gpu_process_memory_status": "unavailable (e.g. Windows WDDM N/A)",
+      "memory_scope": "Python worker tree summed RSS sampled >=50ms (shared pages may be counted twice); GPU tree >=1s; device snapshots include other apps, never substitute for process VRAM",
+      "source_to_results_wall_s": 9.88335300000017
+    },
+    "rtmpose-cuda": {
+      "exit_code": 0,
+      "error": null,
+      "process_wall_s": 17.545772999999826,
+      "rss_sampled_peak_bytes": 1411031040,
+      "gpu_device_samples": [
+        {
+          "elapsed_s": 0.011567800000193529,
+          "device_snapshot": "NVIDIA GeForce RTX 5060 Ti, 617.42, 8151, 2695",
+          "process_bytes": null
+        },
+        {
+          "elapsed_s": 1.1340303000001768,
+          "device_snapshot": "NVIDIA GeForce RTX 5060 Ti, 617.42, 8151, 2946",
+          "process_bytes": null
+        },
+        {
+          "elapsed_s": 2.269872100000157,
+          "device_snapshot": "NVIDIA GeForce RTX 5060 Ti, 617.42, 8151, 3154",
+          "process_bytes": null
+        },
+        {
+          "elapsed_s": 3.4043565000001763,
+          "device_snapshot": "NVIDIA GeForce RTX 5060 Ti, 617.42, 8151, 3154",
+          "process_bytes": null
+        },
+        {
+          "elapsed_s": 4.531503000000157,
+          "device_snapshot": "NVIDIA GeForce RTX 5060 Ti, 617.42, 8151, 3061",
+          "process_bytes": null
+        },
+        {
+          "elapsed_s": 5.657359700000143,
+          "device_snapshot": "NVIDIA GeForce RTX 5060 Ti, 617.42, 8151, 3154",
+          "process_bytes": null
+        },
+        {
+          "elapsed_s": 6.76530589999993,
+          "device_snapshot": "NVIDIA GeForce RTX 5060 Ti, 617.42, 8151, 3232",
+          "process_bytes": null
+        },
+        {
+          "elapsed_s": 7.876541699999962,
+          "device_snapshot": "NVIDIA GeForce RTX 5060 Ti, 617.42, 8151, 3240",
+          "process_bytes": null
+        },
+        {
+          "elapsed_s": 9.002031699999861,
+          "device_snapshot": "NVIDIA GeForce RTX 5060 Ti, 617.42, 8151, 3141",
+          "process_bytes": null
+        },
+        {
+          "elapsed_s": 10.128664700000172,
+          "device_snapshot": "NVIDIA GeForce RTX 5060 Ti, 617.42, 8151, 3235",
+          "process_bytes": null
+        },
+        {
+          "elapsed_s": 11.239432800000031,
+          "device_snapshot": "NVIDIA GeForce RTX 5060 Ti, 617.42, 8151, 3160",
+          "process_bytes": null
+        },
+        {
+          "elapsed_s": 12.34755240000004,
+          "device_snapshot": "NVIDIA GeForce RTX 5060 Ti, 617.42, 8151, 3142",
+          "process_bytes": null
+        },
+        {
+          "elapsed_s": 13.483448999999837,
+          "device_snapshot": "NVIDIA GeForce RTX 5060 Ti, 617.42, 8151, 3245",
+          "process_bytes": null
+        },
+        {
+          "elapsed_s": 14.598583999999846,
+          "device_snapshot": "NVIDIA GeForce RTX 5060 Ti, 617.42, 8151, 3246",
+          "process_bytes": null
+        },
+        {
+          "elapsed_s": 15.739263599999958,
+          "device_snapshot": "NVIDIA GeForce RTX 5060 Ti, 617.42, 8151, 3250",
+          "process_bytes": null
+        },
+        {
+          "elapsed_s": 16.863832000000002,
+          "device_snapshot": "NVIDIA GeForce RTX 5060 Ti, 617.42, 8151, 3243",
+          "process_bytes": null
+        }
+      ],
+      "gpu_process_peak_bytes": null,
+      "gpu_process_memory_status": "unavailable (e.g. Windows WDDM N/A)",
+      "memory_scope": "Python worker tree summed RSS sampled >=50ms (shared pages may be counted twice); GPU tree >=1s; device snapshots include other apps, never substitute for process VRAM",
+      "source_to_results_wall_s": 17.979142799999863
+    }
+  },
+  "timing_scope": "process wall includes startup/import/load, PNG decoding, detection, pose, angles, JSON and exit polling; source_to_results adds shared preparation of source video/images once; excludes Rust/UI; pipeline_ms excludes load/hash/output"
+}

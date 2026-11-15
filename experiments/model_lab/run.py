@@ -18,7 +18,7 @@ ROOT = HERE.parents[1]
 
 def gpu_info():
     try:
-        result = subprocess.run(['nvidia-smi', '--query-gpu=name,driver_version,memory.total,memory.used',
+        result = subprocess.run(['nvidia-smi', '--query-gpu=name,driver_version,memory.total,memory.used,utilization.gpu,temperature.gpu,clocks.sm,power.draw',
                                  '--format=csv,noheader,nounits'], capture_output=True, text=True, timeout=3)
         return result.stdout.strip() if result.returncode == 0 else None
     except (OSError, subprocess.TimeoutExpired):
@@ -57,7 +57,8 @@ def execute(command, output, timeout):
         def sample_gpu():
             while not stopped.is_set():
                 snapshot = {'elapsed_s': time.perf_counter() - started,
-                            'device_snapshot': gpu_info(), 'process_bytes': process_vram(list(tracked))}
+                            'device_snapshot': gpu_info(), 'process_bytes': process_vram(list(tracked)),
+                            'system_cpu_percent': psutil.cpu_percent()}
                 if not stopped.is_set():
                     gpu_samples.append(snapshot)
                 stopped.wait(1)

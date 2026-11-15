@@ -6,6 +6,7 @@ import sys
 import time
 from pathlib import Path
 from common import read, write, sha, map_coco, choose_person, angles
+from timing import instrument, measured, TIMING_SCOPE
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -16,7 +17,7 @@ def require_provider(providers, device):
         raise RuntimeError(f'Requested {required}, actual {providers}; refusing silent fallback')
 
 
-def rtm_predictor(models_path, device):
+def rtm_predictor(models_path, device, io_mode='standard'):
     import onnxruntime as ort
     from rtmlib import RTMPose, YOLOX
     dll_handles = []
@@ -42,13 +43,21 @@ def rtm_predictor(models_path, device):
     require_provider(providers, device)
     for model in (det, pose):
         model.session.disable_fallback()
+    if io_mode == 'bound' and device != 'cuda':
+        raise ValueError('Bound transfer diagnostic requires CUDA')
+    timings = {}
+    instrument(det, 'det', timings, io_mode)
+    instrument(pose, 'pose', timings, io_mode)
 
     def predict(image):
-        bboxes = det(image)
+        timings.clear()
+        bboxes = measured(timings, 'det.total_ms', det, image)
+        timings['det.people'] = len(bboxes)
         if len(bboxes) == 0:
-            return []  # RTMPose alone would otherwise use a full-frame bbox.
-        points, scores = pose(image, bboxes=bboxes)
-        return [map_coco(p, s) for p, s in zip(points, scores)]
+            return [], dict(timings)  # Never use RTMPose's full-frame fallback.
+        points, scores = measured(timings, 'pose.total_ms', pose, image, bboxes=bboxes)
+        people = measured(timings, 'mapping_ms', lambda: [map_coco(p, s) for p, s in zip(points, scores)])
+        return people, dict(timings)
     def close():
         for handle in dll_handles:
             handle.close()
@@ -66,12 +75,15 @@ def heavy_predictor():
         raise ValueError('Heavy hash differs from baseline manifest')
 
     def predict(image):
-        rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        result = detector.detect(mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb))
+        timings = {}
+        rgb = measured(timings, 'rgb_ms', cv2.cvtColor, image, cv2.COLOR_BGR2RGB)
+        result = measured(timings, 'detect_and_pose_ms', detector.detect,
+                          mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb))
         h, w = image.shape[:2]
-        return [{str(i): {'x': p.x * w, 'y': p.y * h, 'score': p.visibility,
+        people = measured(timings, 'mapping_ms', lambda: [{str(i): {'x': p.x * w, 'y': p.y * h, 'score': p.visibility,
                          'z': None, 'native_z': p.z, 'source_id': i}
-                 for i, p in enumerate(person)} for person in result.pose_landmarks]
+                 for i, p in enumerate(person)} for person in result.pose_landmarks])
+        return people, timings
     return predict, dict(info, providers=['MediaPipe Tasks CPU'], confidence_type='visibility'), detector.close
 
 
@@ -82,11 +94,11 @@ def main(a):
     frames = dataset['frames']
     loaded = time.perf_counter()
     if a.backend == 'heavy':
-        if a.device != 'cpu':
+        if a.device != 'cpu' or a.io_mode != 'standard':
             raise ValueError('Current Windows Heavy baseline is CPU; no GPU claim supported')
         predict, info, close = heavy_predictor()
     else:
-        predict, info, close = rtm_predictor(a.models, a.device)
+        predict, info, close = rtm_predictor(a.models, a.device, a.io_mode)
     load_ms = (time.perf_counter() - loaded) * 1000
     rows = []
     try:
@@ -96,16 +108,20 @@ def main(a):
                 if sha(path) != frame['sha256']:
                     raise ValueError('Frame checksum mismatch: ' + frame['id'])
                 started = time.perf_counter()
-                image = cv2.imdecode(np.fromfile(path, dtype=np.uint8), cv2.IMREAD_COLOR)
+                stages = {}
+                image = measured(stages, 'png_read_decode_ms',
+                                 lambda: cv2.imdecode(np.fromfile(path, dtype=np.uint8), cv2.IMREAD_COLOR))
                 if image is None or list(image.shape[:2]) != [frame['height'], frame['width']]:
                     raise ValueError('Frame dimensions changed')
-                people = predict(image)
-                selected, reason = choose_person(people, frame.get('target_bbox'))
-                computed = angles(selected or {})
+                people, model_stages = predict(image)
+                stages.update(model_stages)
+                selected, reason = measured(stages, 'selection_ms', choose_person, people, frame.get('target_bbox'))
+                computed = measured(stages, 'angles_ms', angles, selected or {})
                 elapsed = (time.perf_counter() - started) * 1000
                 rows.append({'frame_id': frame['id'], 'sha256': frame['sha256'], 'repeat': repeat,
                              'person_count': len(people), 'selection_reason': reason,
-                             'points': selected or {}, 'angles': computed, 'pipeline_ms': elapsed})
+                             'points': selected or {}, 'angles': computed, 'pipeline_ms': elapsed,
+                             'stages': stages})
     finally:
         close()
     packages = {}
@@ -116,7 +132,8 @@ def main(a):
             pass
     write(a.output, {'schema': 'shotform-model-lab-v1', 'backend': a.backend, 'device': a.device,
                     'dataset_sha256': sha(a.dataset), 'model': info, 'packages': packages,
-                    'load_ms': load_ms, 'repeats': a.repeats, 'rows': rows})
+                    'load_ms': load_ms, 'repeats': a.repeats, 'io_mode': a.io_mode,
+                    'timing_scope': TIMING_SCOPE, 'rows': rows})
 
 
 if __name__ == '__main__':
@@ -127,6 +144,7 @@ if __name__ == '__main__':
     p.add_argument('--models', type=Path)
     p.add_argument('--output', type=Path, required=True)
     p.add_argument('--repeats', type=int, default=3)
+    p.add_argument('--io-mode', choices=['standard', 'bound'], default='standard')
     args = p.parse_args()
     if args.repeats < 1:
         p.error('repeats must be positive')

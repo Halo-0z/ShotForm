@@ -75,3 +75,24 @@ rtmlib 0.0.16 的包元数据同时依赖两种 OpenCV wheel 和 CPU onnxruntime
 上述资料只用于模型来源/接口核对，公开基准没有写入本项目实验结果。
 
 本机执行记录见 [本轮验证记录](../verification.md) 末尾；正式精度实验仍需人工标注。
+
+## 本轮补充：点选标注与受控计时
+
+之前导入的投篮视频已准备连续 30 帧的本地标注页，操作与合并流程见 [人工标注说明](annotation-guide.md)。当前尚无人工确认的真值，不将工具点击测试或模型点作为人工标注。
+
+`benchmark.py` 每个 trial 使用独立解释器进程，固定同一份 PNG、模型及数据 SHA-256，每次三遍，第一遍和后两遍分开。默认六轮按 ABC、BCA、CAB、CBA、ACB、BAC 顺序运行，三个配置各占每个位置两次。每次开始前须连续三个样本满足系统 CPU ≤20%、GPU ≤15%；查不到所需 GPU 负载或到期仍忙则阻止后续推理，并记录未执行原因。它不会终止用户的后台程序。开始前空闲不保证运行中没有外部活动，系统 CPU 和整卡 GPU/温度/时钟/功耗原始快照也一并保留。
+
+```powershell
+.venv-model-lab/Scripts/python.exe experiments/model_lab/benchmark.py experiments/local/annotation-pilot/dataset.json --output experiments/local/controlled-pilot-01 --machine-label local-9600x-5060ti --rounds 6
+# CUDA 传输诊断单独标记，不能混入默认管线成绩
+.venv-model-lab/Scripts/python.exe experiments/model_lab/benchmark.py experiments/local/annotation-pilot/dataset.json --output experiments/local/transfer-pilot-01 --machine-label local-9600x-5060ti --configurations rtmpose-cuda rtmpose-cuda-bound --rounds 4
+.venv-model-lab/Scripts/python.exe experiments/model_lab/check_io_equivalence.py experiments/local/annotation-pilot/dataset.json --models models/experimental/rtmpose-m/models.json --output experiments/local/io-equivalence-pilot.json
+```
+
+`timing-summary.json` 保存每轮原始预测哈希、首遍/热遍每帧统计、整进程耗时和进程树内存。跨轮汇总采用每轮热遍中位数的分布，避免把同一进程重复帧当成独立实验。RTMPose 的检测/姿态阶段进一步分预处理、CHW/float32 打包、执行、后处理；姿态部分汇总本帧所有检测人物的多次调用，另记实际人数和调用数，不能误称单人固定一次。
+
+默认 `session.run` 的 CUDA 执行时间包含隐式传输，不能直接当纯 GPU 推理。`--io-mode bound` 诊断使用 IOBinding，分别测输入分配/复制/绑定/同步、执行并同步输出、复制输出至 CPU；这些都是主机墙钟，包括相关开销，执行段还可能含 CPU 节点和输出分配，并非 CUDA kernel profiler。另以原图上所有人物、所有映射点检查两执行模式等价，预先固定允许误差为坐标 0.01 像素、分数 0.00001。
+
+Heavy 的公开 `detect` 接口封装内部人体检测及关键点推理，当前只报告合并时间；其 RGB 转换、映射及 PNG 解码单列，不虚构内部阶段。计时只作用于独立实验脚本，产品默认模型、历史格式、角度规则均保持现状。
+
+接口依据：[ORT IOBinding](https://onnxruntime.ai/docs/performance/tune-performance/iobinding.html)、[ORT Python API](https://onnxruntime.ai/docs/api/python/api_summary.html)。这些文档用于解释计时边界，不作为本项目性能结果。

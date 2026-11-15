@@ -8,3 +8,6 @@ pnpm-lock.yaml
 package-lock.json
 *.min.js
 *.min.css
+# Frozen experimental evidence: formatting would invalidate recorded SHA-256 hashes.
+docs/experiments/model-lab-smoke/*.json
+docs/experiments/model-lab-controlled/**/*.json

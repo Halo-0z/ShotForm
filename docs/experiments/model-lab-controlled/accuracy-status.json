@@ -1,0 +1,965 @@
+{
+  "models": {
+    "heavy-cpu": {
+      "frames": 30,
+      "selected_frames": 22,
+      "selection_failures": {
+        "ambiguous_multiple_people": 8
+      },
+      "annotated_present_frames": 0,
+      "missed_target_frames": null,
+      "miss_rate": null,
+      "annotated_absent_frames": 0,
+      "false_positive_frames": null,
+      "angles": {
+        "left_shoulder": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "labeled_angles": 0,
+          "accepted_angles": 0,
+          "coverage": null,
+          "rejected_reasons": {},
+          "coverage_by_occlusion": {},
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        },
+        "right_shoulder": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "labeled_angles": 0,
+          "accepted_angles": 0,
+          "coverage": null,
+          "rejected_reasons": {},
+          "coverage_by_occlusion": {},
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        },
+        "left_elbow": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "labeled_angles": 0,
+          "accepted_angles": 0,
+          "coverage": null,
+          "rejected_reasons": {},
+          "coverage_by_occlusion": {},
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        },
+        "right_elbow": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "labeled_angles": 0,
+          "accepted_angles": 0,
+          "coverage": null,
+          "rejected_reasons": {},
+          "coverage_by_occlusion": {},
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        },
+        "left_hip": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "labeled_angles": 0,
+          "accepted_angles": 0,
+          "coverage": null,
+          "rejected_reasons": {},
+          "coverage_by_occlusion": {},
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        },
+        "right_hip": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "labeled_angles": 0,
+          "accepted_angles": 0,
+          "coverage": null,
+          "rejected_reasons": {},
+          "coverage_by_occlusion": {},
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        },
+        "left_knee": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "labeled_angles": 0,
+          "accepted_angles": 0,
+          "coverage": null,
+          "rejected_reasons": {},
+          "coverage_by_occlusion": {},
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        },
+        "right_knee": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "labeled_angles": 0,
+          "accepted_angles": 0,
+          "coverage": null,
+          "rejected_reasons": {},
+          "coverage_by_occlusion": {},
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        }
+      },
+      "skips": {
+        "unlabeled_or_uncertain": 240
+      },
+      "occlusion_accepted_error": {},
+      "occlusion_coverage": {},
+      "pipeline_ms_first_pass": {
+        "n": 30,
+        "mean": 48.522979999991854,
+        "median": 40.26139999996303,
+        "p95": 73.27080000050046
+      },
+      "pipeline_ms_warm_passes": {
+        "n": 60,
+        "mean": 46.81985500002762,
+        "median": 40.56560000026366,
+        "p95": 63.55160000020987
+      }
+    },
+    "rtmpose-cpu": {
+      "frames": 30,
+      "selected_frames": 0,
+      "selection_failures": {
+        "ambiguous_multiple_people": 30
+      },
+      "annotated_present_frames": 0,
+      "missed_target_frames": null,
+      "miss_rate": null,
+      "annotated_absent_frames": 0,
+      "false_positive_frames": null,
+      "angles": {
+        "left_shoulder": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "labeled_angles": 0,
+          "accepted_angles": 0,
+          "coverage": null,
+          "rejected_reasons": {},
+          "coverage_by_occlusion": {},
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        },
+        "right_shoulder": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "labeled_angles": 0,
+          "accepted_angles": 0,
+          "coverage": null,
+          "rejected_reasons": {},
+          "coverage_by_occlusion": {},
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        },
+        "left_elbow": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "labeled_angles": 0,
+          "accepted_angles": 0,
+          "coverage": null,
+          "rejected_reasons": {},
+          "coverage_by_occlusion": {},
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        },
+        "right_elbow": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "labeled_angles": 0,
+          "accepted_angles": 0,
+          "coverage": null,
+          "rejected_reasons": {},
+          "coverage_by_occlusion": {},
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        },
+        "left_hip": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "labeled_angles": 0,
+          "accepted_angles": 0,
+          "coverage": null,
+          "rejected_reasons": {},
+          "coverage_by_occlusion": {},
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        },
+        "right_hip": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "labeled_angles": 0,
+          "accepted_angles": 0,
+          "coverage": null,
+          "rejected_reasons": {},
+          "coverage_by_occlusion": {},
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        },
+        "left_knee": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "labeled_angles": 0,
+          "accepted_angles": 0,
+          "coverage": null,
+          "rejected_reasons": {},
+          "coverage_by_occlusion": {},
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        },
+        "right_knee": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "labeled_angles": 0,
+          "accepted_angles": 0,
+          "coverage": null,
+          "rejected_reasons": {},
+          "coverage_by_occlusion": {},
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        }
+      },
+      "skips": {
+        "unlabeled_or_uncertain": 240
+      },
+      "occlusion_accepted_error": {},
+      "occlusion_coverage": {},
+      "pipeline_ms_first_pass": {
+        "n": 30,
+        "mean": 155.73513999991823,
+        "median": 155.5679000002783,
+        "p95": 167.89819999939937
+      },
+      "pipeline_ms_warm_passes": {
+        "n": 60,
+        "mean": 149.23132166669953,
+        "median": 149.09960000022693,
+        "p95": 163.0304000000251
+      }
+    },
+    "rtmpose-cuda": {
+      "frames": 30,
+      "selected_frames": 0,
+      "selection_failures": {
+        "ambiguous_multiple_people": 30
+      },
+      "annotated_present_frames": 0,
+      "missed_target_frames": null,
+      "miss_rate": null,
+      "annotated_absent_frames": 0,
+      "false_positive_frames": null,
+      "angles": {
+        "left_shoulder": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "labeled_angles": 0,
+          "accepted_angles": 0,
+          "coverage": null,
+          "rejected_reasons": {},
+          "coverage_by_occlusion": {},
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        },
+        "right_shoulder": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "labeled_angles": 0,
+          "accepted_angles": 0,
+          "coverage": null,
+          "rejected_reasons": {},
+          "coverage_by_occlusion": {},
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        },
+        "left_elbow": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "labeled_angles": 0,
+          "accepted_angles": 0,
+          "coverage": null,
+          "rejected_reasons": {},
+          "coverage_by_occlusion": {},
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        },
+        "right_elbow": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "labeled_angles": 0,
+          "accepted_angles": 0,
+          "coverage": null,
+          "rejected_reasons": {},
+          "coverage_by_occlusion": {},
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        },
+        "left_hip": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "labeled_angles": 0,
+          "accepted_angles": 0,
+          "coverage": null,
+          "rejected_reasons": {},
+          "coverage_by_occlusion": {},
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        },
+        "right_hip": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "labeled_angles": 0,
+          "accepted_angles": 0,
+          "coverage": null,
+          "rejected_reasons": {},
+          "coverage_by_occlusion": {},
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        },
+        "left_knee": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "labeled_angles": 0,
+          "accepted_angles": 0,
+          "coverage": null,
+          "rejected_reasons": {},
+          "coverage_by_occlusion": {},
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        },
+        "right_knee": {
+          "all_finite_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "accepted_mae_degrees": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          },
+          "labeled_angles": 0,
+          "accepted_angles": 0,
+          "coverage": null,
+          "rejected_reasons": {},
+          "coverage_by_occlusion": {},
+          "temporal_residual_change_deg_per_s": {
+            "n": 0,
+            "mean": null,
+            "median": null,
+            "p95": null
+          }
+        }
+      },
+      "skips": {
+        "unlabeled_or_uncertain": 240
+      },
+      "occlusion_accepted_error": {},
+      "occlusion_coverage": {},
+      "pipeline_ms_first_pass": {
+        "n": 30,
+        "mean": 76.15343333327473,
+        "median": 47.340199999325705,
+        "p95": 55.7916000007026
+      },
+      "pipeline_ms_warm_passes": {
+        "n": 60,
+        "mean": 47.88258000007772,
+        "median": 47.471500000028755,
+        "p95": 55.773900000531285
+      }
+    }
+  },
+  "paired_common_angles": 0,
+  "pairwise": [
+    {
+      "models": [
+        "heavy-cpu",
+        "rtmpose-cpu"
+      ],
+      "common_angles": 0,
+      "mae_degrees": {
+        "heavy-cpu": {
+          "n": 0,
+          "mean": null,
+          "median": null,
+          "p95": null
+        },
+        "rtmpose-cpu": {
+          "n": 0,
+          "mean": null,
+          "median": null,
+          "p95": null
+        }
+      },
+      "right_minus_left_absolute_error_degrees": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      }
+    },
+    {
+      "models": [
+        "heavy-cpu",
+        "rtmpose-cuda"
+      ],
+      "common_angles": 0,
+      "mae_degrees": {
+        "heavy-cpu": {
+          "n": 0,
+          "mean": null,
+          "median": null,
+          "p95": null
+        },
+        "rtmpose-cuda": {
+          "n": 0,
+          "mean": null,
+          "median": null,
+          "p95": null
+        }
+      },
+      "right_minus_left_absolute_error_degrees": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      }
+    },
+    {
+      "models": [
+        "rtmpose-cpu",
+        "rtmpose-cuda"
+      ],
+      "common_angles": 0,
+      "mae_degrees": {
+        "rtmpose-cpu": {
+          "n": 0,
+          "mean": null,
+          "median": null,
+          "p95": null
+        },
+        "rtmpose-cuda": {
+          "n": 0,
+          "mean": null,
+          "median": null,
+          "p95": null
+        }
+      },
+      "right_minus_left_absolute_error_degrees": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      }
+    }
+  ],
+  "paired_mae_degrees": {
+    "heavy-cpu": {
+      "n": 0,
+      "mean": null,
+      "median": null,
+      "p95": null
+    },
+    "rtmpose-cpu": {
+      "n": 0,
+      "mean": null,
+      "median": null,
+      "p95": null
+    },
+    "rtmpose-cuda": {
+      "n": 0,
+      "mean": null,
+      "median": null,
+      "p95": null
+    }
+  },
+  "paired_by_joint": {
+    "left_shoulder": {
+      "heavy-cpu": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      },
+      "rtmpose-cpu": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      },
+      "rtmpose-cuda": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      }
+    },
+    "right_shoulder": {
+      "heavy-cpu": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      },
+      "rtmpose-cpu": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      },
+      "rtmpose-cuda": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      }
+    },
+    "left_elbow": {
+      "heavy-cpu": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      },
+      "rtmpose-cpu": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      },
+      "rtmpose-cuda": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      }
+    },
+    "right_elbow": {
+      "heavy-cpu": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      },
+      "rtmpose-cpu": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      },
+      "rtmpose-cuda": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      }
+    },
+    "left_hip": {
+      "heavy-cpu": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      },
+      "rtmpose-cpu": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      },
+      "rtmpose-cuda": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      }
+    },
+    "right_hip": {
+      "heavy-cpu": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      },
+      "rtmpose-cpu": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      },
+      "rtmpose-cuda": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      }
+    },
+    "left_knee": {
+      "heavy-cpu": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      },
+      "rtmpose-cpu": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      },
+      "rtmpose-cuda": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      }
+    },
+    "right_knee": {
+      "heavy-cpu": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      },
+      "rtmpose-cpu": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      },
+      "rtmpose-cuda": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p95": null
+      }
+    }
+  },
+  "decision": "No automatic model switch; require labeled paired results and target-machine acceptance",
+  "temporal_definition": "Mean absolute adjacent change of (predicted angle - manual angle)/dt; not raw motion jitter"
+}

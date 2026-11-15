@@ -7,9 +7,31 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 from run import execute
+from benchmark import orders, idle_gate
 
 
 class RuntimeTests(unittest.TestCase):
+    def test_counterbalanced_schedule_covers_positions_and_orders(self):
+        schedule = orders(['a', 'b', 'c'], 6)
+        self.assertEqual(len({tuple(row) for row in schedule}), 6)
+        for position in range(3):
+            self.assertEqual(sorted(row[position] for row in schedule), ['a', 'a', 'b', 'b', 'c', 'c'])
+        with self.assertRaises(ValueError):
+            orders(['a', 'a'], 3)
+
+    def test_idle_gate_resets_streak_and_requires_known_gpu_load(self):
+        rows = [{'cpu_percent': 5, 'gpu_percent': 3}, {'cpu_percent': 5, 'gpu_percent': None},
+                {'cpu_percent': 30, 'gpu_percent': 3}] + [{'cpu_percent': 5, 'gpu_percent': 3}] * 3
+        with patch('benchmark.load_sample', side_effect=rows), patch('benchmark.time.sleep'):
+            result = idle_gate(True)
+        self.assertTrue(result['passed'])
+        self.assertEqual(len(result['samples']), 6)
+
+    def test_busy_machine_does_not_run_when_gate_expires(self):
+        with patch('benchmark.time.perf_counter', side_effect=[0, 0, 2]), patch('benchmark.time.sleep'), \
+                patch('benchmark.load_sample', return_value={'cpu_percent': 90, 'gpu_percent': 99}):
+            self.assertFalse(idle_gate(True, timeout=1)['passed'])
+
     def test_worker_timeout_is_not_blocked_by_slow_gpu_probe(self):
         with tempfile.TemporaryDirectory() as directory:
             pid_path = Path(directory) / 'actual-worker.pid'

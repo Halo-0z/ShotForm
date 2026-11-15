@@ -1,0 +1,74 @@
+{
+  "dataset_sha256": "f561b4ec6a068c3f11a6eee8ed5865006320bd0f2253c3e9a9bb6339f48de6ee",
+  "model_manifest_sha256": "d147806fa7c30ecec2087378d4583efd06d115723db06416b60d53df135a8afc",
+  "frames": 30,
+  "compared_people": 79,
+  "pixel_tolerance": 0.01,
+  "score_tolerance": 1e-05,
+  "max_coordinate_difference_pixels": 0.0,
+  "max_score_difference": 0.0,
+  "passed": true,
+  "model_metadata": {
+    "standard": {
+      "candidate": "RTMPose-m body7 256x192 + YOLOX-m HumanArt 640x640",
+      "models": {
+        "det": {
+          "url": "https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/onnx_sdk/yolox_m_8xb8-300e_humanart-c2c7a14a.zip",
+          "archive_sha256": "a000224fd8ba283202bc62d4a5fcdfe353adb9f468777dbac1ea2ada2093adde",
+          "path": "det.onnx",
+          "sha256": "3dea6513388889f0fff4b77bf7a26013600321b9eb9ceb0e9a400a82572f5f23",
+          "bytes": 101400344
+        },
+        "pose": {
+          "url": "https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/onnx_sdk/rtmpose-m_simcc-body7_pt-body7_420e-256x192-e48f03d0_20230504.zip",
+          "archive_sha256": "f7fbb6c5c11a1bb70f3d445e4ddec5d144ea89ad5649c081ef976f9b24a0b741",
+          "path": "pose.onnx",
+          "sha256": "5c0a4bf67953e6d2ac43ce15e77dc9d5d354ae18430a47d2c5963a7bc5683e3c",
+          "bytes": 54330655
+        }
+      },
+      "providers": {
+        "det": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "pose": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ]
+      },
+      "confidence_type": "raw_simcc_score"
+    },
+    "bound": {
+      "candidate": "RTMPose-m body7 256x192 + YOLOX-m HumanArt 640x640",
+      "models": {
+        "det": {
+          "url": "https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/onnx_sdk/yolox_m_8xb8-300e_humanart-c2c7a14a.zip",
+          "archive_sha256": "a000224fd8ba283202bc62d4a5fcdfe353adb9f468777dbac1ea2ada2093adde",
+          "path": "det.onnx",
+          "sha256": "3dea6513388889f0fff4b77bf7a26013600321b9eb9ceb0e9a400a82572f5f23",
+          "bytes": 101400344
+        },
+        "pose": {
+          "url": "https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/onnx_sdk/rtmpose-m_simcc-body7_pt-body7_420e-256x192-e48f03d0_20230504.zip",
+          "archive_sha256": "f7fbb6c5c11a1bb70f3d445e4ddec5d144ea89ad5649c081ef976f9b24a0b741",
+          "path": "pose.onnx",
+          "sha256": "5c0a4bf67953e6d2ac43ce15e77dc9d5d354ae18430a47d2c5963a7bc5683e3c",
+          "bytes": 54330655
+        }
+      },
+      "providers": {
+        "det": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ],
+        "pose": [
+          "CUDAExecutionProvider",
+          "CPUExecutionProvider"
+        ]
+      },
+      "confidence_type": "raw_simcc_score"
+    }
+  },
+  "scope": "same ordered detections for all people; execution-mode parity only, no human accuracy claim"
+}

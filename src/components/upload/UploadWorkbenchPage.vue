@@ -81,7 +81,11 @@ const resetAll = () => {
     uploadState.value = "empty"
 }
 
-const selectUploadMode = (mode: "image" | "video") => { resetAll(); uploadMode.value = mode }
+const selectUploadMode = (mode: "image" | "video") => {
+    if (isBusy.value || uploadMode.value === mode) return
+    resetAll()
+    uploadMode.value = mode
+}
 
 const getFileExtension = (name: string) => name.split(".").pop()?.toLowerCase() ?? ""
 
@@ -144,7 +148,7 @@ const applyImageFile = async (file: File) => {
 const handleBrowserFileChange = (event: Event) => {
     const target = event.target as HTMLInputElement
     const file = target.files?.[0]
-    if (!file) return
+    if (!file || isBusy.value) return
     if (uploadMode.value === "video") {
         applyVideoFile(file)
     } else {
@@ -204,6 +208,7 @@ const pickImage = async () => {
 
 const handleDrop = async (event: DragEvent) => {
     isDragOver.value = false
+    if (isBusy.value) return
     const files = event.dataTransfer?.files
     if (!files?.length) return
     const first = files[0]
@@ -223,6 +228,10 @@ const handleDrop = async (event: DragEvent) => {
     }
 }
 
+const onVideoError = () => {
+    handoffError.value = "无法播放此视频，请重新选择可播放的文件。"
+    uploadState.value = "ready"
+}
 const onVideoLoadedMetadata = () => {
     const duration = Math.max(0, Math.round((videoRef.value?.duration || 0) * 1000))
     durationMs.value = duration
@@ -268,14 +277,13 @@ const handleImageLoaded = async (imageData: string) => {
     try {
         if (!hasTauriRuntime()) {
             handoffError.value = "当前为浏览器预览模式，分析需在桌面端完成。"
-            window.alert(handoffError.value)
+
             return
         }
         await analysisStore.analyzeImage(imageData)
         await navigateWithFogTransition(router, "/analysis")
     } catch (error) {
         handoffError.value = error instanceof Error ? error.message : String(error)
-        window.alert(`图片分析失败：${handoffError.value}`)
     }
 }
 
@@ -290,7 +298,7 @@ const handleVideoLoaded = async (payload: {
     try {
         if (!hasTauriRuntime()) {
             handoffError.value = "当前为浏览器预览模式，分析需在桌面端完成。"
-            window.alert(handoffError.value)
+
             return
         }
         if (!payload.filePath) {
@@ -301,7 +309,6 @@ const handleVideoLoaded = async (payload: {
         await navigateWithFogTransition(router, "/analysis")
     } catch (error) {
         handoffError.value = error instanceof Error ? error.message : String(error)
-        window.alert(`视频分析失败：${handoffError.value}`)
     }
 }
 
@@ -336,16 +343,18 @@ onUnmounted(() => {
 
 <template>
     <div class="upload-workbench">
-        <div class="flex gap-3" aria-label="素材类型">
+        <div class="flex gap-3" role="group" aria-label="素材类型">
             <Button
                 :variant="uploadMode === 'image' ? 'default' : 'outline'"
                 :disabled="isBusy"
+                :aria-pressed="uploadMode === 'image'"
                 @click="selectUploadMode('image')"
                 >图片分析</Button
             >
             <Button
                 :variant="uploadMode === 'video' ? 'default' : 'outline'"
                 :disabled="isBusy"
+                :aria-pressed="uploadMode === 'video'"
                 @click="selectUploadMode('video')"
                 >视频分析</Button
             >
@@ -377,10 +386,7 @@ onUnmounted(() => {
                     <Film class="h-10 w-10" />
                 </div>
                 <p class="upload-workbench__dropzone-title">
-                    {{ uploadMode === "video" ? "选择投篮视频，或" : "拖拽投篮图片到此处，或"
-                    }}<em @click.stop="uploadMode === 'video' ? pickVideo() : pickImage()"
-                        >点击上传</em
-                    >
+                    {{ uploadMode === "video" ? "选择一次完整的投篮动作" : "拖拽投篮图片到此处" }}
                 </p>
                 <p class="upload-workbench__dropzone-hint">
                     {{
@@ -391,6 +397,7 @@ onUnmounted(() => {
                 </p>
                 <Button
                     class="upload-workbench__dropzone-btn"
+                    :disabled="isBusy"
                     @click="uploadMode === 'video' ? pickVideo() : pickImage()"
                 >
                     <UploadIcon class="h-4 w-4" />
@@ -415,16 +422,26 @@ onUnmounted(() => {
                             :src="previewUrl"
                             playsinline
                             @loadedmetadata="onVideoLoadedMetadata"
+                            @error="onVideoError"
                             @timeupdate="onVideoTimeUpdate"
                             @play="onVideoPlay"
                             @pause="onVideoPause"
                         />
-                        <img v-else :src="previewUrl" alt="预览图" />
+                        <img
+                            v-else
+                            :src="previewUrl"
+                            alt="预览图"
+                            @error="handoffError = '图片无法解码，请重新选择。'"
+                        />
                         <div
                             v-if="uploadMode === 'video'"
                             class="upload-workbench__video-thumb-overlay"
                         >
-                            <button class="upload-workbench__video-thumb-play" type="button">
+                            <button
+                                class="upload-workbench__video-thumb-play"
+                                type="button"
+                                :aria-label="isPlaying ? '暂停预览' : '播放预览'"
+                            >
                                 <Play v-if="!isPlaying" class="h-6 w-6" />
                                 <Pause v-else class="h-6 w-6" />
                             </button>
@@ -439,9 +456,11 @@ onUnmounted(() => {
                             </div>
                         </div>
                         <div class="upload-workbench__info-meta">
-                            <span>时长 {{ formatTime(durationMs) }}</span>
+                            <span v-if="uploadMode === 'video'"
+                                >时长 {{ formatTime(durationMs) }}</span
+                            >
                             <span>大小 {{ videoSize }}</span>
-                            <span>分辨率 {{ videoResolution }}</span>
+                            <span v-if="videoResolution">分辨率 {{ videoResolution }}</span>
                         </div>
                         <div v-if="uploadMode === 'video'" class="upload-workbench__trim-section">
                             <p class="upload-workbench__trim-label">
@@ -488,7 +507,26 @@ onUnmounted(() => {
             </template>
         </section>
 
-        <p v-if="handoffError" class="upload-workbench__error">{{ handoffError }}</p>
+        <section
+            v-if="analysisStore.isLoading"
+            class="upload-progress"
+            aria-label="分析进度"
+            role="status"
+        >
+            <p>{{ analysisStore.progress?.message || "正在分析素材…" }}</p>
+            <progress
+                :value="analysisStore.progress?.progress || 0"
+                max="100"
+                aria-label="分析进度"
+            />
+        </section>
+        <p
+            v-if="handoffError"
+            class="upload-workbench__error ui-notice ui-notice--error"
+            role="alert"
+        >
+            {{ handoffError }}
+        </p>
     </div>
 </template>
 
@@ -496,115 +534,69 @@ onUnmounted(() => {
 .upload-workbench {
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: 20px;
 }
-
+[data-browser-preview-note] {
+    color: var(--text-muted);
+    font-size: 13px;
+}
 .upload-workbench__body {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    border-radius: 20px;
     border: 1px solid var(--surface-border);
-    background: var(--bg-solid);
+    border-radius: 8px;
+    background: var(--card-bg);
     overflow: hidden;
-    transition: border-color 200ms ease;
+    transition: border-color 140ms;
 }
-
 .upload-workbench__body--drag-over {
-    border-color: var(--accent-color);
-    border-style: dashed;
+    border-color: var(--primary-color);
+    outline: 2px solid var(--primary-color);
+    outline-offset: 3px;
 }
-
 .upload-workbench__dropzone {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 64px 40px;
     gap: 16px;
-    min-height: 400px;
+    min-height: 450px;
+    padding: 40px 24px;
 }
-
 .upload-workbench__dropzone-icon {
-    width: 72px;
-    height: 72px;
-    border-radius: 50%;
-    background: color-mix(in srgb, var(--accent-color) 10%, transparent);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--accent-color);
+    color: var(--text-secondary);
+    margin-bottom: 12px;
 }
-
 .upload-workbench__dropzone-title {
-    font-size: 16px;
-    color: var(--text-primary);
+    font-size: 22px;
+    font-weight: 600;
     text-align: center;
 }
-
-.upload-workbench__dropzone-title em {
-    color: var(--accent-color);
-    cursor: pointer;
-    font-style: normal;
-    font-weight: 600;
-}
-
-.upload-workbench__dropzone-title em:hover {
-    text-decoration: underline;
-}
-
 .upload-workbench__dropzone-hint {
-    font-size: 13px;
-    color: var(--text-muted);
+    color: var(--text-secondary);
+    font-size: 15px;
     text-align: center;
 }
-
 .upload-workbench__dropzone-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 11px 28px;
-    border-radius: 10px;
-    background: linear-gradient(135deg, #f5822e, #e06d1f);
-    color: #fff;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    border: none;
-    transition: all 180ms ease;
-    box-shadow: 0 4px 12px color-mix(in srgb, #f5822e 24%, transparent);
+    margin: 8px 0;
 }
-
-.upload-workbench__dropzone-btn:hover {
-    background: linear-gradient(135deg, #e06d1f, #c95a14);
-    box-shadow: 0 6px 16px color-mix(in srgb, #f5822e 30%, transparent);
-    transform: translateY(-1px);
-}
-
 .upload-workbench__dropzone-exts,
 .upload-workbench__dropzone-size {
-    font-size: 12px;
     color: var(--text-muted);
+    font-size: 13px;
     text-align: center;
 }
-
+.upload-workbench__dropzone-size {
+    margin-top: -12px;
+}
 .upload-workbench__preview-area {
     display: grid;
-    grid-template-columns: minmax(280px, 420px) 1fr;
-    gap: 0;
-    min-height: 360px;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
 }
-
 .upload-workbench__video-thumb {
     position: relative;
-    background: #000;
-    border-radius: 16px;
+    background: var(--stage-bg);
+    height: clamp(300px, 52vh, 560px);
     overflow: hidden;
-    cursor: pointer;
-    aspect-ratio: 16 / 10;
-    margin: 16px;
 }
-
 .upload-workbench__video-thumb video,
 .upload-workbench__video-thumb img {
     width: 100%;
@@ -612,168 +604,132 @@ onUnmounted(() => {
     object-fit: contain;
     display: block;
 }
-
 .upload-workbench__video-thumb-overlay {
     position: absolute;
     inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(0, 0, 0, 0.2);
-    opacity: 0;
-    transition: opacity 180ms ease;
+    display: grid;
+    place-items: center;
+    pointer-events: none;
 }
-
-.upload-workbench__video-thumb:hover .upload-workbench__video-thumb-overlay {
-    opacity: 1;
-}
-
 .upload-workbench__video-thumb-play {
-    width: 52px;
-    height: 52px;
+    pointer-events: auto;
+    width: 48px;
+    height: 48px;
+    display: grid;
+    place-items: center;
+    background: #faf7f2;
+    color: #1c2128;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.92);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-primary);
-    border: none;
-    cursor: pointer;
-    transition: transform 160ms ease;
+    opacity: 0.9;
 }
-
-.upload-workbench__video-thumb-play:hover {
-    transform: scale(1.08);
-}
-
 .upload-workbench__info-panel {
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    padding: 20px 24px;
+    gap: 20px;
+    min-width: 0;
+    padding: 24px;
 }
-
-.upload-workbench__info-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-}
-
-.upload-workbench__info-filename {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
 .upload-workbench__info-filename-text {
-    font-size: 15px;
+    font-size: 18px;
     font-weight: 600;
-    color: var(--text-primary);
+    overflow-wrap: anywhere;
 }
-
 .upload-workbench__info-meta {
     display: flex;
-    gap: 16px;
+    flex-wrap: wrap;
+    gap: 8px 16px;
     font-size: 13px;
     color: var(--text-muted);
 }
-
 .upload-workbench__trim-section {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 14px;
+    min-width: 0;
 }
-
 .upload-workbench__trim-label {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text-secondary);
-}
-
-.upload-workbench__footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 16px 24px;
-    border-top: 1px solid var(--surface-border);
-    gap: 16px;
-}
-
-.upload-workbench__tip {
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    font-size: 13px;
-    color: var(--text-secondary);
-    flex: 1;
-}
-
-.upload-workbench__tip svg {
-    color: var(--color-warning);
-    flex-shrink: 0;
-    margin-top: 1px;
-}
-
-.upload-workbench__actions {
-    display: flex;
-    gap: 10px;
-    flex-shrink: 0;
-}
-
-.upload-workbench__cta {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 11px 28px;
-    border-radius: 10px;
-    background: linear-gradient(135deg, #f5822e, #e06d1f);
-    color: #fff;
     font-size: 14px;
     font-weight: 600;
-    cursor: pointer;
-    border: none;
-    transition: all 180ms ease;
-    box-shadow: 0 4px 12px color-mix(in srgb, #f5822e 24%, transparent);
 }
-
-.upload-workbench__cta:hover:not(:disabled) {
-    background: linear-gradient(135deg, #e06d1f, #c95a14);
-    box-shadow: 0 6px 16px color-mix(in srgb, #f5822e 30%, transparent);
-    transform: translateY(-1px);
+.upload-workbench__footer {
+    border-top: 1px solid var(--surface-border);
+    padding: 18px 24px;
+    display: flex;
+    gap: 24px;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
 }
-
-.upload-workbench__cta:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
-
-.upload-workbench__error {
-    color: var(--color-danger);
+.upload-workbench__tip {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    color: var(--text-secondary);
     font-size: 13px;
-    text-align: center;
+    flex: 1;
+    min-width: 200px;
 }
-
-@media (max-width: 900px) {
-    .upload-workbench {
-        padding: 20px 16px;
-    }
-
+.upload-workbench__tip svg {
+    flex-shrink: 0;
+    margin-top: 3px;
+}
+.upload-workbench__actions {
+    display: flex;
+    gap: 12px;
+}
+@media (max-width: 950px) {
     .upload-workbench__preview-area {
         grid-template-columns: 1fr;
     }
-
     .upload-workbench__video-thumb {
-        margin: 12px;
-        aspect-ratio: 16 / 9;
+        height: 340px;
     }
-
+}
+@media (max-width: 600px) {
+    .upload-workbench__info-panel {
+        padding: 16px;
+    }
+    .upload-workbench__dropzone {
+        min-height: 350px;
+    }
     .upload-workbench__footer {
-        flex-direction: column;
-        align-items: stretch;
+        padding: 16px;
     }
-
     .upload-workbench__actions {
-        justify-content: flex-end;
+        flex-wrap: wrap;
+    }
+}
+
+.upload-progress {
+    padding: 18px 0;
+    color: var(--text-secondary);
+}
+.upload-progress progress {
+    width: 100%;
+    height: 8px;
+    margin-top: 12px;
+    accent-color: var(--primary-color);
+}
+@media (max-height: 650px) {
+    .upload-workbench__dropzone {
+        min-height: 0;
+        padding: 20px;
+        gap: 10px;
+    }
+    .upload-workbench__dropzone-icon {
+        display: none;
+    }
+    .upload-workbench__dropzone-title {
+        font-size: 18px;
+    }
+    .upload-workbench__dropzone-btn {
+        margin: 0;
+    }
+    .upload-workbench__dropzone-size {
+        margin-top: 0;
+    }
+    .upload-workbench {
+        gap: 12px;
     }
 }
 </style>

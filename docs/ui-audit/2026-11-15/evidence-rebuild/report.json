@@ -1,0 +1,169 @@
+[
+    {
+        "file": "page.png",
+        "state": null,
+        "size": "1440x900",
+        "zoom": 1,
+        "animationWaitMs": 0,
+        "issues": [],
+        "lint": []
+    },
+    {
+        "file": "page-@2x.png",
+        "state": null,
+        "size": "1440x900",
+        "zoom": 2,
+        "animationWaitMs": 0,
+        "issues": [],
+        "lint": []
+    },
+    {
+        "file": "motion-probe-settings",
+        "state": null,
+        "size": "1440x900",
+        "zoom": 1,
+        "group": "settings",
+        "motion": {
+            "load": {
+                "elements": 1,
+                "loops": 0,
+                "maxMove": 5,
+                "maxSize": 0,
+                "maxOpacity": 0.94,
+                "top": [
+                    {
+                        "el": "main.upload-page.ui-page",
+                        "move": 5,
+                        "size": 0,
+                        "opacity": 0.94,
+                        "loop": false,
+                        "sources": ["css:workbench-enter"]
+                    }
+                ]
+            },
+            "steps": {
+                "elements": 2,
+                "loops": 0,
+                "maxMove": 20,
+                "maxSize": 0.053,
+                "maxOpacity": 1,
+                "top": [
+                    {
+                        "el": "div.app-dialog.fixed",
+                        "move": 20,
+                        "size": 0.053,
+                        "opacity": 1,
+                        "loop": false,
+                        "sources": ["js:style", "css:enter"]
+                    },
+                    {
+                        "el": "div.fixed.inset-0",
+                        "move": 0,
+                        "size": 0,
+                        "opacity": 0.99,
+                        "loop": false,
+                        "sources": ["css:enter"]
+                    }
+                ]
+            },
+            "hero": {
+                "elements": 0,
+                "loops": 0,
+                "maxMove": 0,
+                "maxSize": 0,
+                "maxOpacity": 0,
+                "top": [],
+                "layers": 0
+            },
+            "scroll": {
+                "elements": 0,
+                "loops": 0,
+                "maxMove": 0,
+                "maxSize": 0,
+                "maxOpacity": 0,
+                "top": [],
+                "scrollable": false
+            }
+        },
+        "issues": []
+    },
+    {
+        "file": "motion-entry-end.jpg",
+        "state": null,
+        "size": "1440x900",
+        "zoom": 1,
+        "group": "entry",
+        "issues": ["录屏：没装 ffmpeg，只留了 motion-entry-start/mid/end.jpg 三帧"],
+        "frames": {
+            "start": {
+                "file": "motion-entry-start.jpg",
+                "source": "Page.screencastFrame",
+                "timeMs": 268
+            },
+            "mid": {
+                "file": "motion-entry-mid.jpg",
+                "source": "Page.screencastFrame",
+                "timeMs": 412
+            },
+            "end": {
+                "file": "motion-entry-end.jpg",
+                "source": "Page.captureScreenshot",
+                "timeMs": 2033
+            }
+        },
+        "sampling": {
+            "mode": "entry"
+        },
+        "durationMs": 2033,
+        "consistency": {
+            "status": "matched",
+            "reference": "motion-entry-end.jpg",
+            "different": false,
+            "changedPixels": 0,
+            "maxTilePixels": 0,
+            "pixelRatio": 0
+        },
+        "failed": true
+    },
+    {
+        "file": "motion-settings-end.jpg",
+        "state": null,
+        "size": "1440x900",
+        "zoom": 1,
+        "group": "settings",
+        "issues": ["录屏：没装 ffmpeg，只留了 motion-settings-start/mid/end.jpg 三帧"],
+        "frames": {
+            "start": {
+                "file": "motion-settings-start.jpg",
+                "source": "Page.captureScreenshot",
+                "timeMs": 552
+            },
+            "mid": {
+                "file": "motion-settings-mid.jpg",
+                "source": "Page.screencastFrame",
+                "timeMs": 661
+            },
+            "end": {
+                "file": "motion-settings-end.jpg",
+                "source": "Page.captureScreenshot",
+                "timeMs": 1944
+            }
+        },
+        "sampling": {
+            "mode": "action",
+            "step": 1,
+            "action": "click",
+            "raw": "click [aria-label=\"设置\"]"
+        },
+        "durationMs": 1944,
+        "consistency": {
+            "status": "matched",
+            "reference": "motion-settings-end.jpg",
+            "different": false,
+            "changedPixels": 0,
+            "maxTilePixels": 0,
+            "pixelRatio": 0
+        },
+        "failed": true
+    }
+]

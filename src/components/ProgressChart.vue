@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from "vue"
+import { useResolvedThemeState } from "@/composables/useResolvedThemeState"
 import type { AnalysisHistory } from "@/types"
 import { getAngleDisplayName } from "@/types"
 import { trainingTrendPoints } from "@/lib/training-comparison.js"
@@ -9,6 +10,7 @@ const props = defineProps<{
 }>()
 
 const chartContainer = ref<HTMLDivElement>()
+const { isLightTheme } = useResolvedThemeState()
 
 const angleNames = computed(() => {
     if (!props.records.length) return [] as string[]
@@ -19,7 +21,12 @@ const angleNames = computed(() => {
 
 const selectedAngle = ref<string>("")
 
-const sortedRecords = computed(() => [...props.records].sort((a, b) => (a.trainingDate || "").localeCompare(b.trainingDate || "") || a.createdAt - b.createdAt))
+const sortedRecords = computed(() =>
+    [...props.records].sort(
+        (a, b) =>
+            (a.trainingDate || "").localeCompare(b.trainingDate || "") || a.createdAt - b.createdAt,
+    ),
+)
 
 watch(
     () => props.records,
@@ -50,8 +57,12 @@ const buildOption = () => {
     if (!angleName) return {}
 
     const dataPoints = trainingTrendPoints(sortedRecords.value, angleName)
+    const css = getComputedStyle(document.documentElement)
+    const color = (token: string) => css.getPropertyValue(token).trim()
 
     return {
+        animation: !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+        textStyle: { color: color("--text-secondary"), fontFamily: "HarmonyOS Sans SC" },
         tooltip: {
             trigger: "axis",
             formatter: (params: Array<{ name: string; seriesName: string; value: number }>) => {
@@ -66,16 +77,17 @@ const buildOption = () => {
             data: dataPoints.map((d) =>
                 new Date(d.time).toLocaleDateString("zh-CN", { month: "short", day: "numeric" }),
             ),
-            axisLine: { lineStyle: { color: "var(--surface-border)" } },
-            axisLabel: { color: "var(--text-muted)", fontSize: 11 },
+            axisLine: { lineStyle: { color: color("--surface-border") } },
+            axisLabel: { color: color("--text-muted"), fontSize: 12 },
         },
         yAxis: {
             type: "value",
             name: "角度 (°)",
-            axisLine: { lineStyle: { color: "var(--surface-border)" } },
-            axisLabel: { color: "var(--text-muted)", fontSize: 11 },
+            nameTextStyle: { color: color("--text-muted") },
+            axisLine: { lineStyle: { color: color("--surface-border") } },
+            axisLabel: { color: color("--text-muted"), fontSize: 12 },
             splitLine: {
-                lineStyle: { color: "color-mix(in srgb, var(--surface-border) 44%, transparent)" },
+                lineStyle: { color: color("--surface-border") },
             },
         },
         series: [
@@ -84,8 +96,8 @@ const buildOption = () => {
                 type: "line",
                 data: dataPoints.map((d) => d.value),
                 smooth: true,
-                lineStyle: { color: "var(--accent-color)", width: 2 },
-                itemStyle: { color: "var(--accent-color)" },
+                lineStyle: { color: color("--evidence-text"), width: 2 },
+                itemStyle: { color: color("--evidence-text") },
                 symbol: "circle",
                 symbolSize: 6,
             },
@@ -108,6 +120,13 @@ const renderChart = async () => {
     chartInstance.setOption(option, true)
 }
 
+watch(
+    isLightTheme,
+    () => {
+        void renderChart()
+    },
+    { flush: "post" },
+)
 watch(selectedAngle, () => {
     void renderChart()
 })
@@ -152,7 +171,11 @@ onUnmounted(() => {
     <div v-if="records.length > 1 && angleNames.length" class="progress-chart">
         <div class="progress-chart__header">
             <h4 class="progress-chart__title">训练趋势</h4>
-            <select v-model="selectedAngle" class="progress-chart__select">
+            <select
+                v-model="selectedAngle"
+                class="progress-chart__select"
+                aria-label="训练趋势角度"
+            >
                 <option v-for="name in angleNames" :key="name" :value="name">
                     {{ getAngleDisplayName(name) }}
                 </option>

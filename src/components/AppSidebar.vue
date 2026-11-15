@@ -1,236 +1,214 @@
 <script setup lang="ts">
+import { ref } from "vue"
 import { useRoute, useRouter } from "vue-router"
-import { Home, Video, History, Layers, Settings, User } from "lucide-vue-next"
+import {
+    Home,
+    Upload,
+    Activity,
+    History,
+    GitCompareArrows,
+    Layers,
+    Settings,
+    PanelLeftClose,
+    PanelLeftOpen,
+} from "lucide-vue-next"
 import { navigateWithFogTransition } from "@/composables/useFogRouteTransition"
-
-const route = useRoute()
-const router = useRouter()
-
-interface NavItem {
-    label: string
-    path: string
-    icon: typeof Home
-    disabled?: boolean
-}
-
-const navItems: NavItem[] = [
+import AppSettings from "@/components/AppSettings.vue"
+const route = useRoute(),
+    router = useRouter()
+const settingsOpen = ref(false)
+const collapsed = ref(false)
+const navItems = [
     { label: "首页", path: "/", icon: Home },
-    { label: "上传视频", path: "/upload", icon: Video },
-    { label: "历史记录", path: "/history", icon: History },
+    { label: "上传素材", path: "/upload", icon: Upload },
+    { label: "动作分析", path: "/analysis", icon: Activity },
+    { label: "训练历史", path: "/history", icon: History },
+    { label: "球星对比", path: "/compare", icon: GitCompareArrows },
     { label: "模板管理", path: "/templates", icon: Layers },
-    { label: "设置", path: "", icon: Settings, disabled: true },
 ]
-
-const isActive = (path: string) => {
-    if (!path) return false
-    return route.path === path
-}
-
-const handleNav = async (item: NavItem) => {
-    if (item.disabled || !item.path) return
-    await navigateWithFogTransition(router, item.path)
-}
 </script>
-
 <template>
-    <aside class="app-sidebar">
-        <div class="app-sidebar__logo">
-            <div class="app-sidebar__logo-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.8" />
-                    <path
-                        d="M12 2C12 2 15 6 15 12C15 18 12 22 12 22"
-                        stroke="currentColor"
-                        stroke-width="1.8"
-                        stroke-linecap="round"
-                    />
-                    <path
-                        d="M12 2C12 2 9 6 9 12C9 18 12 22 12 22"
-                        stroke="currentColor"
-                        stroke-width="1.8"
-                        stroke-linecap="round"
-                    />
-                    <path
-                        d="M2 12H22"
-                        stroke="currentColor"
-                        stroke-width="1.8"
-                        stroke-linecap="round"
-                    />
-                </svg>
-            </div>
-            <div class="app-sidebar__logo-text">
-                <span class="app-sidebar__logo-name">ShotForm</span>
-                <span class="app-sidebar__logo-sub">投篮分析大师</span>
-            </div>
-        </div>
-
+    <aside class="app-sidebar" :class="{ 'app-sidebar--collapsed': collapsed }" aria-label="主导航">
+        <RouterLink class="app-sidebar__brand" to="/" aria-label="ShotForm 首页">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M3 12h18M12 3v18M6 5c6 4 6 10 0 14M18 5c-6 4-6 10 0 14" /></svg
+            ><span>ShotForm</span>
+        </RouterLink>
         <nav class="app-sidebar__nav">
             <button
                 v-for="item in navItems"
-                :key="item.path || item.label"
+                :key="item.path"
+                type="button"
                 class="app-sidebar__nav-item"
-                :class="{
-                    'app-sidebar__nav-item--active': isActive(item.path),
-                    'app-sidebar__nav-item--disabled': item.disabled,
-                }"
-                :disabled="item.disabled"
-                @click="handleNav(item)"
+                :class="{ 'is-active': route.path === item.path }"
+                :aria-current="route.path === item.path ? 'page' : undefined"
+                :aria-label="item.label"
+                :title="item.label"
+                @click="navigateWithFogTransition(router, item.path)"
             >
-                <component :is="item.icon" class="app-sidebar__nav-icon" />
-                <span>{{ item.label }}</span>
+                <component :is="item.icon" aria-hidden="true" /><span>{{ item.label }}</span>
             </button>
         </nav>
-
         <div class="app-sidebar__footer">
-            <div class="app-sidebar__user-avatar">
-                <User class="app-sidebar__user-avatar-icon" />
-            </div>
-            <div class="app-sidebar__user-info">
-                <span class="app-sidebar__user-name">Coach</span>
-                <span class="app-sidebar__user-plan">专业版</span>
-            </div>
+            <button
+                type="button"
+                class="app-sidebar__nav-item"
+                aria-label="设置"
+                title="设置"
+                @click="settingsOpen = true"
+            >
+                <Settings aria-hidden="true" /><span>设置</span>
+            </button>
+            <button
+                type="button"
+                class="app-sidebar__nav-item app-sidebar__collapse"
+                :aria-label="collapsed ? '展开导航' : '收起导航'"
+                :title="collapsed ? '展开导航' : '收起导航'"
+                :aria-expanded="!collapsed"
+                @click="collapsed = !collapsed"
+            >
+                <PanelLeftOpen v-if="collapsed" aria-hidden="true" /><PanelLeftClose
+                    v-else
+                    aria-hidden="true"
+                /><span>收起导航</span>
+            </button>
+            <p class="app-sidebar__privacy">基础分析在本机完成</p>
         </div>
     </aside>
+    <AppSettings v-model:open="settingsOpen" />
 </template>
-
 <style scoped>
 .app-sidebar {
-    width: 210px;
-    min-width: 210px;
-    height: 100%;
+    width: 176px;
+    flex: 0 0 176px;
+    background: var(--surface-color);
+    border-right: 1px solid var(--surface-border);
+    padding: 20px 12px 16px;
     display: flex;
     flex-direction: column;
-    background: var(--bg-solid);
-    border-right: 1px solid var(--surface-border);
-    padding: 16px 12px;
-    gap: 24px;
+    gap: 28px;
+    min-height: 0;
+    transition:
+        width 180ms ease,
+        flex-basis 180ms ease;
 }
-
-.app-sidebar__logo {
+.app-sidebar__brand {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 4px 8px;
-}
-
-.app-sidebar__logo-icon {
-    width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--accent-color);
-    flex-shrink: 0;
-}
-
-.app-sidebar__logo-text {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-}
-
-.app-sidebar__logo-name {
-    font-size: 15px;
-    font-weight: 700;
+    padding: 3px 9px;
     color: var(--text-primary);
-    letter-spacing: -0.02em;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 18px;
 }
-
-.app-sidebar__logo-sub {
-    font-size: 11px;
-    color: var(--text-muted);
-    font-weight: 500;
+.app-sidebar__brand svg {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+    stroke: var(--evidence-text);
+    stroke-width: 1.5;
 }
-
 .app-sidebar__nav {
-    display: flex;
-    flex-direction: column;
+    display: grid;
     gap: 6px;
-    flex: 1;
-    padding-top: 4px;
 }
-
 .app-sidebar__nav-item {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 12px 12px;
-    border-radius: 10px;
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--text-secondary);
-    cursor: pointer;
-    transition: all 160ms ease;
-    border: none;
-    background: transparent;
+    gap: 11px;
+    min-height: 42px;
+    padding: 10px;
     width: 100%;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    color: var(--text-secondary);
+    background: transparent;
     text-align: left;
+    font-size: 14px;
+    white-space: nowrap;
+    transition:
+        background-color 160ms,
+        color 160ms;
 }
-
-.app-sidebar__nav-item:hover:not(.app-sidebar__nav-item--disabled):not(
-        .app-sidebar__nav-item--active
-    ) {
+.app-sidebar__nav-item svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    stroke-width: 1.7;
+}
+.app-sidebar__nav-item:hover {
     background: var(--glass-sm);
     color: var(--text-primary);
 }
-
-.app-sidebar__nav-item--active {
-    background: color-mix(in srgb, var(--accent-color) 10%, transparent);
-    color: var(--accent-color);
+.app-sidebar__nav-item.is-active {
+    background: var(--selection-bg);
+    color: var(--selection-text);
+    border-color: color-mix(in srgb, var(--primary-color) 35%, transparent);
     font-weight: 600;
 }
-
-.app-sidebar__nav-item--disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-}
-
-.app-sidebar__nav-icon {
-    width: 20px;
-    height: 20px;
-    flex-shrink: 0;
-}
-
 .app-sidebar__footer {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 8px;
-    border-top: 1px solid var(--surface-border);
     margin-top: auto;
+    display: grid;
+    gap: 4px;
+    padding-top: 20px;
 }
-
-.app-sidebar__user-avatar {
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
-    background: color-mix(in srgb, var(--accent-color) 14%, transparent);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--accent-color);
-    flex-shrink: 0;
-}
-
-.app-sidebar__user-avatar-icon {
-    width: 18px;
-    height: 18px;
-}
-
-.app-sidebar__user-info {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-}
-
-.app-sidebar__user-name {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text-primary);
-}
-
-.app-sidebar__user-plan {
-    font-size: 11px;
+.app-sidebar__privacy {
+    border-top: 1px solid var(--surface-border);
+    margin: 12px 8px 0;
+    padding-top: 16px;
+    font-size: 12px;
     color: var(--text-muted);
+}
+.app-sidebar--collapsed {
+    width: 64px;
+    flex-basis: 64px;
+    padding-inline: 8px;
+}
+.app-sidebar--collapsed span,
+.app-sidebar--collapsed .app-sidebar__privacy {
+    display: none;
+}
+.app-sidebar--collapsed .app-sidebar__brand {
+    padding-inline: 12px;
+}
+.app-sidebar--collapsed .app-sidebar__nav-item {
+    justify-content: center;
+}
+@media (max-width: 1050px) {
+    .app-sidebar {
+        width: 64px;
+        flex-basis: 64px;
+        padding-inline: 8px;
+    }
+    .app-sidebar span,
+    .app-sidebar__privacy,
+    .app-sidebar__collapse {
+        display: none;
+    }
+    .app-sidebar__brand {
+        padding-inline: 12px;
+    }
+    .app-sidebar__nav-item {
+        justify-content: center;
+    }
+}
+@media (max-height: 560px) {
+    .app-sidebar {
+        gap: 12px;
+        padding-top: 10px;
+        overflow-y: auto;
+    }
+    .app-sidebar__footer {
+        padding-top: 6px;
+    }
+    .app-sidebar__nav-item {
+        min-height: 36px;
+        padding-block: 7px;
+    }
+    .app-sidebar__privacy {
+        display: none;
+    }
 }
 </style>

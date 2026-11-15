@@ -1,78 +1,85 @@
-import { ref, watch, onMounted } from 'vue'
+import { ref, onMounted } from "vue"
 
-export type Theme = 'light' | 'dark' | 'system'
+export type Theme = "light" | "dark" | "system"
 
-const STORAGE_KEY = 'theme-preference'
+const STORAGE_KEY = "theme-preference"
 
-const theme = ref<Theme>('system')
+const theme = ref<Theme>("system")
+let initialized = false
 
-function getSystemTheme(): 'light' | 'dark' {
-  if (typeof window !== 'undefined') {
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-  }
-  return 'light'
+function getSystemTheme(): "light" | "dark" {
+    if (typeof window !== "undefined") {
+        return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
+    }
+    return "light"
 }
 
 function applyTheme(newTheme: Theme) {
-  const root = document.documentElement
+    const root = document.documentElement
 
-  if (newTheme === 'system') {
-    const systemTheme = getSystemTheme()
-    root.classList.toggle('dark', systemTheme === 'dark')
-    root.removeAttribute('data-theme')
-  } else {
-    root.classList.toggle('dark', newTheme === 'dark')
-    root.setAttribute('data-theme', newTheme)
-  }
+    if (newTheme === "system") {
+        const systemTheme = getSystemTheme()
+        root.classList.toggle("dark", systemTheme === "dark")
+        root.removeAttribute("data-theme")
+    } else {
+        root.classList.toggle("dark", newTheme === "dark")
+        root.setAttribute("data-theme", newTheme)
+    }
 }
 
 function setTheme(newTheme: Theme) {
-  theme.value = newTheme
-  applyTheme(newTheme)
+    theme.value = newTheme
+    applyTheme(newTheme)
 
-  if (typeof window !== 'undefined') {
-    localStorage.setItem(STORAGE_KEY, newTheme)
-  }
+    if (typeof window !== "undefined") {
+        localStorage.setItem(STORAGE_KEY, newTheme)
+    }
 }
 
 function initTheme() {
-  if (typeof window === 'undefined') return
+    if (typeof window === "undefined" || initialized) return
+    initialized = true
 
-  const stored = localStorage.getItem(STORAGE_KEY) as Theme | null
-  if (stored && ['light', 'dark', 'system'].includes(stored)) {
-    theme.value = stored
-  }
-
-  applyTheme(theme.value)
-
-  const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-  mediaQuery.addEventListener('change', () => {
-    if (theme.value === 'system') {
-      applyTheme('system')
+    const stored = localStorage.getItem(STORAGE_KEY) as Theme | null
+    if (stored && ["light", "dark", "system"].includes(stored)) {
+        theme.value = stored
     }
-  })
+
+    applyTheme(theme.value)
+
+    window.addEventListener("storage", (event) => {
+        if (event.key !== STORAGE_KEY) return
+        const next = event.newValue
+        if (next === "light" || next === "dark" || next === "system") {
+            theme.value = next
+            applyTheme(next)
+        }
+    })
+
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)")
+    mediaQuery.addEventListener("change", () => {
+        if (theme.value === "system") {
+            applyTheme("system")
+        }
+    })
 }
 
 function cycleTheme() {
-  const themes: Theme[] = ['light', 'dark', 'system']
-  const currentIndex = themes.indexOf(theme.value)
-  const nextIndex = (currentIndex + 1) % themes.length
-  setTheme(themes[nextIndex])
+    const themes: Theme[] = ["light", "dark", "system"]
+    const currentIndex = themes.indexOf(theme.value)
+    const nextIndex = (currentIndex + 1) % themes.length
+    setTheme(themes[nextIndex])
 }
 
 export function useTheme() {
-  onMounted(() => {
-    initTheme()
-  })
+    onMounted(() => {
+        initTheme()
+    })
 
-  watch(theme, (newTheme) => {
-    applyTheme(newTheme)
-  })
-
-  return {
-    theme,
-    setTheme,
-    cycleTheme,
-    initTheme
-  }
+    return {
+        theme,
+        setTheme,
+        cycleTheme,
+        initTheme,
+    }
 }

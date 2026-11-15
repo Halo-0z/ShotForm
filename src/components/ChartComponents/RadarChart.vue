@@ -4,6 +4,7 @@
 
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, watch } from "vue"
+import { useResolvedThemeState } from "@/composables/useResolvedThemeState"
 import * as echarts from "echarts/core"
 import { RadarChart } from "echarts/charts"
 import { TooltipComponent, LegendComponent } from "echarts/components"
@@ -24,6 +25,7 @@ const props = defineProps<{
 }>()
 
 const chartRef = ref<HTMLDivElement | null>(null)
+const { isLightTheme } = useResolvedThemeState()
 let chartInstance: echarts.ECharts | null = null
 let resizeObserver: ResizeObserver | null = null
 let handleWindowResize: (() => void) | null = null
@@ -42,19 +44,32 @@ const initChart = () => {
 
 const updateChart = () => {
     if (!chartInstance) return
+    const css = getComputedStyle(document.documentElement)
+    const color = (token: string) => css.getPropertyValue(token).trim()
 
     const option: echarts.EChartsCoreOption = {
+        animation: !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+        textStyle: {
+            color: color("--text-secondary"),
+            fontFamily: "HarmonyOS Sans SC",
+            fontSize: 12,
+        },
         tooltip: {
             trigger: "item",
         },
         legend: {
             data: ["你的姿势", props.playerName],
             bottom: 0,
+            textStyle: { color: color("--text-secondary") },
         },
         radar: {
             indicator: props.indicators,
             center: ["50%", "45%"],
             radius: "60%",
+            axisName: { color: color("--text-secondary"), fontSize: 12 },
+            axisLine: { lineStyle: { color: color("--surface-border") } },
+            splitLine: { lineStyle: { color: color("--surface-border") } },
+            splitArea: { show: false },
         },
         series: [
             {
@@ -64,26 +79,28 @@ const updateChart = () => {
                         value: props.userData,
                         name: "你的姿势",
                         areaStyle: {
-                            color: "rgba(64, 158, 255, 0.3)",
+                            color: color("--primary-color"),
+                            opacity: 0.15,
                         },
                         lineStyle: {
-                            color: "#409EFF",
+                            color: color("--primary-color"),
                         },
                         itemStyle: {
-                            color: "#409EFF",
+                            color: color("--primary-color"),
                         },
                     },
                     {
                         value: props.playerData,
                         name: props.playerName,
                         areaStyle: {
-                            color: "rgba(103, 194, 58, 0.3)",
+                            color: color("--evidence-text"),
+                            opacity: 0.12,
                         },
                         lineStyle: {
-                            color: "#67C23A",
+                            color: color("--evidence-text"),
                         },
                         itemStyle: {
-                            color: "#67C23A",
+                            color: color("--evidence-text"),
                         },
                     },
                 ],
@@ -97,6 +114,7 @@ const updateChart = () => {
 watch(() => [props.userData, props.playerData, props.playerName, props.indicators], updateChart, {
     deep: true,
 })
+watch(isLightTheme, updateChart, { flush: "post" })
 
 onMounted(() => {
     initChart()
@@ -124,6 +142,6 @@ onUnmounted(() => {
 <style scoped>
 .radar-chart {
     width: 100%;
-    height: 300px;
+    height: 240px;
 }
 </style>

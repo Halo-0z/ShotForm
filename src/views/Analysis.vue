@@ -1,28 +1,22 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from "vue"
 import { useRouter } from "vue-router"
-import {
-    Play,
-    Pause,
-    Info,
-    CheckCircle2,
-    ChevronLeft,
-    ChevronRight,
-    BarChart3,
-    Table as TableIcon,
-    Bookmark,
-    GitCompareArrows,
-} from "lucide-vue-next"
+import { Play, Pause, ChevronLeft, ChevronRight, Upload, GitCompareArrows } from "lucide-vue-next"
 import { Button } from "@/components/ui/button"
 import { useAnalysisStore } from "@/stores/analysis"
-import { formatTime } from "@/lib/analysis-utils"
-import { getShotTypeName, getRecordShotType, type AnalysisHistory } from "@/types"
+import {
+    getShotTypeName,
+    getRecordShotType,
+    getAngleDisplayName,
+    type AnalysisHistory,
+} from "@/types"
 import { buildAnalysisReport, saveReportFile } from "@/lib/training-report"
 import { localDate } from "@/lib/training-comparison.js"
 import AngleAnalysisChart from "@/components/analysis/AngleAnalysisChart.vue"
 import AngleDeviationCards from "@/components/analysis/AngleDeviationCards.vue"
 import AISuggestionList from "@/components/analysis/AISuggestionList.vue"
 
+const formatTime = (ms: number) => `${(ms / 1000).toFixed(2)} 秒`
 const router = useRouter()
 const analysisStore = useAnalysisStore()
 
@@ -37,10 +31,12 @@ const frames = computed(() => videoAnalysis.value?.frames ?? [])
 const hasPlayableFrames = computed(() => frames.value.length > 1)
 
 const shotTypeName = computed(() => {
-    return getShotTypeName(getRecordShotType({
-        analysis: analysis.value,
-        videoAnalysis: videoAnalysis.value,
-    }))
+    return getShotTypeName(
+        getRecordShotType({
+            analysis: analysis.value,
+            videoAnalysis: videoAnalysis.value,
+        }),
+    )
 })
 
 const displayAnalysis = computed(() => {
@@ -76,8 +72,16 @@ const analysisReasons = computed(() => {
     return analysis.value.shotTypeReasons
 })
 
-const isPlaying = ref(true)
+const isPlaying = ref(false)
+const showPose = ref(true)
+const frameImageError = ref(false)
+const angleView = ref("chart")
+const stageRef = ref<HTMLElement | null>(null)
+let stageObserver: ResizeObserver | undefined
 const chartAnalysis = ref(displayAnalysis.value)
+watch(analysis, (value) => {
+    chartAnalysis.value = value
+})
 const playbackSpeed = ref(1)
 const playbackFrameIndex = ref(0)
 const videoCanvasRef = ref<HTMLCanvasElement | null>(null)
@@ -165,7 +169,6 @@ const drawFrame = async () => {
     const canvas = videoCanvasRef.value
     if (!frame || !canvas) return
     const requestId = ++drawRequestId
-    const frameIndex = playbackFrameIndex.value
     const poseData = frame.analysis.poseData
     const context = canvas.getContext("2d")
     if (!context) return
@@ -180,40 +183,25 @@ const drawFrame = async () => {
     }
     if (requestId !== drawRequestId) return
 
+    frameImageError.value = !frameImage
     const baseWidth = frameImage?.naturalWidth || poseData.width || 960
     const baseHeight = frameImage?.naturalHeight || poseData.height || 720
-    const aspectRatio = baseWidth / Math.max(baseHeight, 1)
-    const maxDisplayWidth = 800
-    const maxDisplayHeight = 500
-    let displayWidth = Math.min(baseWidth, maxDisplayWidth)
-    let displayHeight = Math.max(240, Math.round(displayWidth / Math.max(aspectRatio, 0.1)))
-    if (displayHeight > maxDisplayHeight) {
-        displayHeight = maxDisplayHeight
-        displayWidth = Math.max(240, Math.round(displayHeight * Math.max(aspectRatio, 0.1)))
-    }
-
+    const availableWidth = stageRef.value?.clientWidth || 800
+    const availableHeight = stageRef.value?.clientHeight || 500
+    const scale = Math.min(availableWidth / baseWidth, availableHeight / baseHeight)
+    const displayWidth = Math.round(baseWidth * scale)
+    const displayHeight = Math.round(baseHeight * scale)
     const dpr = window.devicePixelRatio || 1
     canvas.width = Math.round(displayWidth * dpr)
     canvas.height = Math.round(displayHeight * dpr)
-    canvas.style.width = "100%"
+    canvas.style.width = `${displayWidth}px`
     canvas.style.height = `${displayHeight}px`
-
     context.setTransform(dpr, 0, 0, dpr, 0, 0)
     context.clearRect(0, 0, displayWidth, displayHeight)
-
-    const background = context.createLinearGradient(0, 0, displayWidth, displayHeight)
-    background.addColorStop(0, "#08111f")
-    background.addColorStop(1, "#0f1f2f")
-    context.fillStyle = background
+    context.fillStyle = "#0a0d12"
     context.fillRect(0, 0, displayWidth, displayHeight)
-
-    if (frameImage) {
-        context.save()
-        context.globalAlpha = 0.22
-        context.drawImage(frameImage, 0, 0, displayWidth, displayHeight)
-        context.restore()
-    }
-
+    if (frameImage) context.drawImage(frameImage, 0, 0, displayWidth, displayHeight)
+    if (!showPose.value) return
     const scaleX = displayWidth / Math.max(poseData.width || baseWidth, 1)
     const scaleY = displayHeight / Math.max(poseData.height || baseHeight, 1)
     const keypointMap = new Map(poseData.keypoints.map((kp) => [kp.id, kp]))
@@ -229,7 +217,7 @@ const drawFrame = async () => {
         context.lineTo(e.x * scaleX, e.y * scaleY)
         context.strokeStyle = getLineColor(startId, endId)
         context.shadowColor = context.strokeStyle
-        context.shadowBlur = 10
+        context.shadowBlur = 0
         context.lineWidth = 3.5
         context.stroke()
     })
@@ -248,23 +236,16 @@ const drawFrame = async () => {
         context.arc(x, y, radius, 0, Math.PI * 2)
         context.fillStyle = getPointColor(kp.id)
         context.shadowColor = getPointColor(kp.id)
-        context.shadowBlur = 12
+        context.shadowBlur = 0
         context.fill()
     })
-
-    context.shadowBlur = 0
-    context.fillStyle = "rgba(5, 10, 20, 0.72)"
-    context.fillRect(16, 16, 176, 54)
-    context.fillStyle = "#f8fafc"
-    context.font = "600 15px sans-serif"
-    context.fillText(`关键帧 ${frameIndex + 1}/${frames.value.length}`, 28, 38)
-    context.font = "400 13px sans-serif"
-    context.fillStyle = "rgba(226, 232, 240, 0.92)"
-    context.fillText(`时间点 ${formatTime(frame.timestampMs)}`, 28, 58)
 }
 
 const handleFrameSelect = (frameIndex: number) => {
-    analysisStore.selectVideoFrame(frameIndex)
+    isPlaying.value = false
+    if (playbackTimer.value) clearTimeout(playbackTimer.value)
+    playbackTimer.value = null
+    void analysisStore.selectVideoFrame(frameIndex)
     playbackFrameIndex.value = clampFrameIndex(frameIndex)
     chartAnalysis.value = analysis.value
     void drawFrame()
@@ -275,21 +256,27 @@ const togglePlayback = () => {
     if (isPlaying.value) {
         startPlayback()
     } else {
-        if (playbackTimer.value) clearInterval(playbackTimer.value)
+        if (playbackTimer.value) clearTimeout(playbackTimer.value)
         playbackTimer.value = null
+        handleFrameSelect(playbackFrameIndex.value)
     }
 }
 
 const startPlayback = () => {
-    if (playbackTimer.value) clearInterval(playbackTimer.value)
+    if (playbackTimer.value) clearTimeout(playbackTimer.value)
     if (frames.value.length <= 1) {
         playbackTimer.value = null
         return
     }
-    const interval = 500 / playbackSpeed.value
-    playbackTimer.value = window.setInterval(() => {
-        if (frames.value.length === 0) return
-        playbackFrameIndex.value = (playbackFrameIndex.value + 1) % frames.value.length
+    const current = frames.value[playbackFrameIndex.value]
+    const nextIndex = (playbackFrameIndex.value + 1) % frames.value.length
+    const next = frames.value[nextIndex]
+    const delta = nextIndex === 0 ? 500 : next.timestampMs - current.timestampMs
+    const interval = Math.max(40, Math.min(2000, delta || 500)) / playbackSpeed.value
+    playbackTimer.value = window.setTimeout(() => {
+        if (!isPlaying.value || !frames.value.length) return
+        playbackFrameIndex.value = nextIndex
+        startPlayback()
     }, interval)
 }
 
@@ -369,7 +356,7 @@ watch(
         if (isPlaying.value) {
             startPlayback()
         } else if (playbackTimer.value && frames.value.length <= 1) {
-            clearInterval(playbackTimer.value)
+            clearTimeout(playbackTimer.value)
             playbackTimer.value = null
         }
     },
@@ -388,11 +375,36 @@ watch(currentFrameIndex, async (frameIndex) => {
 
 watch(playbackSpeed, () => {
     if (isPlaying.value) {
-        if (playbackTimer.value) clearInterval(playbackTimer.value)
+        if (playbackTimer.value) clearTimeout(playbackTimer.value)
         startPlayback()
     }
 })
 
+watch(showPose, () => {
+    void drawFrame()
+})
+watch(stageRef, (stage) => {
+    stageObserver?.disconnect()
+    if (stage) {
+        stageObserver = new ResizeObserver(() => {
+            void drawFrame()
+        })
+        stageObserver.observe(stage)
+    }
+})
+const imageSource = computed(() =>
+    showPose.value
+        ? analysisStore.currentAnnotatedImage || analysisStore.currentImage
+        : analysisStore.currentImage || analysisStore.currentAnnotatedImage,
+)
+const frameLabel = computed(() =>
+    videoAnalysis.value
+        ? `分析帧 ${currentFrameIndex.value + 1} / ${frames.value.length}`
+        : "图片分析",
+)
+const validAngles = computed(() =>
+    (chartAnalysis.value?.angles ?? []).filter((a) => Number.isFinite(a.value)),
+)
 onMounted(() => {
     window.addEventListener("resize", handleWindowResize)
     if (isPlaying.value) {
@@ -401,263 +413,157 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-    if (playbackTimer.value) clearInterval(playbackTimer.value)
+    stageObserver?.disconnect()
+    if (playbackTimer.value) clearTimeout(playbackTimer.value)
     window.removeEventListener("resize", handleWindowResize)
 })
 </script>
 
 <template>
-    <div v-if="!analysis" class="analysis-workbench p-8">
+    <main v-if="!analysis" class="analysis-workbench ui-page ui-empty ui-enter">
+        <Upload aria-hidden="true" />
         <h1>尚无分析结果</h1>
-        <p class="my-4">请先上传清晰的单人投篮图片或短视频。</p>
+        <p>请先上传清晰的单人投篮图片或短视频。</p>
         <Button @click="router.push('/upload')">上传素材</Button>
-    </div>
-    <div v-else class="analysis-workbench">
-        <header class="analysis-workbench__topbar">
-            <div class="analysis-workbench__topbar-left">
-                <div class="analysis-workbench__heading">
-                    <p class="analysis-workbench__eyebrow">ANALYSIS</p>
-                    <h1 class="analysis-workbench__topbar-title">投篮姿势分析</h1>
-                    <p class="analysis-workbench__topbar-subtitle">
-                        基于动作识别和关键帧分析，为你提供专业的投篮姿势评估。
-                    </p>
-                </div>
+    </main>
+    <main v-else class="analysis-workbench ui-page ui-enter">
+        <header class="ui-page__header analysis-workbench__topbar">
+            <div>
+                <h1>投篮动作分析</h1>
+                <p>{{ frameLabel }}</p>
             </div>
-            <div class="analysis-workbench__topbar-right">
-                <span class="analysis-workbench__badge analysis-workbench__badge--success"
-                    >分析完成</span
+            <div class="ui-actions analysis-workbench__topbar-actions">
+                <Button
+                    variant="outline"
+                    size="sm"
+                    :disabled="isExporting || isPlaying"
+                    @click="handleExport('html')"
+                    >导出 HTML 报告</Button
                 >
-                <div class="analysis-workbench__topbar-actions">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        :disabled="
-                            analysisStore.isSavingHistory ||
-                            analysisStore.currentHistoryId != null ||
-                            analysisStore.coachingSources.rule.state === 'loading'
-                        "
-                        @click="handleSave"
-                    >
-                        {{
-                            analysisStore.isSavingHistory
-                                ? "保存中…"
-                                : analysisStore.currentHistoryId != null
-                                  ? "已保存历史记录"
-                                  : "保存历史记录"
-                        }}
-                    </Button>
-                    <Button
-                        variant="accent"
-                        size="sm"
-                        :disabled="isExporting"
-                        @click="handleExport('html')"
-                        >导出 HTML 报告</Button
-                    >
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        :disabled="isExporting"
-                        @click="handleExport('json')"
-                        >导出 JSON</Button
-                    >
-                    <Button v-if="analysis" variant="outline" size="sm" @click="goToCompare">
-                        <GitCompareArrows class="h-4 w-4" />
-                        球星对比
-                    </Button>
-                </div>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    :disabled="isExporting || isPlaying"
+                    @click="handleExport('json')"
+                    >导出 JSON</Button
+                >
+                <Button
+                    size="sm"
+                    :disabled="
+                        analysisStore.isSavingHistory ||
+                        analysisStore.currentHistoryId != null ||
+                        analysisStore.coachingSources.rule.state === 'loading' ||
+                        isPlaying
+                    "
+                    @click="handleSave"
+                    >{{
+                        analysisStore.isSavingHistory
+                            ? "保存中…"
+                            : analysisStore.currentHistoryId != null
+                              ? "已保存历史记录"
+                              : "保存历史记录"
+                    }}</Button
+                >
             </div>
         </header>
-
-        <p v-if="actionMessage" role="status" class="px-6 py-3">{{ actionMessage }}</p>
+        <p v-if="actionMessage" role="status" class="ui-notice">{{ actionMessage }}</p>
         <div class="analysis-workbench__body" data-allow-copy="true">
             <div class="analysis-workbench__left">
-                <div class="analysis-workbench__top-row">
-                    <section class="analysis-workbench__conclusion">
-                        <div class="analysis-workbench__conclusion-header">
-                            <h2 class="analysis-workbench__conclusion-title">本次分析结论</h2>
-                        </div>
-
-                        <div class="analysis-workbench__conclusion-main">
-                            <h3 class="analysis-workbench__judgment">
-                                {{ videoAnalysis ? "最终判断" : "当前判断" }}：<span
-                                    class="analysis-workbench__judgment-type"
-                                    >{{ shotTypeName }}</span
-                                >
-                            </h3>
-                            <p class="analysis-workbench__conclusion-desc">
-                                整体动作流畅，投篮发力较好，出手稳定性中等，建议优化起跳与手肘的协同发力。
-                            </p>
-                        </div>
-
-                        <div class="analysis-workbench__conclusion-cards">
-                            <div
-                                class="analysis-workbench__card analysis-workbench__card--shot-type"
-                            >
-                                <span class="analysis-workbench__card-label">投篮类型</span>
-                                <div class="analysis-workbench__card-shot-type-badge">
-                                    {{ shotTypeName }}
-                                </div>
-                                <span class="analysis-workbench__card-sublabel">标准动作</span>
-                            </div>
-
-                            <div
-                                class="analysis-workbench__card analysis-workbench__card--confidence"
-                            >
-                                <span class="analysis-workbench__card-label">置信度</span>
-                                <div class="analysis-workbench__card-confidence-value">
-                                    {{ confidencePercent }}%
-                                </div>
-                                <div class="analysis-workbench__card-confidence-bar">
-                                    <div
-                                        class="analysis-workbench__card-confidence-fill"
-                                        :style="{ width: `${confidencePercent}%` }"
-                                    />
-                                </div>
-                                <span class="analysis-workbench__card-sublabel">{{
-                                    confidenceGrade
-                                }}</span>
-                            </div>
-                        </div>
-
-                        <div class="analysis-workbench__reasons">
-                            <span class="analysis-workbench__reasons-label">本次分析依据</span>
-                            <ul class="analysis-workbench__reasons-list">
-                                <li
-                                    v-for="(reason, idx) in analysisReasons"
-                                    :key="idx"
-                                    class="analysis-workbench__reason-item"
-                                >
-                                    <CheckCircle2 class="h-4 w-4" />
-                                    <span>{{ reason }}</span>
-                                </li>
-                            </ul>
-                        </div>
-                    </section>
-
-                    <section class="analysis-workbench__visualizer">
-                        <div class="analysis-workbench__visualizer-header">
-                            <h3 class="analysis-workbench__visualizer-title">动作可视化</h3>
-                            <Info class="h-4 w-4 analysis-workbench__section-info" />
-                        </div>
-                        <div class="analysis-workbench__video-player">
-                            <canvas
-                                v-if="frames.length > 0"
-                                ref="videoCanvasRef"
-                                class="analysis-workbench__canvas"
-                            />
-                            <img
-                                v-else-if="
-                                    analysisStore.currentAnnotatedImage ||
-                                    analysisStore.currentImage
-                                "
-                                :src="
-                                    analysisStore.currentAnnotatedImage ||
-                                    analysisStore.currentImage
-                                "
-                                alt="图片姿态分析"
-                                class="analysis-image"
-                            />
-                            <div v-else class="analysis-workbench__video-empty">
-                                <Play class="h-8 w-8" />
-                            </div>
-                            <div v-if="frames.length" class="analysis-workbench__video-controls">
-                                <button
-                                    class="analysis-workbench__video-play-btn"
-                                    @click="togglePlayback"
-                                >
-                                    <Pause v-if="isPlaying && hasPlayableFrames" class="h-4 w-4" />
-                                    <Play v-else class="h-4 w-4" />
-                                </button>
-                                <div class="analysis-workbench__video-progress">
-                                    <div
-                                        class="analysis-workbench__video-progress-fill"
-                                        :style="{
-                                            width: `${frames.length > 0 ? ((playbackFrameIndex + 1) / frames.length) * 100 : 0}%`,
-                                        }"
-                                    />
-                                </div>
-                                <span class="analysis-workbench__video-time"
-                                    >{{ currentTimestampDisplay }} /
-                                    {{
-                                        frames.length > 0
-                                            ? formatTime(
-                                                  frames[frames.length - 1]?.timestampMs ?? 0,
-                                              )
-                                            : "0:00"
-                                    }}</span
-                                >
-                                <div class="analysis-workbench__video-speeds">
-                                    <button
-                                        v-for="speed in [0.5, 1, 1.5]"
-                                        :key="speed"
-                                        class="analysis-workbench__video-speed-btn"
-                                        :class="{
-                                            'analysis-workbench__video-speed-btn--active':
-                                                playbackSpeed === speed,
-                                        }"
-                                        @click="playbackSpeed = speed"
-                                    >
-                                        {{ speed }}x
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </section>
-                </div>
-
-                <section class="analysis-workbench__angle-chart-section">
-                    <div class="analysis-workbench__section-header">
-                        <div class="analysis-workbench__section-header-left">
-                            <h3 class="analysis-workbench__section-title">关节角度分析</h3>
-                            <Info class="h-4 w-4 analysis-workbench__section-info" />
-                        </div>
-                        <div class="analysis-workbench__chart-toggle">
+                <section class="analysis-workbench__visualizer" aria-label="动作回放">
+                    <div class="replay-toolbar">
+                        <div class="replay-modes" role="group" aria-label="画面显示方式">
                             <button
-                                class="analysis-workbench__chart-toggle-btn analysis-workbench__chart-toggle-btn--active"
+                                :aria-pressed="!showPose"
+                                :class="{ active: !showPose }"
+                                @click="showPose = false"
                             >
-                                <BarChart3 class="h-4 w-4" />
-                                图表
+                                原始画面
                             </button>
                             <button
-                                class="analysis-workbench__chart-toggle-btn"
-                                disabled
-                                title="当前展示角度图表；数值可在报告中查看"
+                                :aria-pressed="showPose"
+                                :class="{ active: showPose }"
+                                @click="showPose = true"
                             >
-                                <TableIcon class="h-4 w-4" />
-                                数据表
+                                姿态叠加
                             </button>
                         </div>
+                        <span>{{
+                            frames.length
+                                ? `预览帧 ${playbackFrameIndex + 1} / ${frames.length}`
+                                : "单张图片"
+                        }}</span>
                     </div>
-                    <AngleAnalysisChart :angles="chartAnalysis?.angles ?? []" />
-                </section>
-
-                <section v-if="frames.length" class="analysis-workbench__timeline-section">
-                    <div class="analysis-workbench__section-header">
-                        <div class="analysis-workbench__section-header-left">
-                            <h3 class="analysis-workbench__section-title">关键帧时间轴</h3>
-                            <Info class="h-4 w-4 analysis-workbench__section-info" />
-                        </div>
-                        <div class="analysis-workbench__best-frame-badge">
-                            <Bookmark class="h-3.5 w-3.5" />
-                            <span>最佳帧 {{ (videoAnalysis?.bestFrameIndex ?? 0) + 1 }}</span>
-                        </div>
-                    </div>
-                    <p class="analysis-workbench__timeline-hint">
-                        分析帧数: {{ frames.length }} 片 片段区间: 0:00 —
-                        {{
-                            frames.length > 0
-                                ? formatTime(frames[frames.length - 1]?.timestampMs ?? 0)
-                                : "0:00"
-                        }}
-                    </p>
-                    <div class="analysis-workbench__timeline-scroll">
-                        <button
-                            class="analysis-workbench__timeline-arrow"
-                            @click="handleFrameSelect(Math.max(0, currentFrameIndex - 1))"
+                    <div ref="stageRef" class="analysis-workbench__video-player">
+                        <p
+                            v-if="frames.length && frameImageError"
+                            class="replay-missing replay-image-error"
                         >
-                            <ChevronLeft class="h-5 w-5" />
+                            原始帧图像无法加载，当前仅显示可用的姿态关键点。
+                        </p>
+                        <canvas
+                            v-if="frames.length"
+                            ref="videoCanvasRef"
+                            class="analysis-workbench__canvas"
+                            role="img"
+                            :aria-label="`投篮动作第 ${playbackFrameIndex + 1} 帧`"
+                        />
+                        <img
+                            v-else-if="imageSource"
+                            :src="imageSource"
+                            alt="图片姿态分析"
+                            class="analysis-image"
+                        />
+                        <p v-else class="replay-missing">
+                            此记录没有可显示的图像，仍可查看已保存的分析数据。
+                        </p>
+                    </div>
+                    <div v-if="frames.length" class="analysis-workbench__video-controls">
+                        <button
+                            class="replay-icon"
+                            aria-label="上一帧"
+                            :disabled="playbackFrameIndex === 0"
+                            @click="handleFrameSelect(playbackFrameIndex - 1)"
+                        >
+                            <ChevronLeft />
                         </button>
-                        <div class="analysis-workbench__timeline-frames">
+                        <button
+                            class="replay-icon replay-play"
+                            :aria-label="isPlaying ? '暂停回放' : '播放回放'"
+                            :disabled="!hasPlayableFrames"
+                            @click="togglePlayback"
+                        >
+                            <Pause v-if="isPlaying" /><Play v-else />
+                        </button>
+                        <button
+                            class="replay-icon"
+                            aria-label="下一帧"
+                            :disabled="playbackFrameIndex === frames.length - 1"
+                            @click="handleFrameSelect(playbackFrameIndex + 1)"
+                        >
+                            <ChevronRight />
+                        </button>
+                        <span class="replay-time"
+                            >{{ currentTimestampDisplay }} /
+                            {{ formatTime(frames[frames.length - 1]?.timestampMs ?? 0) }}</span
+                        >
+                        <label class="replay-speed"
+                            >速度<select v-model="playbackSpeed" aria-label="回放速度">
+                                <option :value="0.5">0.5×</option>
+                                <option :value="1">1×</option>
+                                <option :value="1.5">1.5×</option>
+                            </select></label
+                        >
+                    </div>
+                    <div v-if="frames.length" class="analysis-workbench__timeline-section">
+                        <div class="timeline-heading">
+                            <h2>关键帧</h2>
+                            <span>点击一帧，查看对应角度与建议</span>
+                        </div>
+                        <div
+                            class="analysis-workbench__timeline-frames"
+                            role="group"
+                            aria-label="关键帧时间轴"
+                        >
                             <button
                                 v-for="(frame, idx) in frames"
                                 :key="idx"
@@ -666,689 +572,414 @@ onUnmounted(() => {
                                     'analysis-workbench__timeline-frame--active':
                                         currentFrameIndex === idx,
                                 }"
+                                :aria-pressed="currentFrameIndex === idx"
+                                :aria-label="`选择第 ${idx + 1} 帧`"
                                 @click="handleFrameSelect(idx)"
                             >
-                                <img :src="frame.imageData" alt="" />
-                                <span class="analysis-workbench__timeline-frame-time">{{
-                                    formatTime(frame.timestampMs)
-                                }}</span>
+                                <img :src="frame.imageData" alt="" /><span
+                                    >{{ idx + 1 }} · {{ formatTime(frame.timestampMs) }}</span
+                                >
                             </button>
                         </div>
-                        <button
-                            class="analysis-workbench__timeline-arrow"
-                            @click="
-                                handleFrameSelect(
-                                    Math.min(frames.length - 1, currentFrameIndex + 1),
-                                )
-                            "
-                        >
-                            <ChevronRight class="h-5 w-5" />
-                        </button>
+                    </div>
+                </section>
+                <section class="analysis-workbench__angle-chart-section">
+                    <div class="replay-toolbar">
+                        <h2>关节角度</h2>
+                        <div class="replay-modes" role="group" aria-label="角度显示方式">
+                            <button
+                                :class="{ active: angleView === 'chart' }"
+                                :aria-pressed="angleView === 'chart'"
+                                @click="angleView = 'chart'"
+                            >
+                                图表</button
+                            ><button
+                                :class="{ active: angleView === 'table' }"
+                                :aria-pressed="angleView === 'table'"
+                                @click="angleView = 'table'"
+                            >
+                                数据表
+                            </button>
+                        </div>
+                    </div>
+                    <p class="replay-caption">
+                        {{ frameLabel }} · 角度用于观察动作，不代表投篮水平评分。
+                    </p>
+                    <AngleAnalysisChart
+                        v-if="angleView === 'chart'"
+                        :angles="chartAnalysis?.angles ?? []"
+                    />
+                    <div v-else class="angle-table-wrap">
+                        <table class="angle-table">
+                            <thead>
+                                <tr>
+                                    <th>关节</th>
+                                    <th>当前角度</th>
+                                    <th>参考范围</th>
+                                    <th>识别状态</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="angle in validAngles" :key="angle.name">
+                                    <th>{{ getAngleDisplayName(angle.name) }}</th>
+                                    <td>
+                                        {{
+                                            angle.status === "low_confidence" || angle.value <= 0
+                                                ? "暂不判断"
+                                                : `${angle.value.toFixed(1)}°`
+                                        }}
+                                    </td>
+                                    <td>{{ angle.normalRange[0] }}°–{{ angle.normalRange[1] }}°</td>
+                                    <td>
+                                        {{
+                                            angle.status === "low_confidence" || angle.value <= 0
+                                                ? "识别不稳定"
+                                                : angle.status === "normal"
+                                                  ? "位于参考范围"
+                                                  : "超出参考范围"
+                                        }}
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <p v-if="!validAngles.length" class="replay-caption">
+                            当前帧没有可用的角度数据。
+                        </p>
                     </div>
                 </section>
             </div>
-
-            <div class="analysis-workbench__right">
-                <section class="analysis-workbench__deviation">
-                    <div class="analysis-workbench__deviation-header">
-                        <h3 class="analysis-workbench__deviation-title">关键角度偏差</h3>
-                        <div class="analysis-workbench__deviation-legend">
-                            <span
-                                class="analysis-workbench__deviation-legend-item analysis-workbench__deviation-legend-item--error"
-                                >偏差较大</span
-                            >
-                            <span
-                                class="analysis-workbench__deviation-legend-item analysis-workbench__deviation-legend-item--warning"
-                                >偏差一般</span
-                            >
-                            <span
-                                class="analysis-workbench__deviation-legend-item analysis-workbench__deviation-legend-item--normal"
-                                >表现良好</span
-                            >
-                        </div>
+            <aside class="analysis-workbench__right" aria-label="分析判断与依据">
+                <section class="analysis-workbench__conclusion">
+                    <div class="replay-toolbar">
+                        <h2>本次分析结论</h2>
+                        <span>{{ videoAnalysis ? "整段视频" : "单帧判断" }}</span>
                     </div>
+                    <h3 class="analysis-workbench__judgment">{{ shotTypeName }}</h3>
+                    <div class="confidence-row">
+                        <span>分型置信度</span><strong>{{ confidencePercent }}%</strong>
+                    </div>
+                    <div class="confidence-track">
+                        <div
+                            :style="{ width: `${Math.max(0, Math.min(100, confidencePercent))}%` }"
+                        />
+                    </div>
+                    <p class="replay-caption">{{ confidenceGrade }}</p>
+                    <ul class="analysis-reasons">
+                        <li v-for="(reason, index) in analysisReasons" :key="index">
+                            {{ reason }}
+                        </li>
+                    </ul>
+                </section>
+                <section class="analysis-workbench__deviation">
+                    <h2>当前帧角度</h2>
+                    <p class="replay-caption">
+                        {{ isPlaying ? "播放预览中，暂停后更新当前帧。" : frameLabel }}
+                    </p>
                     <AngleDeviationCards :angles="chartAnalysis?.angles ?? []" />
                 </section>
-
                 <section class="analysis-workbench__suggestions">
-                    <div class="analysis-workbench__suggestions-header">
-                        <h3 class="analysis-workbench__suggestions-title">AI姿势建议</h3>
-                    </div>
+                    <h2>训练建议</h2>
                     <AISuggestionList
                         :rule-source="analysisStore.coachingSources.rule"
                         :ai-source="analysisStore.coachingSources.ai"
                         @generate="handleGenerateAiCoaching"
                     />
                 </section>
-            </div>
+                <Button variant="outline" @click="goToCompare"
+                    ><GitCompareArrows class="h-4 w-4" />球星对比</Button
+                >
+            </aside>
         </div>
-    </div>
+    </main>
 </template>
-
 <style scoped>
+.analysis-workbench {
+    --replay-stage-height: clamp(300px, 49vh, 550px);
+}
+.analysis-workbench__topbar {
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--surface-border);
+    margin-bottom: 20px;
+}
+.analysis-meta {
+    margin-left: 14px;
+    padding-left: 14px;
+    border-left: 1px solid var(--surface-border);
+}
+.analysis-workbench__body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: 28px;
+    align-items: start;
+}
+.analysis-workbench__left {
+    min-width: 0;
+}
+.analysis-workbench__right {
+    border-left: 1px solid var(--surface-border);
+    padding-left: 24px;
+    min-width: 0;
+    display: grid;
+    gap: 24px;
+}
+h2 {
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.5;
+    margin: 0;
+}
+.replay-toolbar {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+.replay-toolbar > span,
+.timeline-heading span {
+    font-size: 13px;
+    color: var(--text-muted);
+}
+.replay-modes {
+    display: flex;
+    gap: 4px;
+}
+.replay-modes button {
+    padding: 7px 10px;
+    color: var(--text-secondary);
+    border-radius: 5px;
+    border: 1px solid transparent;
+    font-size: 14px;
+}
+.replay-modes .active {
+    color: var(--selection-text);
+    background: var(--selection-bg);
+    border-color: color-mix(in srgb, var(--primary-color) 35%, transparent);
+}
+.analysis-workbench__video-player {
+    display: grid;
+    place-items: center;
+    height: var(--replay-stage-height);
+    background: var(--stage-bg);
+    border-radius: 6px;
+    overflow: hidden;
+}
 .analysis-image {
     display: block;
     width: 100%;
-    max-height: 500px;
+    height: 100%;
+    max-height: var(--replay-stage-height);
     object-fit: contain;
 }
-.analysis-workbench__topbar-actions {
-    flex-wrap: wrap;
-}
-
-.analysis-workbench {
-    padding: clamp(3.75rem, 6vh, 4.5rem) 28px 32px;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    min-height: 100%;
-}
-
-.analysis-workbench__topbar {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 16px;
-    padding-bottom: 16px;
-    border-bottom: 1px solid var(--surface-border);
-}
-
-.analysis-workbench__topbar-left {
-    display: flex;
-    align-items: flex-start;
-    gap: 14px;
-}
-
-.analysis-workbench__heading {
-    display: grid;
-    gap: 8px;
-}
-
-.analysis-workbench__eyebrow {
-    margin: 0;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--text-muted);
-}
-
-.analysis-workbench__topbar-title {
-    margin: 0;
-    font-size: clamp(1.9rem, 1.55rem + 0.9vw, 2.45rem);
-    font-weight: 700;
-    letter-spacing: -0.03em;
-    color: var(--text-primary);
-}
-
-.analysis-workbench__topbar-subtitle {
-    margin: 0;
-    font-size: 13px;
-    color: var(--text-muted);
-}
-
-.analysis-workbench__topbar-right {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.analysis-workbench__topbar-actions {
-    display: flex;
-    gap: 8px;
-}
-
-.analysis-workbench__badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 4px 12px;
-    border-radius: 999px;
-    font-size: 12px;
-    font-weight: 600;
-}
-
-.analysis-workbench__badge--success {
-    background: color-mix(in srgb, var(--color-success) 14%, transparent);
-    color: var(--color-success);
-}
-
-.analysis-workbench__body {
-    display: grid;
-    grid-template-columns: 1fr 420px;
-    gap: 24px;
-    flex: 1;
-    align-items: start;
-}
-
-.analysis-workbench__left {
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
-}
-
-.analysis-workbench__top-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 24px;
-}
-
-.analysis-workbench__conclusion {
-    padding: 24px;
-    border-radius: 16px;
-    border: 1px solid var(--surface-border);
-    background: var(--bg-solid);
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
-
-.analysis-workbench__conclusion-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.analysis-workbench__conclusion-title {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--text-secondary);
-}
-
-.analysis-workbench__conclusion-main {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.analysis-workbench__judgment {
-    font-size: 20px;
-    font-weight: 700;
-    color: var(--text-primary);
-}
-
-.analysis-workbench__judgment-type {
-    color: var(--accent-color);
-}
-
-.analysis-workbench__conclusion-desc {
-    font-size: 14px;
-    color: var(--text-secondary);
-    line-height: 1.6;
-}
-
-.analysis-workbench__conclusion-cards {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
-}
-
-.analysis-workbench__card {
-    padding: 16px;
-    border-radius: 12px;
-    border: 1px solid var(--surface-border);
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-
-.analysis-workbench__card-label {
-    font-size: 12px;
-    color: var(--text-muted);
-    font-weight: 500;
-}
-
-.analysis-workbench__card-sublabel {
-    font-size: 11px;
-    color: var(--text-muted);
-    margin-top: 2px;
-}
-
-.analysis-workbench__card--shot-type .analysis-workbench__card-shot-type-badge {
-    display: inline-block;
-    padding: 4px 12px;
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--accent-color) 12%, transparent);
-    color: var(--accent-color);
-    font-size: 14px;
-    font-weight: 700;
-    width: fit-content;
-}
-
-.analysis-workbench__card--confidence .analysis-workbench__card-confidence-value {
-    font-size: 24px;
-    font-weight: 800;
-    color: var(--text-primary);
-    line-height: 1;
-}
-
-.analysis-workbench__card-confidence-bar {
-    height: 6px;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--text-muted) 16%, transparent);
-    overflow: hidden;
-}
-
-.analysis-workbench__card-confidence-fill {
-    height: 100%;
-    border-radius: 999px;
-    background: var(--accent-color);
-    transition: width 300ms ease;
-}
-
-.analysis-workbench__reasons {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.analysis-workbench__reasons-label {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text-secondary);
-}
-
-.analysis-workbench__reasons-list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    list-style: none;
-    padding: 0;
-    margin: 0;
-}
-
-.analysis-workbench__reason-item {
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    font-size: 13px;
-    color: var(--text-secondary);
-    line-height: 1.55;
-}
-
-.analysis-workbench__reason-item svg {
-    color: var(--color-success);
-    flex-shrink: 0;
-    margin-top: 1px;
-}
-
-.analysis-workbench__section-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-}
-
-.analysis-workbench__section-header-left {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.analysis-workbench__section-title {
-    font-size: 15px;
-    font-weight: 700;
-    color: var(--text-primary);
-}
-
-.analysis-workbench__section-info {
-    color: var(--text-muted);
-    cursor: pointer;
-}
-
-.analysis-workbench__chart-toggle {
-    display: flex;
-    gap: 4px;
-}
-
-.analysis-workbench__chart-toggle-btn {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 14px;
-    border-radius: 8px;
-    border: 1px solid var(--surface-border);
-    background: var(--bg-solid);
-    font-size: 13px;
-    color: var(--text-secondary);
-    cursor: pointer;
-    transition: all 160ms ease;
-}
-
-.analysis-workbench__chart-toggle-btn--active {
-    background: var(--accent-color);
-    color: #fff;
-    border-color: var(--accent-color);
-}
-
-.analysis-workbench__angle-chart-section {
-    padding: 20px;
-    border-radius: 16px;
-    border: 1px solid var(--surface-border);
-    background: var(--bg-solid);
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-}
-
-.analysis-workbench__best-frame-badge {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 4px 10px;
-    border-radius: 6px;
-    background: color-mix(in srgb, var(--accent-color) 10%, transparent);
-    color: var(--accent-color);
-    font-size: 12px;
-    font-weight: 600;
-}
-
-.analysis-workbench__timeline-section {
-    padding: 20px;
-    border-radius: 16px;
-    border: 1px solid var(--surface-border);
-    background: var(--bg-solid);
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.analysis-workbench__timeline-hint {
-    font-size: 12px;
-    color: var(--text-muted);
-}
-
-.analysis-workbench__timeline-scroll {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.analysis-workbench__timeline-arrow {
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-    border: 1px solid var(--surface-border);
-    background: var(--bg-solid);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    color: var(--text-secondary);
-    flex-shrink: 0;
-    transition: all 160ms ease;
-}
-
-.analysis-workbench__timeline-arrow:hover {
-    border-color: var(--accent-color);
-    color: var(--accent-color);
-}
-
-.analysis-workbench__timeline-frames {
-    display: flex;
-    gap: 6px;
-    overflow-x: auto;
-    scrollbar-width: thin;
-    flex: 1;
-    min-width: 0;
-}
-
-.analysis-workbench__timeline-frame {
-    flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    padding: 6px;
-    border-radius: 10px;
-    border: 2px solid transparent;
-    cursor: pointer;
-    background: var(--bg-solid);
-    transition: all 160ms ease;
-}
-
-.analysis-workbench__timeline-frame:hover {
-    border-color: color-mix(in srgb, var(--accent-color) 30%, transparent);
-}
-
-.analysis-workbench__timeline-frame--active {
-    border-color: var(--accent-color);
-    background: color-mix(in srgb, var(--accent-color) 8%, var(--bg-solid));
-}
-
-.analysis-workbench__timeline-frame img {
-    width: 80px;
-    height: 54px;
-    object-fit: cover;
-    border-radius: 6px;
-    display: block;
-}
-
-.analysis-workbench__timeline-frame-time {
-    font-size: 10px;
-    color: var(--text-muted);
-    font-variant-numeric: tabular-nums;
-}
-
-.analysis-workbench__right {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    position: sticky;
-    top: 0;
-}
-
-.analysis-workbench__visualizer {
-    padding: 16px;
-    border-radius: 16px;
-    border: 1px solid var(--surface-border);
-    background: var(--bg-solid);
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.analysis-workbench__visualizer-header {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.analysis-workbench__visualizer-title {
-    font-size: 14px;
-    font-weight: 700;
-    color: var(--text-primary);
-}
-
-.analysis-workbench__video-player {
-    border-radius: 12px;
-    overflow: hidden;
-    border: 1px solid var(--surface-border);
-    background: #0a0a0a;
-}
-
 .analysis-workbench__canvas {
     display: block;
-    width: 100%;
-    min-height: 280px;
-    max-height: 500px;
+    max-width: 100%;
+    object-fit: contain;
 }
-
-.analysis-workbench__video-empty {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 60px 40px;
-    color: var(--text-muted);
+.replay-missing {
+    color: #c2ccd8;
+    max-width: 40ch;
+    padding: 20px;
+    text-align: center;
 }
-
 .analysis-workbench__video-controls {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 10px 14px;
-    background: color-mix(in srgb, var(--bg-solid) 96%, #0a0a0a);
-    border-top: 1px solid var(--surface-border);
+    gap: 8px;
+    padding: 12px 0;
+    flex-wrap: wrap;
 }
-
-.analysis-workbench__video-play-btn {
-    width: 32px;
-    height: 32px;
+.replay-icon {
+    width: 36px;
+    height: 36px;
+    display: grid;
+    place-items: center;
     border-radius: 50%;
-    border: none;
-    background: var(--accent-color);
-    color: #fff;
+    color: var(--text-primary);
+}
+.replay-icon svg {
+    width: 18px;
+    height: 18px;
+}
+.replay-icon:disabled {
+    opacity: 0.4;
+}
+.replay-play {
+    color: var(--action-text);
+    background: var(--primary-color);
+}
+.replay-time {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    margin-left: 6px;
+}
+.replay-speed {
+    margin-left: auto;
     display: flex;
     align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    flex-shrink: 0;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text-secondary);
 }
-
-.analysis-workbench__video-progress {
-    flex: 1;
-    height: 5px;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--text-muted) 20%, transparent);
-    overflow: hidden;
+.replay-speed select {
+    padding: 5px 8px;
 }
-
-.analysis-workbench__video-progress-fill {
-    height: 100%;
-    border-radius: 999px;
-    background: var(--accent-color);
-    transition: width 150ms ease;
-}
-
-.analysis-workbench__video-time {
-    font-size: 11px;
-    color: var(--text-muted);
-    font-variant-numeric: tabular-nums;
-    flex-shrink: 0;
-}
-
-.analysis-workbench__video-speeds {
-    display: flex;
-    gap: 3px;
-    flex-shrink: 0;
-}
-
-.analysis-workbench__video-speed-btn {
-    padding: 3px 8px;
-    border-radius: 5px;
-    border: 1px solid var(--surface-border);
-    background: transparent;
-    color: var(--text-muted);
-    font-size: 11px;
-    cursor: pointer;
-    transition: all 160ms ease;
-}
-
-.analysis-workbench__video-speed-btn--active {
-    background: var(--accent-color);
-    color: #fff;
-    border-color: var(--accent-color);
-}
-
-.analysis-workbench__deviation {
-    padding: 16px;
-    border-radius: 16px;
-    border: 1px solid var(--surface-border);
-    background: var(--bg-solid);
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.analysis-workbench__deviation-header {
+.timeline-heading {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
+    margin: 8px 0 12px;
 }
-
-.analysis-workbench__deviation-title {
-    font-size: 14px;
-    font-weight: 700;
-    color: var(--text-primary);
-}
-
-.analysis-workbench__deviation-legend {
+.analysis-workbench__timeline-frames {
     display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 3px 3px 10px;
 }
-
-.analysis-workbench__deviation-legend-item {
-    font-size: 11px;
-    color: var(--text-muted);
-    display: flex;
-    align-items: center;
-    gap: 4px;
+.analysis-workbench__timeline-frame {
+    flex: 0 0 112px;
+    border: 2px solid transparent;
+    border-radius: 5px;
+    overflow: hidden;
+    color: var(--text-secondary);
+    background: var(--card-bg);
+    padding: 2px;
 }
-
-.analysis-workbench__deviation-legend-item::before {
-    content: "";
-    width: 8px;
-    height: 8px;
-    border-radius: 2px;
+.analysis-workbench__timeline-frame img {
+    width: 100%;
+    height: 72px;
+    object-fit: contain;
+    background: var(--stage-bg);
+}
+.analysis-workbench__timeline-frame span {
     display: block;
+    padding: 4px;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
 }
-
-.analysis-workbench__deviation-legend-item--error::before {
-    background: var(--color-danger);
+.analysis-workbench__timeline-frame--active {
+    border-color: var(--evidence-text);
+    color: var(--evidence-text);
 }
-
-.analysis-workbench__deviation-legend-item--warning::before {
-    background: var(--color-warning);
+.analysis-workbench__angle-chart-section {
+    border-top: 1px solid var(--surface-border);
+    padding-top: 22px;
+    margin-top: 22px;
 }
-
-.analysis-workbench__deviation-legend-item--normal::before {
-    background: var(--color-success);
+.analysis-workbench__judgment {
+    margin: 14px 0 20px;
+    font-size: 26px;
+    line-height: 1.4;
+    color: var(--evidence-text);
 }
-
-.analysis-workbench__suggestions {
-    padding: 16px;
-    border-radius: 16px;
-    border: 1px solid var(--surface-border);
-    background: var(--bg-solid);
+.confidence-row {
     display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.analysis-workbench__suggestions-header {
-    display: flex;
+    justify-content: space-between;
     align-items: center;
-    gap: 6px;
+    font-size: 13px;
+    color: var(--text-secondary);
 }
-
-.analysis-workbench__suggestions-title {
-    font-size: 14px;
-    font-weight: 700;
+.confidence-row strong {
     color: var(--text-primary);
+    font-size: 18px;
 }
-
-@media (max-width: 1200px) {
+.confidence-track {
+    height: 3px;
+    margin-top: 10px;
+    background: var(--surface-border);
+}
+.confidence-track div {
+    height: 100%;
+    background: var(--evidence-text);
+}
+.replay-caption {
+    margin: 9px 0 14px;
+    color: var(--text-muted);
+    font-size: 13px;
+    line-height: 1.7;
+}
+.analysis-reasons {
+    padding-left: 18px;
+    margin: 16px 0 0;
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.7;
+}
+.analysis-reasons li + li {
+    margin-top: 8px;
+}
+.analysis-workbench__deviation,
+.analysis-workbench__suggestions {
+    border-top: 1px solid var(--surface-border);
+    padding-top: 22px;
+}
+.analysis-workbench__suggestions h2 {
+    margin-bottom: 14px;
+}
+.angle-table-wrap {
+    overflow-x: auto;
+}
+.angle-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+.angle-table th,
+.angle-table td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--surface-border);
+    white-space: nowrap;
+}
+.angle-table thead {
+    color: var(--text-secondary);
+}
+.angle-table th {
+    font-weight: 500;
+}
+@media (min-width: 1600px) {
+    .analysis-workbench__body {
+        grid-template-columns: minmax(0, 1fr) 360px;
+    }
+}
+@media (max-width: 1100px) {
+    .analysis-workbench__body {
+        grid-template-columns: minmax(0, 1fr) 290px;
+        gap: 20px;
+    }
+    .analysis-workbench__right {
+        padding-left: 20px;
+    }
+}
+@media (max-width: 850px) {
     .analysis-workbench__body {
         grid-template-columns: 1fr;
     }
-
     .analysis-workbench__right {
-        position: static;
+        border-left: 0;
+        padding-left: 0;
+    }
+    .analysis-workbench__topbar-actions {
+        width: 100%;
+    }
+    .analysis-workbench__right {
+        border-top: 1px solid var(--surface-border);
+        padding-top: 24px;
+    }
+    .timeline-heading {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 4px;
     }
 }
-
-@media (max-width: 768px) {
-    .analysis-workbench {
-        padding: 16px 12px;
-    }
-
-    .analysis-workbench__topbar {
-        flex-direction: column;
-    }
-
-    .analysis-workbench__conclusion-cards {
-        grid-template-columns: 1fr;
-    }
+.replay-image-error {
+    position: absolute;
+    top: 0;
+    z-index: 1;
+    background: #0a0d12;
+}
+.analysis-workbench__video-player {
+    position: relative;
 }
 </style>

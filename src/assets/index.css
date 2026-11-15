@@ -302,8 +302,6 @@
 *::before,
 *::after {
     box-sizing: border-box;
-    margin: 0;
-    padding: 0;
 }
 
 html,
@@ -331,7 +329,7 @@ body,
     background: var(--text-muted);
 }
 
-input,
+input:not([type="range"]):not([type="checkbox"]):not([type="radio"]),
 textarea,
 select {
     font-family: inherit;
@@ -351,7 +349,7 @@ select {
     transform: translateZ(0);
 }
 
-input:focus,
+input:not([type="range"]):not([type="checkbox"]):not([type="radio"]):focus,
 textarea:focus,
 select:focus {
     border-color: var(--primary-color);

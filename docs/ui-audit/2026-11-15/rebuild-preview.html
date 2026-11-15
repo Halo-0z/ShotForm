@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="zh-CN">
+    <meta charset="utf-8" /><meta
+        name="viewport"
+        content="width=device-width,initial-scale=1"
+    /><title>ShotForm · A 球场回放台</title
+    ><style>
+        * {
+            box-sizing: border-box;
+        }
+        html {
+            scroll-behavior: smooth;
+        }
+        body {
+            margin: 0;
+            background: #f3eee6;
+            color: #1c2128;
+            font:
+                15px/1.6 "Microsoft YaHei",
+                sans-serif;
+        }
+        header,
+        main {
+            max-width: 1800px;
+            margin: auto;
+            padding: 32px;
+        }
+        h1 {
+            font-size: 32px;
+            margin: 0 0 8px;
+        }
+        p {
+            color: #526071;
+            margin: 8px 0;
+        }
+        a {
+            color: #344f76;
+        }
+        nav {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+        h2 {
+            font-size: 22px;
+            margin: 0 0 12px;
+        }
+        section {
+            margin: 0 0 48px;
+            scroll-margin-top: 20px;
+        }
+        .pair {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        figure {
+            margin: 0;
+            min-width: 0;
+        }
+        figcaption {
+            margin-bottom: 8px;
+            color: #526071;
+        }
+        img {
+            display: block;
+            width: 100%;
+            height: auto;
+            border: 1px solid #d6d3cd;
+            border-radius: 8px;
+        }
+        .live {
+            display: inline-block;
+            padding: 10px 18px;
+            background: #4f678c;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            margin-top: 16px;
+        }
+        a:focus-visible {
+            outline: 3px solid #4f678c;
+            outline-offset: 4px;
+        }
+        footer {
+            padding: 0 32px 32px;
+            color: #526071;
+        }
+        @media (max-width: 850px) {
+            .pair {
+                grid-template-columns: 1fr;
+            }
+            header,
+            main {
+                padding: 20px;
+            }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            html {
+                scroll-behavior: auto;
+            }
+        }
+    </style>
+    <header>
+        <h1>A · 球场回放台</h1>
+        <p>新版浅色与深色界面。点击任一截图可查看原尺寸。</p>
+        <p>这些是实际页面截图；分析结论、角度与历史记录使用测试示例，不代表模型实测。</p>
+        <a class="live" href="/">打开可操作界面</a>
+        <nav>
+            <a href="#analysis-video">动作回放</a><a href="#home">首页</a
+            ><a href="#upload-video">上传与裁剪</a><a href="#history-fixture">训练历史</a
+            ><a href="#compare-ready">球星对比</a><a href="#templates">模板管理</a
+            ><a href="#settings">外观设置</a>
+        </nav>
+    </header>
+    <main>
+        <section id="analysis-video">
+            <h2>动作回放</h2>
+            <div class="pair">
+                <figure>
+                    <figcaption>浅色</figcaption>
+                    <a href="after/light-analysis-video.png" target="_blank" rel="noopener"
+                        ><img
+                            src="after/light-analysis-video.png"
+                            alt="动作回放 · 浅色界面"
+                            loading="lazy"
+                            width="1440"
+                            height="900"
+                    /></a>
+                </figure>
+                <figure>
+                    <figcaption>深色</figcaption>
+                    <a href="after/dark-analysis-video.png" target="_blank" rel="noopener"
+                        ><img
+                            src="after/dark-analysis-video.png"
+                            alt="动作回放 · 深色界面"
+                            loading="lazy"
+                            width="1440"
+                            height="900"
+                    /></a>
+                </figure>
+            </div>
+        </section>
+        <section id="home">
+            <h2>首页</h2>
+            <div class="pair">
+                <figure>
+                    <figcaption>浅色</figcaption>
+                    <a href="after/light-home.png" target="_blank" rel="noopener"
+                        ><img
+                            src="after/light-home.png"
+                            alt="首页 · 浅色界面"
+                            loading="lazy"
+                            width="1440"
+                            height="900"
+                    /></a>
+                </figure>
+                <figure>
+                    <figcaption>深色</figcaption>
+                    <a href="after/dark-home.png" target="_blank" rel="noopener"
+                        ><img
+                            src="after/dark-home.png"
+                            alt="首页 · 深色界面"
+                            loading="lazy"
+                            width="1440"
+                            height="900"
+                    /></a>
+                </figure>
+            </div>
+        </section>
+        <section id="upload-video">
+            <h2>上传与裁剪</h2>
+            <div class="pair">
+                <figure>
+                    <figcaption>浅色</figcaption>
+                    <a href="after/light-upload-video.png" target="_blank" rel="noopener"
+                        ><img
+                            src="after/light-upload-video.png"
+                            alt="上传与裁剪 · 浅色界面"
+                            loading="lazy"
+                            width="1440"
+                            height="900"
+                    /></a>
+                </figure>
+                <figure>
+                    <figcaption>深色</figcaption>
+                    <a href="after/dark-upload-video.png" target="_blank" rel="noopener"
+                        ><img
+                            src="after/dark-upload-video.png"
+                            alt="上传与裁剪 · 深色界面"
+                            loading="lazy"
+                            width="1440"
+                            height="900"
+                    /></a>
+                </figure>
+            </div>
+        </section>
+        <section id="history-fixture">
+            <h2>训练历史</h2>
+            <div class="pair">
+                <figure>
+                    <figcaption>浅色</figcaption>
+                    <a href="after/light-history-fixture.png" target="_blank" rel="noopener"
+                        ><img
+                            src="after/light-history-fixture.png"
+                            alt="训练历史 · 浅色界面"
+                            loading="lazy"
+                            width="1440"
+                            height="900"
+                    /></a>
+                </figure>
+                <figure>
+                    <figcaption>深色</figcaption>
+                    <a href="after/dark-history-fixture.png" target="_blank" rel="noopener"
+                        ><img
+                            src="after/dark-history-fixture.png"
+                            alt="训练历史 · 深色界面"
+                            loading="lazy"
+                            width="1440"
+                            height="900"
+                    /></a>
+                </figure>
+            </div>
+        </section>
+        <section id="compare-ready">
+            <h2>球星对比</h2>
+            <div class="pair">
+                <figure>
+                    <figcaption>浅色</figcaption>
+                    <a href="after/light-compare-ready.png" target="_blank" rel="noopener"
+                        ><img
+                            src="after/light-compare-ready.png"
+                            alt="球星对比 · 浅色界面"
+                            loading="lazy"
+                            width="1440"
+                            height="900"
+                    /></a>
+                </figure>
+                <figure>
+                    <figcaption>深色</figcaption>
+                    <a href="after/dark-compare-ready.png" target="_blank" rel="noopener"
+                        ><img
+                            src="after/dark-compare-ready.png"
+                            alt="球星对比 · 深色界面"
+                            loading="lazy"
+                            width="1440"
+                            height="900"
+                    /></a>
+                </figure>
+            </div>
+        </section>
+        <section id="templates">
+            <h2>模板管理</h2>
+            <div class="pair">
+                <figure>
+                    <figcaption>浅色</figcaption>
+                    <a href="after/light-templates.png" target="_blank" rel="noopener"
+                        ><img
+                            src="after/light-templates.png"
+                            alt="模板管理 · 浅色界面"
+                            loading="lazy"
+                            width="1440"
+                            height="900"
+                    /></a>
+                </figure>
+                <figure>
+                    <figcaption>深色</figcaption>
+                    <a href="after/dark-templates.png" target="_blank" rel="noopener"
+                        ><img
+                            src="after/dark-templates.png"
+                            alt="模板管理 · 深色界面"
+                            loading="lazy"
+                            width="1440"
+                            height="900"
+                    /></a>
+                </figure>
+            </div>
+        </section>
+        <section id="settings">
+            <h2>外观设置</h2>
+            <div class="pair">
+                <figure>
+                    <figcaption>浅色</figcaption>
+                    <a href="after/light-settings.png" target="_blank" rel="noopener"
+                        ><img
+                            src="after/light-settings.png"
+                            alt="外观设置 · 浅色界面"
+                            loading="lazy"
+                            width="1440"
+                            height="900"
+                    /></a>
+                </figure>
+                <figure>
+                    <figcaption>深色</figcaption>
+                    <a href="after/dark-settings.png" target="_blank" rel="noopener"
+                        ><img
+                            src="after/dark-settings.png"
+                            alt="外观设置 · 深色界面"
+                            loading="lazy"
+                            width="1440"
+                            height="900"
+                    /></a>
+                </figure>
+            </div>
+        </section>
+        <section id="tray">
+            <h2>系统托盘</h2>
+            <div class="pair">
+                <figure>
+                    <figcaption>浅色</figcaption>
+                    <a href="after/light-tray.png"
+                        ><img
+                            style="max-width: 376px"
+                            src="after/light-tray.png"
+                            width="376"
+                            height="380"
+                            alt="浅色托盘菜单"
+                    /></a>
+                </figure>
+                <figure>
+                    <figcaption>深色</figcaption>
+                    <a href="after/dark-tray.png"
+                        ><img
+                            style="max-width: 376px"
+                            src="after/dark-tray.png"
+                            width="376"
+                            height="380"
+                            alt="深色托盘菜单"
+                    /></a>
+                </figure>
+            </div>
+        </section>
+    </main>
+    <footer>
+        浏览器支持界面、视频预览和裁剪；姿态识别及本地数据库功能在桌面端运行。<a
+            href="motion-rebuild/workflow.webm"
+            >查看操作录屏</a
+        >
+    </footer>
+</html>

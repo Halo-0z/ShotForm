@@ -18,8 +18,8 @@ import {
     Image,
     Loader2,
 } from "lucide-vue-next"
-import { PAGE_COVER_ART } from "@/lib/page-cover-art"
 import { useAnalysisStore } from "@/stores/analysis"
+import { hasTauriRuntime } from "@/lib/tauri-runtime"
 import type { AnalysisHistory, ShotType } from "@/types"
 import { SHOT_TYPE_NAMES, getRecordShotType } from "@/types"
 import { getShotTypeBadgeVariant } from "@/lib/analysis-utils"
@@ -40,6 +40,9 @@ const dateFrom = ref(""),
 const historyError = ref("")
 const editingId = ref<number | null>(null)
 const selectedRecords = ref<AnalysisHistory[]>([])
+const hasActiveFilters = computed(() =>
+    Boolean(dateFrom.value || dateTo.value || tagFilter.value || shotTypeFilter.value),
+)
 const filteredHistory = computed(() => historyList.value)
 let queryRevision = 0
 const filters = () => ({
@@ -52,6 +55,11 @@ let appliedFilters = filters()
 const loadInitial = async () => {
     const revision = ++queryRevision
     historyError.value = ""
+    if (!hasTauriRuntime()) {
+        historyError.value = "训练记录保存在桌面端，请在桌面应用中查看。"
+        isLoadingHistory.value = false
+        return
+    }
     if (dateFrom.value && dateTo.value && dateFrom.value > dateTo.value) {
         historyError.value = "起始日期不能晚于结束日期"
         return
@@ -75,7 +83,11 @@ const loadMore = async () => {
     const revision = queryRevision
     isLoadingMore.value = true
     try {
-        const page = await analysisStore.queryHistory(PAGE_SIZE, currentOffset.value, appliedFilters)
+        const page = await analysisStore.queryHistory(
+            PAGE_SIZE,
+            currentOffset.value,
+            appliedFilters,
+        )
         if (revision !== queryRevision) return
         historyList.value = [...historyList.value, ...page]
         currentOffset.value += page.length
@@ -191,7 +203,7 @@ const groupedHistory = computed<HistoryGroup[]>(() => {
                 sourceType === "video"
                     ? (record.sourceIdentifier || "").replace("video:", "").split(/[\\/]/).pop() ||
                       "未知视频"
-                    : "图片分析"
+                    : `图片分析 · #${record.id}`
 
             groups.set(sourceId, {
                 sourceIdentifier: sourceId,
@@ -221,18 +233,10 @@ const isExpanded = (sourceIdentifier: string) => !expandedGroups.value.has(sourc
 </script>
 
 <template>
-    <div class="history-page">
-        <div
-            class="history-page__cover"
-            :style="{ backgroundImage: `url(${PAGE_COVER_ART.history})` }"
-            aria-hidden="true"
-        />
-        <div class="history-page__veil" aria-hidden="true" />
-
+    <div class="history-page ui-page ui-enter">
         <div class="history-page__content">
-            <header class="history-page__header">
+            <header class="history-page__header ui-page__header">
                 <div class="history-page__heading">
-                    <p class="history-page__eyebrow">History</p>
                     <h1 class="history-page__title">历史记录</h1>
                 </div>
             </header>
@@ -263,10 +267,17 @@ const isExpanded = (sourceIdentifier: string) => !expandedGroups.value.has(sourc
                     <Button type="submit" :disabled="isLoadingHistory">筛选</Button>
                     <Button type="button" variant="outline" @click="resetFilters">重置</Button>
                 </form>
-                <p v-if="historyError" role="alert" class="text-[var(--color-danger)]">
+                <p v-if="historyError" role="alert" class="ui-notice ui-notice--error">
                     {{ historyError }}
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        :disabled="isLoadingHistory"
+                        @click="loadInitial"
+                        >重新加载</Button
+                    >
                 </p>
-                <p class="my-3">已选 {{ selectedRecords.length }}/2 条记录用于训练对比。</p>
+                <p class="my-3">选择两条记录对比 · 已选 {{ selectedRecords.length }}/2</p>
                 <Button
                     v-if="selectedRecords.length"
                     variant="outline"
@@ -293,6 +304,7 @@ const isExpanded = (sourceIdentifier: string) => !expandedGroups.value.has(sourc
                         >
                             <button
                                 class="history-group__header"
+                                :aria-expanded="isExpanded(group.sourceIdentifier)"
                                 @click="toggleGroup(group.sourceIdentifier)"
                             >
                                 <div class="history-group__toggle">
@@ -410,6 +422,7 @@ const isExpanded = (sourceIdentifier: string) => !expandedGroups.value.has(sourc
                                             variant="outline"
                                             size="sm"
                                             class="text-[var(--color-danger)] hover:bg-[var(--color-danger-bg)]"
+                                            :aria-label="`删除记录 ${record.id}`"
                                             @click="deleteHistory(record.id)"
                                         >
                                             <Trash2 class="w-4 h-4" />
@@ -446,19 +459,20 @@ const isExpanded = (sourceIdentifier: string) => !expandedGroups.value.has(sourc
                     <p v-if="historyList.length > 1" class="my-3">
                         以下趋势仅展示已加载记录的代表帧角度，跨素材变化不自动代表训练进步。
                     </p>
-                    <ProgressChart :records="historyList" />
-                    <div v-if="groupedHistory.length === 0" class="history-empty-state">
+                    <ProgressChart v-if="historyList.length > 1" :records="historyList" />
+                    <div
+                        v-if="groupedHistory.length === 0 && !historyError"
+                        class="history-empty-state"
+                    >
                         <Clock class="w-12 h-12 text-[var(--text-muted)] mb-4" />
                         <h2 class="history-empty-state__title">
-                            {{
-                                historyList.length === 0 ? "还没有投篮档案记录" : "未找到匹配的记录"
-                            }}
+                            {{ hasActiveFilters ? "未找到匹配的记录" : "还没有投篮档案记录" }}
                         </h2>
                         <p class="history-empty-state__copy">
                             {{
-                                historyList.length === 0
+                                !hasActiveFilters
                                     ? "完成第一次分析后，这里会按来源文件分组记录每次训练结果，并提供查看分析入口。"
-                                    : "尝试调整搜索关键词或筛选条件。"
+                                    : "尝试调整日期、标签或分型筛选。"
                             }}
                         </p>
                     </div>
@@ -481,516 +495,189 @@ const isExpanded = (sourceIdentifier: string) => !expandedGroups.value.has(sourc
 </template>
 
 <style scoped>
+.history-page__content {
+    max-width: 1440px;
+    margin: auto;
+}
 .training-filters {
     display: flex;
     flex-wrap: wrap;
     gap: 12px;
     align-items: end;
-    margin-bottom: 20px;
+    padding: 20px 0;
+    border-top: 1px solid var(--surface-border);
+    border-bottom: 1px solid var(--surface-border);
 }
 .training-filters label {
     display: grid;
     gap: 6px;
     font-size: 13px;
+    color: var(--text-secondary);
+    flex: 1;
+    min-width: 140px;
 }
 .training-filters input,
 .training-filters select {
-    padding: 8px;
-    border: 1px solid var(--surface-border);
-    border-radius: 6px;
-    background: var(--card-bg);
-    color: var(--text-primary);
-    max-width: 180px;
+    width: 100%;
+    padding: 8px 10px;
+    min-height: 38px;
+    border: 1px solid var(--border-color);
 }
-.history-session-row__actions {
-    flex-wrap: wrap;
-}
-.history-session-row__summary {
-    overflow-wrap: anywhere;
-    white-space: pre-wrap;
-}
-
-.history-page {
-    position: relative;
-    min-height: 100%;
-    padding: clamp(3.75rem, 6vh, 4.5rem) 28px 28px;
-    overflow: hidden;
-    background:
-        radial-gradient(
-            circle at 14% 14%,
-            color-mix(in srgb, var(--accent-color) 4%, transparent),
-            transparent 20%
-        ),
-        radial-gradient(
-            circle at 84% 18%,
-            color-mix(in srgb, var(--primary-color) 4%, transparent),
-            transparent 24%
-        ),
-        linear-gradient(
-            180deg,
-            color-mix(in srgb, var(--bg-solid) 97%, var(--surface-color)),
-            var(--bg-solid)
-        );
-}
-
-.history-page__cover,
-.history-page__veil {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-}
-
-.history-page__cover {
-    background-position: right -1rem top 1rem;
-    background-repeat: no-repeat;
-    background-size: min(31vw, 27rem) auto;
-    opacity: 0.08;
-    transform: translate3d(0, 0, 0) scale(1.01);
-}
-
-.history-page__veil {
-    background:
-        radial-gradient(
-            circle at 72% 22%,
-            color-mix(in srgb, var(--accent-color) 8%, transparent),
-            transparent 22%
-        ),
-        linear-gradient(
-            180deg,
-            color-mix(in srgb, var(--bg-solid) 58%, transparent),
-            color-mix(in srgb, var(--bg-solid) 90%, var(--background))
-        );
-    opacity: 0.44;
-}
-
-.history-page__content {
-    position: relative;
-    z-index: 1;
-    max-width: 1280px;
-    margin: 0 auto;
-    display: grid;
-    gap: 22px;
-}
-
-.history-page__header {
-    display: grid;
-    align-items: start;
-    gap: 18px;
-}
-
-.history-page__heading {
-    display: grid;
-    gap: 8px;
-}
-
-.history-page__eyebrow {
-    margin: 0;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--text-muted);
-}
-
-.history-page__title {
-    margin: 0;
-    font-size: clamp(1.9rem, 1.55rem + 0.9vw, 2.45rem);
-    font-weight: 700;
-    letter-spacing: -0.03em;
-    color: var(--text-primary);
-}
-
-.history-archive {
-    display: grid;
-    gap: 14px;
-}
-
-.history-archive__toolbar {
+.history-selection {
     display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 20px;
-    padding: 2px 4px 6px;
-}
-
-.history-archive__eyebrow {
-    margin: 0 0 6px;
-    font-size: 11px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: color-mix(in srgb, var(--accent-color) 42%, var(--text-secondary));
-}
-
-.history-archive__title {
-    margin: 0;
-    font-size: clamp(1.06rem, 1rem + 0.4vw, 1.24rem);
-    font-weight: 600;
-    color: var(--text-primary);
-}
-
-.history-archive__hint {
-    margin: 4px 0 0;
-    max-width: 360px;
+    align-items: center;
+    gap: 16px;
+    margin: 20px 0;
+    color: var(--text-secondary);
     font-size: 13px;
-    line-height: 1.6;
+}
+.history-archive__loading,
+.history-empty-state {
+    display: flex;
+    align-items: center;
+    flex-direction: column;
+    justify-content: center;
+    padding: 64px 24px;
+    gap: 16px;
+    text-align: center;
+}
+.history-empty-state__title {
+    font-size: 22px;
+    font-weight: 600;
+}
+.history-empty-state__copy {
+    max-width: 45em;
     color: var(--text-secondary);
 }
-
-.history-archive__filters {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-}
-
-.history-archive__search {
-    position: relative;
-    display: flex;
-    align-items: center;
-}
-
-.history-archive__search-icon {
-    position: absolute;
-    left: 12px;
-    color: var(--text-muted);
-    pointer-events: none;
-}
-
-.history-archive__search-input {
-    width: 200px;
-    height: 34px;
-    padding: 0 12px 0 34px;
-    border-radius: 10px;
-    border: 1px solid var(--surface-border);
-    background: var(--glass-xs);
-    color: var(--text-primary);
-    font-size: 13px;
-    outline: none;
-    transition: border-color 0.15s ease;
-}
-
-.history-archive__search-input::placeholder {
-    color: var(--text-muted);
-}
-
-.dark .history-archive__search-input {
-    background: rgba(255, 255, 255, 0.08);
-    border-color: rgba(168, 180, 196, 0.28);
-    color-scheme: dark;
-}
-
-.history-archive__search-input:focus {
-    border-color: var(--primary-color);
-}
-
-.history-archive__select {
-    height: 34px;
-    padding: 0 10px;
-    border-radius: 10px;
-    border: 1px solid var(--surface-border);
-    background: var(--glass-xs);
-    color: var(--text-primary);
-    font-size: 13px;
-    outline: none;
-    cursor: pointer;
-    transition: border-color 0.15s ease;
-    color-scheme: dark;
-}
-
-.dark .history-archive__select {
-    background: rgba(255, 255, 255, 0.08);
-    border-color: rgba(168, 180, 196, 0.28);
-    color-scheme: dark;
-}
-
-.history-archive__select option {
-    background: var(--bg-solid);
-    color: var(--text-primary);
-}
-
-.history-archive__select:focus {
-    border-color: var(--primary-color);
-}
-
-.history-archive__more {
-    display: flex;
-    justify-content: center;
-    padding: 8px 0 4px;
-}
-
-.history-archive__loading {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 16px;
-    min-height: 400px;
-}
-
-.history-archive__loading-text {
-    font-size: 14px;
-    color: var(--text-muted);
-}
-
-.history-archive__list {
-    display: grid;
-    gap: 12px;
-}
-
 .history-group {
-    border-radius: 22px;
-    border: 1px solid var(--surface-border);
-    background: var(--card-bg);
-    box-shadow: var(--shadow-sm);
-    overflow: hidden;
+    border-bottom: 1px solid var(--surface-border);
 }
-
 .history-group__header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 14px 18px;
     width: 100%;
-    background: none;
-    border: none;
-    cursor: pointer;
+    padding: 16px 0;
+    display: flex;
+    gap: 12px;
+    align-items: center;
     text-align: left;
     color: var(--text-primary);
-    transition: background-color 0.15s ease;
 }
-
 .history-group__header:hover {
-    background: color-mix(in srgb, var(--surface-color) 40%, transparent);
+    background: var(--card-bg);
 }
-
-.history-group__toggle {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    border-radius: 6px;
-    color: var(--text-muted);
-    flex-shrink: 0;
-}
-
-.history-group__icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--primary-color) 8%, transparent);
-    color: var(--primary-color);
-    flex-shrink: 0;
-}
-
 .history-group__info {
     display: flex;
-    align-items: center;
+    align-items: baseline;
     gap: 12px;
     min-width: 0;
-    flex: 1;
 }
-
 .history-group__name {
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--text-primary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    font-weight: 600;
+    overflow-wrap: anywhere;
 }
-
 .history-group__count {
-    font-size: 12px;
     color: var(--text-muted);
+    font-size: 13px;
     flex-shrink: 0;
 }
-
-.history-group__content {
-    padding: 0 18px 14px;
-    display: grid;
-    gap: 8px;
+.history-group__toggle,
+.history-group__icon {
+    flex-shrink: 0;
 }
-
 .history-session-row {
     display: grid;
-    grid-template-columns: 168px minmax(0, 1fr) auto;
-    gap: 16px;
+    grid-template-columns: 170px minmax(180px, 1fr) auto;
     align-items: center;
-    padding: 12px 14px;
-    border-radius: 16px;
-    border: 1px solid color-mix(in srgb, var(--surface-border) 60%, transparent);
-    background: color-mix(in srgb, var(--background) 60%, var(--card-bg));
-    content-visibility: auto;
-    contain-intrinsic-size: auto 88px;
+    gap: 20px;
+    padding: 20px 0;
+    border-top: 1px solid var(--surface-border);
 }
-
-.history-session-row__time {
-    display: grid;
-    gap: 4px;
-}
-
 .history-session-row__label {
-    margin: 0;
-    font-size: 11px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--text-muted);
-}
-
-.history-session-row__timestamp {
-    display: flex;
-    align-items: center;
-    gap: 6px;
     font-size: 13px;
     color: var(--text-secondary);
 }
-
-.history-session-row__fulltime {
-    font-size: 11px;
-    color: var(--text-muted);
+.history-session-row__timestamp {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    margin-top: 8px;
+    font-weight: 600;
 }
-
+.history-session-row__fulltime {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
 .history-session-row__main {
-    display: grid;
-    grid-template-columns: 86px minmax(0, 1fr);
-    gap: 12px;
+    display: flex;
+    gap: 14px;
+    min-width: 0;
     align-items: center;
 }
-
 .history-session-row__preview {
-    width: 86px;
-    height: 64px;
-    border-radius: 14px;
-    border: 1px solid var(--surface-border);
-    background: var(--glass-xs);
+    width: 64px;
+    height: 76px;
+    flex-shrink: 0;
+    background: var(--stage-bg);
+    border-radius: 4px;
     overflow: hidden;
 }
-
 .history-session-row__preview-image {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
 }
-
-.history-session-row__meta {
-    min-width: 0;
-    display: grid;
-    gap: 6px;
-}
-
 .history-session-row__badges {
     display: flex;
-    align-items: center;
     gap: 8px;
+    align-items: center;
     flex-wrap: wrap;
 }
-
 .history-session-row__result {
-    font-size: 12px;
-    color: var(--text-muted);
+    display: none;
 }
-
 .history-session-row__summary {
-    margin: 0;
     font-size: 13px;
-    line-height: 1.5;
     color: var(--text-secondary);
+    margin-top: 8px;
+    overflow-wrap: anywhere;
 }
-
 .history-session-row__actions {
-    display: inline-flex;
+    display: flex;
     align-items: center;
-    gap: 8px;
+    flex-wrap: wrap;
+    gap: 10px;
 }
-
-.history-session-row__resume {
-    display: inline-flex;
+.history-session-row__actions label {
+    display: flex;
     align-items: center;
     gap: 6px;
+    font-size: 13px;
 }
-
-.history-empty-state {
-    min-height: 420px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    border-radius: 24px;
-    border: 1px dashed color-mix(in srgb, var(--surface-border) 88%, transparent);
-    background: var(--card-bg);
+.history-archive__more {
+    margin: 20px 0;
     text-align: center;
-    padding: 28px;
 }
-
-.history-empty-state__title {
-    margin: 0;
-    font-size: 1.08rem;
-    color: var(--text-primary);
+@media (max-width: 1250px) {
+    .history-session-row {
+        grid-template-columns: 160px minmax(0, 1fr);
+    }
+    .history-session-row__actions {
+        grid-column: 2;
+    }
 }
-
-.history-empty-state__copy {
-    margin: 0;
-    max-width: 460px;
-    font-size: 14px;
-    line-height: 1.7;
-    color: var(--text-secondary);
-}
-
-@media (max-width: 960px) {
-    .history-page {
-        padding: 72px 20px 24px;
-    }
-
-    .history-page__cover {
-        background-position: right -2rem top 1rem;
-        background-size: min(44vw, 18rem) auto;
-    }
-
-    .history-archive__toolbar {
-        flex-direction: column;
-    }
-
-    .history-archive__hint {
-        max-width: none;
-    }
-
-    .history-group__info {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 2px;
-    }
-
+@media (max-width: 650px) {
     .history-session-row {
         grid-template-columns: 1fr;
         gap: 12px;
     }
-
-    .history-session-row__main {
-        grid-template-columns: 76px minmax(0, 1fr);
-    }
-
-    .history-session-row__preview {
-        width: 76px;
-        height: 56px;
-    }
-
     .history-session-row__actions {
-        width: 100%;
-        justify-content: flex-end;
+        grid-column: auto;
     }
-}
-
-@media (max-width: 640px) {
-    .history-page__header {
-        grid-template-columns: auto 1fr;
+    .history-group__info {
+        flex-wrap: wrap;
     }
-
-    .history-empty-state {
-        min-height: 360px;
+    .training-filters label {
+        min-width: 120px;
     }
 }
 </style>

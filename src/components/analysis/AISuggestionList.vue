@@ -70,9 +70,13 @@ const getPriorityClass = (priority: string, prefix = "analysis-suggestion") => {
             当前规则未给出修正建议；请同时检查关键点置信度，不能据此认定动作正确。
         </div>
 
-        <div v-if="ruleSource.state === 'error'" role="alert" class="analysis-suggestion__error">规则建议加载失败：{{ ruleSource.error }}</div>
+        <div v-if="ruleSource.state === 'error'" role="alert" class="analysis-suggestion__error">
+            规则建议加载失败：{{ ruleSource.error }}
+        </div>
         <!-- AI 深度分析 -->
-        <template v-if="aiSource.state === 'done' && aiSource.data.length > 0">
+        <template
+            v-if="aiSource.state === 'done' && (aiSource.data.length > 0 || aiSource.summary)"
+        >
             <div
                 class="analysis-suggestion__section-header analysis-suggestion__section-header--ai"
             >
@@ -107,11 +111,14 @@ const getPriorityClass = (priority: string, prefix = "analysis-suggestion") => {
         </template>
 
         <!-- AI 错误提示 -->
-        <div v-if="aiSource.error" class="analysis-suggestion__error">
+        <div v-if="aiSource.error" role="alert" class="analysis-suggestion__error">
             AI 分析失败：{{ aiSource.error }}
         </div>
 
         <!-- 生成按钮 -->
+        <p class="analysis-suggestion__cloud-note">
+            可选 AI 报告会将图像及分析数据发送至腾讯混元云服务。
+        </p>
         <button
             v-if="aiSource.state !== 'done'"
             class="analysis-suggestion__generate-btn"
@@ -271,5 +278,39 @@ const getPriorityClass = (priority: string, prefix = "analysis-suggestion") => {
 .analysis-suggestion__generate-btn:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+}
+</style>
+<style scoped>
+.analysis-suggestion {
+    padding: 12px 0;
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid var(--surface-border);
+    border-radius: 0;
+}
+.analysis-suggestion--ai,
+.analysis-suggestion--ai.analysis-suggestion--ai--high,
+.analysis-suggestion--ai.analysis-suggestion--ai--medium {
+    border-left: 0;
+    background: transparent;
+}
+.analysis-suggestion__issue,
+.analysis-suggestion__suggestion-text,
+.analysis-suggestion__empty,
+.analysis-suggestion__error,
+.analysis-suggestion__cloud-note {
+    font-size: 13px;
+    line-height: 1.7;
+}
+.analysis-suggestion__priority-label {
+    font-size: 12px;
+}
+.analysis-suggestion__cloud-note {
+    margin: 12px 0 8px;
+    color: var(--text-muted);
+}
+.analysis-suggestion__generate-btn:hover {
+    border-color: var(--primary-color);
+    color: var(--text-primary);
 }
 </style>

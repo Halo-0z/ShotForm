@@ -131,6 +131,7 @@ const handleOpenTemplates = async () => {
                 </button>
 
                 <button
+                    v-if="hasTauriRuntime()"
                     class="titlebar-btn pin"
                     :class="{ active: isPinned }"
                     :title="isPinned ? '取消置顶' : '置顶窗口'"
@@ -140,9 +141,9 @@ const handleOpenTemplates = async () => {
                 </button>
             </div>
 
-            <div class="titlebar-divider"></div>
+            <div v-if="hasTauriRuntime()" class="titlebar-divider"></div>
 
-            <div class="titlebar-controls-right">
+            <div v-if="hasTauriRuntime()" class="titlebar-controls-right">
                 <button class="titlebar-btn minimize" title="最小化" @click="handleMinimize">
                     <svg width="12" height="12" viewBox="0 0 12 12">
                         <rect x="2" y="5.5" width="8" height="1.5" fill="currentColor" />
@@ -205,20 +206,20 @@ const handleOpenTemplates = async () => {
     --titlebar-divider-color: var(--surface-border);
     --titlebar-btn-hover-surface: rgba(0, 0, 0, 0.07);
     --titlebar-btn-hover-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04);
-    position: absolute;
+    position: relative;
     top: 0;
     left: 0;
     right: 0;
     display: flex;
     align-items: center;
-    height: 48px;
+    height: 36px;
     flex-shrink: 0;
     user-select: none;
     background: var(--titlebar-base-tone);
     color: var(--text-primary);
     backdrop-filter: var(--surface-blur);
     -webkit-backdrop-filter: var(--surface-blur);
-    z-index: 100;
+    z-index: 20;
 }
 
 .titlebar:not(.workbench):not(.immersive) {
@@ -228,11 +229,11 @@ const handleOpenTemplates = async () => {
 }
 
 .titlebar.workbench {
-    position: sticky;
+    position: relative;
     top: 0;
     left: 0;
     right: 0;
-    margin-bottom: -48px;
+    margin-bottom: 0;
     background: var(--bg-solid);
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
@@ -244,7 +245,7 @@ const handleOpenTemplates = async () => {
     top: 0;
     left: 0;
     right: 0;
-    z-index: 100;
+    z-index: 20;
     color: var(--hero-text);
     background-color: transparent;
     background: linear-gradient(180deg, rgba(5, 7, 12, 0.9), rgba(5, 7, 12, 0.18));
@@ -269,7 +270,7 @@ const handleOpenTemplates = async () => {
     display: flex;
     height: 100%;
     align-items: center;
-    margin-right: calc(var(--spacing-sm) * -1);
+    margin-right: 0;
     z-index: 1;
 }
 

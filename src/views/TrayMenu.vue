@@ -143,7 +143,7 @@ onUnmounted(() => {
     height: 100vh;
     display: grid;
     place-items: stretch;
-    color: #1c2128;
+    color: var(--text-primary);
     background: transparent;
     font-family: var(--font-ui);
 }
@@ -155,22 +155,9 @@ onUnmounted(() => {
     flex-direction: column;
     min-height: 0;
     border-radius: 14px;
-    border: 1px solid rgba(255, 255, 255, 0.68);
-    background: linear-gradient(145deg, #faf7f2, #e7e0d4), #f3eee6;
-    box-shadow:
-        0 22px 50px rgba(20, 25, 34, 0.24),
-        inset 0 1px 0 rgba(255, 255, 255, 0.82),
-        inset 0 -1px 0 rgba(103, 114, 130, 0.12);
-}
-
-.tray-menu-panel::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background:
-        radial-gradient(circle at 18% 0%, rgba(201, 130, 61, 0.16), transparent 31%),
-        linear-gradient(180deg, rgba(255, 255, 255, 0.34), transparent 34%);
+    border: 1px solid var(--surface-border);
+    background: var(--surface-color);
+    box-shadow: none;
 }
 
 .tray-menu-header,
@@ -189,7 +176,7 @@ onUnmounted(() => {
 }
 
 .tray-menu-title {
-    color: #10151c;
+    color: var(--text-primary);
     font-size: 19px;
     line-height: 1.1;
     font-weight: 800;
@@ -203,9 +190,9 @@ onUnmounted(() => {
     place-items: center;
     flex: 0 0 auto;
     border-radius: 8px;
-    color: rgba(28, 33, 40, 0.64);
-    background: rgba(255, 255, 255, 0.42);
-    border: 1px solid rgba(103, 114, 130, 0.16);
+    color: var(--text-secondary);
+    background: var(--selection-bg);
+    border: 1px solid var(--surface-border);
     transition:
         background-color 150ms ease,
         color 150ms ease,
@@ -213,8 +200,8 @@ onUnmounted(() => {
 }
 
 .tray-menu-icon-button:hover {
-    color: #1c2128;
-    background: rgba(255, 255, 255, 0.72);
+    color: var(--text-primary);
+    background: var(--selection-bg);
     transform: translateY(-1px);
 }
 
@@ -224,8 +211,8 @@ onUnmounted(() => {
     gap: 7px;
     margin: 0 16px 4px;
     padding: 6px 0 8px;
-    border-bottom: 1px solid rgba(103, 114, 130, 0.12);
-    color: rgba(28, 33, 40, 0.62);
+    border-bottom: 1px solid var(--surface-border);
+    color: var(--text-secondary);
     font-size: 12px;
     font-weight: 700;
 }
@@ -234,8 +221,8 @@ onUnmounted(() => {
     width: 7px;
     height: 7px;
     border-radius: 999px;
-    background: #2f9d71;
-    box-shadow: 0 0 0 4px rgba(47, 157, 113, 0.12);
+    background: var(--color-success);
+    box-shadow: none;
 }
 
 .tray-menu-nav {
@@ -256,7 +243,7 @@ onUnmounted(() => {
     gap: 10px;
     padding: 8px 12px;
     border-radius: 8px;
-    color: #1c2128;
+    color: var(--text-primary);
     text-align: left;
     transition:
         background-color 140ms ease,
@@ -269,13 +256,13 @@ onUnmounted(() => {
 }
 
 .tray-menu-item:hover {
-    background: rgba(255, 255, 255, 0.54);
+    background: var(--selection-bg);
     transform: translateX(2px);
 }
 
 .tray-menu-item:focus-visible,
 .tray-menu-icon-button:focus-visible {
-    outline: 2px solid rgba(93, 115, 150, 0.72);
+    outline: 2px solid var(--primary-color);
     outline-offset: 2px;
 }
 
@@ -292,14 +279,14 @@ onUnmounted(() => {
 
 .tray-menu-item-chevron {
     flex: 0 0 auto;
-    color: rgba(28, 33, 40, 0.36);
+    color: var(--text-secondary);
     transition:
         color 140ms ease,
         transform 140ms ease;
 }
 
 .tray-menu-item:hover .tray-menu-item-chevron {
-    color: rgba(28, 33, 40, 0.6);
+    color: var(--text-secondary);
     transform: translateX(2px);
 }
 
@@ -314,7 +301,7 @@ onUnmounted(() => {
 }
 
 .tray-menu-item-danger {
-    color: #ad3f3b;
+    color: var(--color-danger);
 }
 
 .tray-menu-divider {
@@ -322,8 +309,8 @@ onUnmounted(() => {
     z-index: 1;
     height: 1px;
     margin: 4px 16px;
-    background: rgba(103, 114, 130, 0.18);
-    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.62);
+    background: var(--surface-border);
+    box-shadow: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -83,8 +83,6 @@ onUnmounted(() => {
 
 <style>
 * {
-    margin: 0;
-    padding: 0;
     box-sizing: border-box;
 }
 
@@ -125,6 +123,7 @@ body,
 
 .app-content {
     flex: 1;
+    min-width: 0;
     min-height: 0;
     position: relative;
     overflow: hidden;

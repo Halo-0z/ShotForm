@@ -2,153 +2,87 @@
 import { computed } from "vue"
 import type { JointAngle } from "@/types"
 import { getAngleDisplayName } from "@/types"
-import { AlertTriangle } from "lucide-vue-next"
-
-interface Props {
-    angles: JointAngle[]
-}
-
-const props = defineProps<Props>()
-
-const displayAngles = computed(() => {
-    return props.angles
-        .filter((a) => a.value > 0)
+const props = defineProps<{ angles: JointAngle[] }>()
+const rows = computed(() =>
+    props.angles
+        .filter((a) => Number.isFinite(a.value))
         .map((a) => {
-            const deviation = getDeviation(a.value, a.normalRange[0], a.normalRange[1])
-            return {
-                name: getAngleDisplayName(a.name),
-                value: Math.round(a.value * 10) / 10,
-                normalMin: a.normalRange[0],
-                normalMax: a.normalRange[1],
-                deviation,
-                status: a.status,
-            }
-        })
-})
-
-const getDeviation = (value: number, min: number, max: number) => {
-    if (value >= min && value <= max) {
-        return { amount: 0, label: "表现良好", type: "normal" as const }
-    }
-    const distToMin = Math.abs(value - min)
-    const distToMax = Math.abs(value - max)
-    const amount = Math.min(distToMin, distToMax)
-    const direction = value < min ? "偏低" : "偏高"
-    const displayAmount = Math.round(amount * 10) / 10
-
-    if (amount > 20) {
-        return {
-            amount: displayAmount,
-            label: `${direction} ${displayAmount}°`,
-            type: "error" as const,
-        }
-    }
-    return {
-        amount: displayAmount,
-        label: `${direction} ${displayAmount}°`,
-        type: "warning" as const,
-    }
-}
-
-const cardClass = (type: string) => {
-    if (type === "error") return "analysis-deviation-card--error"
-    if (type === "warning") return "analysis-deviation-card--warning"
-    return "analysis-deviation-card--normal"
-}
-
-const cardLabelClass = (type: string) => {
-    if (type === "error") return "text-red-500"
-    if (type === "warning") return "text-amber-500"
-    return "text-green-500"
-}
+            const reliable = a.status !== "low_confidence" && a.value > 0
+            const difference =
+                a.value < a.normalRange[0]
+                    ? a.value - a.normalRange[0]
+                    : a.value > a.normalRange[1]
+                      ? a.value - a.normalRange[1]
+                      : 0
+            return { ...a, reliable, label: getAngleDisplayName(a.name), difference }
+        }),
+)
 </script>
-
 <template>
     <div class="analysis-deviation-cards">
-        <div
-            v-for="(angle, idx) in displayAngles"
-            :key="idx"
-            class="analysis-deviation-card"
-            :class="cardClass(angle.deviation.type)"
-        >
-            <div class="analysis-deviation-card__header">
-                <span class="analysis-deviation-card__name">{{ angle.name }}</span>
-                <AlertTriangle
-                    v-if="angle.deviation.type !== 'normal'"
-                    class="h-3.5 w-3.5"
-                    :class="cardLabelClass(angle.deviation.type)"
-                />
-            </div>
-            <div class="analysis-deviation-card__value">{{ angle.value }}°</div>
-            <div class="analysis-deviation-card__standard">
-                标准 {{ angle.normalMin }}°~{{ angle.normalMax }}°
+        <div v-for="angle in rows" :key="angle.name" class="angle-reading">
+            <div>
+                <span>{{ angle.label }}</span
+                ><small>{{
+                    angle.reliable
+                        ? `参考 ${angle.normalRange[0]}°–${angle.normalRange[1]}°`
+                        : "识别不稳定，暂不判断"
+                }}</small>
             </div>
             <div
-                class="analysis-deviation-card__deviation"
-                :class="cardLabelClass(angle.deviation.type)"
+                class="angle-reading__value"
+                :class="{ 'is-deviation': angle.reliable && angle.difference !== 0 }"
             >
-                {{ angle.deviation.label }}
+                <strong>{{ angle.reliable ? `${angle.value.toFixed(1)}°` : "—" }}</strong
+                ><small v-if="angle.reliable">{{
+                    angle.difference === 0
+                        ? "位于参考范围"
+                        : `${angle.difference < 0 ? "低于" : "高于"}参考 ${Math.abs(angle.difference).toFixed(1)}°`
+                }}</small>
             </div>
         </div>
+        <p v-if="!rows.length">当前帧没有可用的角度数据。</p>
     </div>
 </template>
-
 <style scoped>
 .analysis-deviation-cards {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
+    gap: 0;
 }
-
-.analysis-deviation-card {
-    padding: 12px;
-    border-radius: 10px;
-    border: 1px solid var(--surface-border);
+.angle-reading {
     display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.analysis-deviation-card--error {
-    background: color-mix(in srgb, var(--color-danger) 6%, var(--bg-solid));
-    border-color: color-mix(in srgb, var(--color-danger) 20%, var(--surface-border));
-}
-
-.analysis-deviation-card--warning {
-    background: color-mix(in srgb, var(--color-warning) 6%, var(--bg-solid));
-    border-color: color-mix(in srgb, var(--color-warning) 20%, var(--surface-border));
-}
-
-.analysis-deviation-card--normal {
-    background: color-mix(in srgb, var(--color-success) 4%, var(--bg-solid));
-}
-
-.analysis-deviation-card__header {
-    display: flex;
-    align-items: center;
     justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--divider-color);
 }
-
-.analysis-deviation-card__name {
-    font-size: 12px;
-    color: var(--text-secondary);
-    font-weight: 600;
+.angle-reading:last-child {
+    border-bottom: 0;
 }
-
-.analysis-deviation-card__value {
-    font-size: 18px;
-    font-weight: 800;
-    color: var(--text-primary);
-    line-height: 1;
+.angle-reading span {
+    font-size: 14px;
 }
-
-.analysis-deviation-card__standard {
-    font-size: 11px;
+.angle-reading small {
+    display: block;
+    margin-top: 4px;
     color: var(--text-muted);
-}
-
-.analysis-deviation-card__deviation {
     font-size: 12px;
-    font-weight: 600;
+    line-height: 1.6;
+}
+.angle-reading__value {
+    text-align: right;
+}
+.angle-reading strong {
+    font-size: 21px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+}
+.angle-reading__value.is-deviation strong {
+    color: var(--evidence-text);
+}
+p {
+    font-size: 13px;
+    color: var(--text-secondary);
 }
 </style>

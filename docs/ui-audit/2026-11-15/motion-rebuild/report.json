@@ -1,0 +1,17 @@
+{
+    "errors": [],
+    "viewport": "1440x900",
+    "reducedMotion": false,
+    "actions": [
+        "首页按钮反馈",
+        "暂停封面",
+        "首页到上传雾化转场",
+        "打开设置",
+        "浅深主题切换",
+        "关闭设置",
+        "导入视频",
+        "键盘调整裁剪起点",
+        "播放和暂停片段"
+    ],
+    "encoding": "Playwright bundled WebM encoder; oil-ui MP4 encoder unavailable"
+}

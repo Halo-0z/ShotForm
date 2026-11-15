@@ -11,7 +11,7 @@ const props = defineProps<Props>()
 
 const chartData = computed(() => {
     return props.angles
-        .filter((a) => a.value > 0)
+        .filter((a) => a.value > 0 && Number.isFinite(a.value) && a.status !== "low_confidence")
         .map((a) => ({
             name: getAngleDisplayName(a.name),
             value: a.value,
@@ -31,7 +31,10 @@ const valuePct = (v: number) => `${(v / maxAngle.value) * 100}%`
 </script>
 
 <template>
-    <div class="angle-chart">
+    <p v-if="!chartData.length" class="chart-empty">
+        当前没有可绘制的可靠角度，识别不稳定的关节已排除。
+    </p>
+    <div v-else class="angle-chart">
         <div class="angle-chart__scale">
             <span>{{ maxAngle }}°</span>
             <span>{{ Math.round(maxAngle / 2) }}°</span>
@@ -67,7 +70,8 @@ const valuePct = (v: number) => `${(v / maxAngle.value) * 100}%`
 .angle-chart {
     display: flex;
     gap: 4px;
-    padding: 8px 0 4px;
+    padding: 26px 0 4px;
+    overflow-x: auto;
 }
 
 .angle-chart__scale {
@@ -81,7 +85,7 @@ const valuePct = (v: number) => `${(v / maxAngle.value) * 100}%`
 }
 
 .angle-chart__scale span {
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 500;
     font-variant-numeric: tabular-nums;
     color: var(--text-muted);
@@ -103,6 +107,7 @@ const valuePct = (v: number) => `${(v / maxAngle.value) * 100}%`
     gap: 8px;
     flex: 1;
     max-width: 72px;
+    min-width: 56px;
 }
 
 .angle-chart__track {
@@ -133,7 +138,7 @@ const valuePct = (v: number) => `${(v / maxAngle.value) * 100}%`
 }
 
 .angle-chart__bar--normal {
-    background: var(--color-success);
+    background: var(--primary-color);
 }
 
 .angle-chart__bar--warning {
@@ -149,29 +154,36 @@ const valuePct = (v: number) => `${(v / maxAngle.value) * 100}%`
     top: -18px;
     left: 50%;
     transform: translateX(-50%);
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
 }
 
 .angle-chart__value--normal {
-    color: var(--color-success);
+    color: var(--text-primary);
 }
 
 .angle-chart__value--warning {
-    color: var(--color-warning);
+    color: var(--evidence-text);
 }
 
 .angle-chart__value--error {
-    color: var(--color-danger);
+    color: var(--evidence-text);
 }
 
 .angle-chart__label {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
     color: var(--text-muted);
     text-align: center;
     line-height: 1.3;
+}
+.angle-chart__bar--abnormal {
+    background: var(--evidence-text);
+}
+.chart-empty {
+    color: var(--text-muted);
+    font-size: 13px;
 }
 </style>

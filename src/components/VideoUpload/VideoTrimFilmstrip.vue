@@ -113,8 +113,8 @@ const clipQuality = computed(() => {
     }
     return {
         className: "video-trim-filmstrip__status--ready",
-        label: "适合分析",
-        detail: "动作区间清晰",
+        label: "片段时长合适",
+        detail: "请确认动作完整",
     }
 })
 
@@ -1279,5 +1279,53 @@ onUnmounted(() => {
         width: 2.15rem;
         height: 2.15rem;
     }
+}
+
+.video-trim-filmstrip {
+    --clip-control-bg: var(--stage-bg);
+    --clip-handle-color: var(--primary-color);
+}
+.video-trim-filmstrip__rail {
+    box-shadow: none;
+    border-radius: 6px;
+}
+.video-trim-filmstrip__header {
+    flex-wrap: wrap;
+}
+.video-trim-filmstrip__ios-strip {
+    grid-template-columns: 48px minmax(0, 1fr);
+}
+.video-trim-filmstrip__play-pane {
+    background: var(--primary-color);
+}
+.video-trim-filmstrip__play-icon {
+    width: 24px;
+    height: 24px;
+}
+.video-trim-filmstrip__trim-window {
+    border-block: 2px solid var(--primary-color);
+    box-shadow: none;
+}
+.video-trim-filmstrip__edge-handle {
+    border-radius: 4px;
+    box-shadow: none;
+    background: var(--primary-color);
+}
+.video-trim-filmstrip__edge-handle::after {
+    background: #fff;
+}
+.video-trim-filmstrip__track-gutter::before {
+    width: 7px;
+    height: 7px;
+    border-width: 2px;
+}
+.video-trim-filmstrip__readout span {
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0;
+}
+.video-trim-filmstrip__status small,
+.video-trim-filmstrip__mark-button {
+    font-size: 13px;
 }
 </style>

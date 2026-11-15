@@ -46,7 +46,6 @@ test("upload workbench guards Tauri-only analysis when opened in a plain browser
     assert.match(source, /import.*hasTauriRuntime.*from.*@\/lib\/tauri-runtime/)
     assert.match(source, /if \(!hasTauriRuntime\(\)\) \{/)
     assert.match(source, /handoffError\.value = .*分析需在桌面端完成/)
-    assert.match(source, /window\.alert\(handoffError\.value\)/)
 })
 
 test("upload workbench keeps browser file fallback and mode-aware file handling", () => {

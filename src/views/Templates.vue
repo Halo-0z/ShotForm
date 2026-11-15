@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { PAGE_COVER_ART } from "@/lib/page-cover-art"
 import { useAnalysisStore } from "@/stores/analysis"
+import { hasTauriRuntime } from "@/lib/tauri-runtime"
 import { getShotTypeName, type PlayerTemplate } from "@/types"
 
 const router = useRouter()
@@ -116,6 +116,10 @@ const clearLibraryFeedback = () => {
 }
 
 const loadTemplates = async () => {
+    if (!hasTauriRuntime()) {
+        loadError.value = "模板保存在桌面端，请在桌面应用中查看和管理。"
+        return
+    }
     isLoadingTemplates.value = true
     loadError.value = ""
 
@@ -293,26 +297,23 @@ onMounted(() => {
 </script>
 
 <template>
-    <div class="templates-page">
-        <div
-            class="templates-page__cover"
-            :style="{ backgroundImage: `url(${PAGE_COVER_ART.compare})` }"
-            aria-hidden="true"
-        />
-        <div class="templates-page__veil" aria-hidden="true" />
-
+    <div class="templates-page ui-page ui-enter">
         <div class="templates-page__content">
-            <header class="templates-page__header">
+            <header class="templates-page__header ui-page__header">
                 <div class="templates-page__heading">
-                    <p class="templates-page__eyebrow">TEMPLATES</p>
                     <h1 class="templates-page__title">球星模板管理</h1>
                     <p class="templates-page__summary">
-                        请先上传并分析一段有来源的参考投篮视频，再将整段动作画像保存为模板，供后续球星对比直接复用。
+                        保存有来源的参考投篮视频，供后续动作对比使用。
                     </p>
                 </div>
 
                 <div class="templates-page__toolbar">
-                    <Button variant="outline" @click="void loadTemplates()">刷新模板列表</Button>
+                    <Button
+                        variant="outline"
+                        :disabled="isLoadingTemplates"
+                        @click="void loadTemplates()"
+                        >刷新模板列表</Button
+                    >
                 </div>
             </header>
 
@@ -445,9 +446,9 @@ onMounted(() => {
                         </div>
 
                         <div v-else class="templates-empty">
-                            <p class="templates-empty__title">当前没有可保存的视频模板</p>
+                            <p class="templates-empty__title">尚无视频分析结果</p>
                             <p class="templates-empty__body">
-                                请先上传并分析一段完整投篮视频，再回到这里保存模板。这样导入的数据才包含整段动作节奏、关键帧和阶段角度画像。
+                                上传完整投篮视频并完成分析后，即可保存动作模板。
                             </p>
                             <Button @click="goToUpload">前往上传分析</Button>
                         </div>
@@ -464,7 +465,13 @@ onMounted(() => {
                     <CardContent class="templates-panel__content">
                         <div
                             v-if="loadError"
-                            class="templates-library__feedback templates-library__feedback--error"
+                            role="alert"
+                            :class="[
+                                'templates-library__feedback',
+                                hasTauriRuntime()
+                                    ? 'templates-library__feedback--error'
+                                    : 'templates-library__feedback--info',
+                            ]"
                         >
                             {{ loadError }}
                         </div>
@@ -478,6 +485,7 @@ onMounted(() => {
 
                         <div
                             v-else-if="deleteError"
+                            role="alert"
                             class="templates-library__feedback templates-library__feedback--error"
                         >
                             {{ deleteError }}
@@ -689,7 +697,7 @@ onMounted(() => {
                             </article>
                         </div>
 
-                        <div v-else class="templates-empty">
+                        <div v-else-if="!loadError" class="templates-empty">
                             <p class="templates-empty__title">模板库仍为空</p>
                             <p class="templates-empty__body">
                                 先用完整投篮视频保存一个球星模板，后续球星对比页才能给出更稳定的整段动作匹配结果。
@@ -703,116 +711,15 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.templates-page {
-    position: relative;
-    min-height: 100%;
-    padding: clamp(3.75rem, 6vh, 4.5rem) 28px 28px;
-    overflow: hidden;
-    background:
-        radial-gradient(
-            circle at 14% 14%,
-            color-mix(in srgb, var(--accent-color) 4%, transparent),
-            transparent 20%
-        ),
-        radial-gradient(
-            circle at 84% 18%,
-            color-mix(in srgb, var(--primary-color) 4%, transparent),
-            transparent 24%
-        ),
-        linear-gradient(
-            180deg,
-            color-mix(in srgb, var(--bg-solid) 97%, var(--surface-color)),
-            var(--bg-solid)
-        );
-}
-
-.templates-page__cover,
-.templates-page__veil {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-}
-
-.templates-page__cover {
-    background-position: right -1rem top 1rem;
-    background-repeat: no-repeat;
-    background-size: min(31vw, 27rem) auto;
-    opacity: 0.08;
-    transform: translate3d(0, 0, 0) scale(1.01);
-}
-
-.templates-page__veil {
-    background:
-        radial-gradient(
-            circle at 72% 22%,
-            color-mix(in srgb, var(--accent-color) 8%, transparent),
-            transparent 22%
-        ),
-        linear-gradient(
-            180deg,
-            color-mix(in srgb, var(--bg-solid) 58%, transparent),
-            color-mix(in srgb, var(--bg-solid) 90%, var(--background))
-        );
-    opacity: 0.44;
-}
-
 .templates-page__content {
-    position: relative;
-    z-index: 1;
-    max-width: 1280px;
-    margin: 0 auto;
-    display: grid;
-    gap: 22px;
+    max-width: 1440px;
+    margin: auto;
 }
-
-.templates-page__header {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: start;
-    gap: 18px;
-}
-
-.templates-page__heading {
-    display: grid;
-    gap: 8px;
-}
-
-.templates-page__eyebrow {
-    margin: 0;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--text-muted);
-}
-
-.templates-page__title {
-    margin: 0;
-    font-size: clamp(1.9rem, 1.55rem + 0.9vw, 2.45rem);
-    font-weight: 700;
-    letter-spacing: -0.03em;
-    color: var(--text-primary);
-}
-
-.templates-page__summary {
-    margin: 0;
-    max-width: 56rem;
-    font-size: 14px;
-    line-height: 1.7;
-    color: var(--text-secondary);
-}
-
-.templates-page__toolbar {
-    display: flex;
-    justify-content: flex-end;
-}
-
 .templates-page__grid {
     display: grid;
-    grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
-    gap: 22px;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    gap: 24px;
 }
-
 .templates-panel {
     border: 1px solid color-mix(in srgb, var(--surface-border) 88%, transparent);
     background: linear-gradient(
@@ -835,7 +742,7 @@ onMounted(() => {
 
 .templates-analysis__media {
     overflow: hidden;
-    border-radius: 20px;
+    border-radius: 8px;
     border: 1px solid color-mix(in srgb, var(--surface-border) 82%, transparent);
     background: color-mix(in srgb, var(--glass-xs) 92%, var(--background));
 }
@@ -991,7 +898,7 @@ onMounted(() => {
     display: grid;
     gap: 12px;
     padding: 16px 18px;
-    border-radius: 20px;
+    border-radius: 8px;
     border: 1px solid color-mix(in srgb, var(--surface-border) 86%, transparent);
     background: color-mix(in srgb, var(--glass-xs) 94%, var(--background));
 }
@@ -1175,7 +1082,7 @@ onMounted(() => {
     justify-items: start;
     gap: 10px;
     padding: 20px;
-    border-radius: 20px;
+    border-radius: 8px;
     border: 1px dashed color-mix(in srgb, var(--surface-border) 88%, transparent);
     background: color-mix(in srgb, var(--glass-xs) 94%, var(--background));
 }
@@ -1200,26 +1107,6 @@ onMounted(() => {
     }
 }
 
-@media (max-width: 960px) {
-    .templates-page {
-        padding: 72px 20px 24px;
-    }
-
-    .templates-page__cover {
-        background-position: right -2rem top 1rem;
-        background-size: min(44vw, 18rem) auto;
-    }
-
-    .templates-page__header {
-        grid-template-columns: auto 1fr;
-    }
-
-    .templates-page__toolbar {
-        grid-column: 1 / -1;
-        justify-content: flex-start;
-    }
-}
-
 @media (max-width: 640px) {
     .templates-analysis__meta,
     .templates-form__row {
@@ -1238,6 +1125,56 @@ onMounted(() => {
     .templates-library__header-actions {
         flex-direction: column;
         align-items: flex-start;
+    }
+}
+.templates-panel {
+    border-radius: 8px;
+    box-shadow: none;
+    background: var(--card-bg);
+    border: 1px solid var(--surface-border);
+}
+.templates-library__item {
+    background: transparent;
+    border-radius: 0;
+    border: 0;
+    border-bottom: 1px solid var(--surface-border);
+    padding: 20px 0;
+}
+.templates-page__toolbar {
+    flex-shrink: 0;
+}
+@media (max-width: 900px) {
+    .templates-page__grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.templates-panel {
+    border: 0;
+    background: transparent;
+    border-radius: 0;
+}
+.templates-panel--library {
+    border-left: 1px solid var(--surface-border);
+    padding-left: 8px;
+}
+.templates-empty {
+    border: 0;
+    background: transparent;
+    padding: 16px 0;
+    border-radius: 0;
+}
+.templates-library__feedback--info {
+    border: 0;
+    background: transparent;
+    color: var(--text-secondary);
+    padding: 8px 0;
+}
+@media (max-width: 900px) {
+    .templates-panel--library {
+        border-left: 0;
+        border-top: 1px solid var(--surface-border);
+        padding-left: 0;
     }
 }
 </style>

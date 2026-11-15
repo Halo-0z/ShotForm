@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from "vue"
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue"
 
 interface PlayerImage {
     src: string
@@ -58,6 +58,13 @@ onMounted(() => {
 onBeforeUnmount(() => {
     stopCarousel()
 })
+watch(
+    () => props.reduceMotion,
+    (reduce) => {
+        if (reduce) stopCarousel()
+        else startCarousel()
+    },
+)
 </script>
 
 <template>

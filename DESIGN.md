@@ -2,6 +2,8 @@
 
 ## 2026-11-15 selected direction: A · 球场回放台
 
+Follow-up preference: the user selected **basketball game controls with more visible depth and motion**, using original SVG. Preserve the A layout, data hierarchy and dual themes. Use raised steel-blue action plates, illustrated basketball/court icons and responsive press/hover states; these intentionally supersede the previous flat-control treatment. The source is `src/components/basketball/` with shared styling in `src/assets/basketball-game.css`. Avoid decorative animation over analysis evidence and honor reduced motion.
+
 The current implementation follows the selected replay workbench direction. The cover remains a basketball poster; inner routes prioritize actual media, adjacent playback controls, frame selection, and readable evidence. Use the shared light/dark roles in `src/assets/workbench.css`; steel blue denotes interaction and copper denotes evidence. Secondary and semantic colors are adjusted by theme for readability.
 
 The implementation and requirement-by-requirement validation are recorded in [the rebuild audit](docs/ui-audit/2026-11-15/rebuild.md). It supersedes older layout-specific expectations such as inner-page artwork banners, nested conclusion cards, and autoplay on entering analysis. Keep the route ownership and backend boundaries described below.

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Button } from "@/components/ui/button"
 import type { CorrectionSuggestion } from "@/types"
 import { AlertTriangle, Sparkles } from "lucide-vue-next"
 
@@ -119,17 +120,23 @@ const getPriorityClass = (priority: string, prefix = "analysis-suggestion") => {
         <p class="analysis-suggestion__cloud-note">
             可选 AI 报告会将图像及分析数据发送至腾讯混元云服务。
         </p>
-        <button
+        <Button
             v-if="aiSource.state !== 'done'"
+            variant="outline"
             class="analysis-suggestion__generate-btn"
             :disabled="aiSource.state === 'loading'"
             @click="emit('generate')"
         >
             {{ aiSource.state === "loading" ? "生成中..." : "生成完整 AI 报告" }}
-        </button>
-        <button v-else class="analysis-suggestion__generate-btn" @click="emit('generate')">
+        </Button>
+        <Button
+            v-else
+            variant="outline"
+            class="analysis-suggestion__generate-btn"
+            @click="emit('generate')"
+        >
             重新生成 AI 报告
-        </button>
+        </Button>
     </div>
 </template>
 

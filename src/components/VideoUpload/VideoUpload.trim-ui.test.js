@@ -55,7 +55,7 @@ test("VideoTrimFilmstrip owns canvas rendering, status feedback, and retryable e
     assert.match(filmstripSource, /class="video-trim-filmstrip__error-retry"/)
     assert.match(filmstripSource, /class="video-trim-filmstrip__playhead"/)
     assert.match(filmstripSource, /片段偏短/)
-    assert.match(filmstripSource, /适合分析/)
+    assert.match(filmstripSource, /片段时长合适/)
     assert.match(filmstripSource, /设为起点/)
     assert.doesNotMatch(filmstripSource, /toDataURL/)
     assert.doesNotMatch(filmstripSource, /object-fit:\s*cover/)

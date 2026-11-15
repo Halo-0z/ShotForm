@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import BasketballGlyph from "@/components/basketball/BasketballGlyph.vue"
 import { onMounted, onUnmounted } from "vue"
 import { useRouter } from "vue-router"
 import { invoke } from "@tauri-apps/api/core"
@@ -9,12 +10,12 @@ const router = useRouter()
 const isDesktop = hasTauriRuntime()
 
 const menuItems = [
-    { label: "开始分析", path: "/upload" },
-    { label: "姿势分析", path: "/analysis" },
-    { label: "历史记录", path: "/history" },
-    { label: "球星对比", path: "/compare" },
-    { label: "模板库", path: "/templates" },
-]
+    { label: "开始分析", path: "/upload", icon: "upload" },
+    { label: "姿势分析", path: "/analysis", icon: "replay" },
+    { label: "历史记录", path: "/history", icon: "history" },
+    { label: "球星对比", path: "/compare", icon: "compare" },
+    { label: "模板库", path: "/templates", icon: "template" },
+] as const
 
 async function openRoute(path: string) {
     if (!isDesktop) {
@@ -78,7 +79,7 @@ onUnmounted(() => {
     <main class="tray-menu-shell" aria-label="ShotForm 系统托盘菜单">
         <section class="tray-menu-panel">
             <header class="tray-menu-header">
-                <p class="tray-menu-title">ShotForm</p>
+                <p class="tray-menu-title"><BasketballGlyph name="ball" />ShotForm</p>
                 <button
                     class="tray-menu-icon-button"
                     type="button"
@@ -102,7 +103,9 @@ onUnmounted(() => {
                     type="button"
                     @click="openRoute(item.path)"
                 >
-                    <span class="tray-menu-item-label">{{ item.label }}</span>
+                    <span class="tray-menu-item-label"
+                        ><BasketballGlyph :name="item.icon" />{{ item.label }}</span
+                    >
                     <ChevronRight :size="16" class="tray-menu-item-chevron" aria-hidden="true" />
                 </button>
             </nav>
@@ -176,6 +179,9 @@ onUnmounted(() => {
 }
 
 .tray-menu-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     color: var(--text-primary);
     font-size: 19px;
     line-height: 1.1;
@@ -267,6 +273,9 @@ onUnmounted(() => {
 }
 
 .tray-menu-item-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
     min-width: 0;
     overflow: hidden;
     color: currentColor;
@@ -296,6 +305,9 @@ onUnmounted(() => {
 }
 
 .tray-menu-item-compact .tray-menu-item-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
     font-size: 14px;
     font-weight: 600;
 }

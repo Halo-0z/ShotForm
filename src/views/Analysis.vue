@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from "vue"
 import { useRouter } from "vue-router"
-import { Play, Pause, ChevronLeft, ChevronRight, Upload, GitCompareArrows } from "lucide-vue-next"
+import BasketballGlyph from "@/components/basketball/BasketballGlyph.vue"
+import { ChevronLeft, ChevronRight, GitCompareArrows } from "lucide-vue-next"
 import { Button } from "@/components/ui/button"
 import { useAnalysisStore } from "@/stores/analysis"
 import {
@@ -421,7 +422,7 @@ onUnmounted(() => {
 
 <template>
     <main v-if="!analysis" class="analysis-workbench ui-page ui-empty ui-enter">
-        <Upload aria-hidden="true" />
+        <BasketballGlyph name="replay" />
         <h1>尚无分析结果</h1>
         <p>请先上传清晰的单人投篮图片或短视频。</p>
         <Button @click="router.push('/upload')">上传素材</Button>
@@ -438,14 +439,14 @@ onUnmounted(() => {
                     size="sm"
                     :disabled="isExporting || isPlaying"
                     @click="handleExport('html')"
-                    >导出 HTML 报告</Button
+                    ><BasketballGlyph name="export" />导出 HTML 报告</Button
                 >
                 <Button
                     variant="outline"
                     size="sm"
                     :disabled="isExporting || isPlaying"
                     @click="handleExport('json')"
-                    >导出 JSON</Button
+                    ><BasketballGlyph name="export" />导出 JSON</Button
                 >
                 <Button
                     size="sm"
@@ -456,7 +457,7 @@ onUnmounted(() => {
                         isPlaying
                     "
                     @click="handleSave"
-                    >{{
+                    ><BasketballGlyph name="save" />{{
                         analysisStore.isSavingHistory
                             ? "保存中…"
                             : analysisStore.currentHistoryId != null
@@ -532,7 +533,10 @@ onUnmounted(() => {
                             :disabled="!hasPlayableFrames"
                             @click="togglePlayback"
                         >
-                            <Pause v-if="isPlaying" /><Play v-else />
+                            <BasketballGlyph v-if="isPlaying" name="pause" /><BasketballGlyph
+                                v-else
+                                name="play"
+                            />
                         </button>
                         <button
                             class="replay-icon"

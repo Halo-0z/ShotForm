@@ -8,7 +8,8 @@ import {
     watch,
     type ComponentPublicInstance,
 } from "vue"
-import { Play, Pause } from "lucide-vue-next"
+import { Button } from "@/components/ui/button"
+import BasketballGlyph from "@/components/basketball/BasketballGlyph.vue"
 
 const props = withDefaults(
     defineProps<{
@@ -645,22 +646,26 @@ onUnmounted(() => {
                 <small>{{ clipQuality.detail }}</small>
             </div>
             <div class="video-trim-filmstrip__actions">
-                <button
+                <Button
+                    variant="outline"
+                    size="sm"
                     type="button"
                     class="video-trim-filmstrip__mark-button"
                     :disabled="disabled || durationMs <= 0"
                     @click="setTrimStartFromPlayhead"
                 >
                     设为起点
-                </button>
-                <button
+                </Button>
+                <Button
+                    variant="outline"
+                    size="sm"
                     type="button"
                     class="video-trim-filmstrip__mark-button"
                     :disabled="disabled || durationMs <= 0"
                     @click="setTrimEndFromPlayhead"
                 >
                     设为终点
-                </button>
+                </Button>
             </div>
         </div>
 
@@ -674,9 +679,14 @@ onUnmounted(() => {
                     :disabled="disabled || durationMs <= 0"
                     @click="emitPreview"
                 >
-                    <Pause v-if="isPreviewing" class="video-trim-filmstrip__play-icon" />
-                    <Play
+                    <BasketballGlyph
+                        v-if="isPreviewing"
+                        name="pause"
+                        class="video-trim-filmstrip__play-icon"
+                    />
+                    <BasketballGlyph
                         v-else
+                        name="play"
                         class="video-trim-filmstrip__play-icon video-trim-filmstrip__play-icon--play"
                     />
                 </button>
@@ -704,14 +714,16 @@ onUnmounted(() => {
                         ></div>
                         <div v-if="filmstripRenderError" class="video-trim-filmstrip__error">
                             <p class="video-trim-filmstrip__error-title">时间轴生成失败</p>
-                            <button
+                            <Button
+                                variant="outline"
+                                size="sm"
                                 type="button"
                                 class="video-trim-filmstrip__error-retry"
                                 :disabled="disabled"
                                 @click="renderFilmstripFrames"
                             >
                                 重新生成
-                            </button>
+                            </Button>
                         </div>
                         <div
                             class="video-trim-filmstrip__inactive-regions"

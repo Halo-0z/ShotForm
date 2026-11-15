@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { Button } from "@/components/ui/button"
+import BasketballGlyph from "@/components/basketball/BasketballGlyph.vue"
 import { computed, onBeforeUnmount, watch } from "vue"
 import { useRouter } from "vue-router"
 import ComparisonDetailPane from "./ComparisonDetailPane.vue"
@@ -149,8 +151,9 @@ onBeforeUnmount(() => {
                     </p>
                 </div>
                 <div class="comparison-toolbar__actions">
-                    <button
+                    <Button
                         v-if="status !== 'error'"
+                        variant="outline"
                         type="button"
                         class="comparison-toolbar__action comparison-toolbar__refresh"
                         :disabled="!canRefreshWorkbench"
@@ -159,14 +162,15 @@ onBeforeUnmount(() => {
                         @click="refreshWorkbench"
                     >
                         刷新对比
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                        variant="outline"
                         type="button"
                         class="comparison-toolbar__action"
                         @click="openTemplateManager"
                     >
                         管理模板
-                    </button>
+                    </Button>
                 </div>
             </div>
 
@@ -188,11 +192,17 @@ onBeforeUnmount(() => {
             </div>
 
             <div v-else-if="status === 'empty'" class="comparison-empty" data-compare-empty>
+                <BasketballGlyph name="compare" />
                 <p class="comparison-empty__title">暂无球星模板</p>
                 <p class="comparison-empty__body">先保存或导入模板后，再回到这里进行对比。</p>
-                <button type="button" class="comparison-empty__action" @click="openTemplateManager">
+                <Button
+                    variant="outline"
+                    type="button"
+                    class="comparison-empty__action"
+                    @click="openTemplateManager"
+                >
                     去管理模板
-                </button>
+                </Button>
             </div>
 
             <div
@@ -205,13 +215,14 @@ onBeforeUnmount(() => {
                 <p class="comparison-error__body" data-compare-stage>
                     {{ comparisonStore.errorMessage }}
                 </p>
-                <button
+                <Button
                     v-if="comparisonStore.canRetry"
+                    variant="outline"
                     class="comparison-toolbar__action"
                     @click="void comparisonStore.retry()"
                 >
                     重新加载
-                </button>
+                </Button>
             </div>
 
             <template v-else-if="hasRankings">

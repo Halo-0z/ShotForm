@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Button } from "@/components/ui/button"
 import { computed } from "vue"
 import type { ComparisonProgressState, ComparisonSessionStatus } from "@/lib/comparison-session.js"
 
@@ -48,14 +49,15 @@ const stageLabel = computed(() => {
             <span class="comparison-progress__value">{{ progressValue }}%</span>
         </div>
 
-        <button
+        <Button
             v-if="status === 'error' && canRetry"
+            variant="outline"
             type="button"
             class="comparison-progress__retry"
             @click="emit('retry')"
         >
             重新加载
-        </button>
+        </Button>
     </section>
 </template>
 

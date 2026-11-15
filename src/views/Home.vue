@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { Button } from "@/components/ui/button"
+import BasketballGlyph from "@/components/basketball/BasketballGlyph.vue"
+import CourtBackdrop from "@/components/basketball/CourtBackdrop.vue"
 import { ref } from "vue"
 import { useRouter } from "vue-router"
 import { ArrowRight, ShieldCheck, Pause, Play } from "lucide-vue-next"
@@ -31,18 +34,20 @@ const handleStart = async () => {
                 <p class="home-intro">
                     从一次投篮开始。回看关键帧，观察关节角度，留下下一次训练的方向。
                 </p>
-                <button
+                <Button
                     class="home-start"
                     :disabled="isLoading"
                     :aria-busy="isLoading"
                     aria-label="开始投篮分析"
                     @click="handleStart"
                 >
-                    {{ isLoading ? "正在进入…" : "开始分析" }}<ArrowRight aria-hidden="true" />
-                </button>
+                    <BasketballGlyph name="ball" />{{ isLoading ? "正在进入…" : "开始分析"
+                    }}<ArrowRight class="home-start-arrow" aria-hidden="true" />
+                </Button>
                 <p class="home-formats">图片或短视频 · 支持逐帧回看与训练记录</p>
             </div>
             <div class="home-art">
+                <CourtBackdrop />
                 <HomePlayerCarousel
                     aria-hidden="true"
                     :reduce-motion="prefersReducedMotion || coverPaused"

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed } from "vue"
 import { useRouter } from "vue-router"
-import { ArrowLeft, GitCompareArrows } from "lucide-vue-next"
+import BasketballGlyph from "@/components/basketball/BasketballGlyph.vue"
+import { ArrowLeft } from "lucide-vue-next"
 import ComparisonView from "@/components/ComparisonView/index.vue"
 import { Button } from "@/components/ui/button"
 import { type ComparisonIdentity } from "@/lib/comparison-service"
@@ -77,7 +78,7 @@ const goToTemplates = () => {
             :active="true"
         />
         <div v-else class="ui-empty">
-            <GitCompareArrows aria-hidden="true" />
+            <BasketballGlyph name="compare" />
             <h2>先完成一次投篮分析</h2>
             <p>用当前分析与参考模板比较动作阶段和关节角度。</p>
             <div class="ui-actions">

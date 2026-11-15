@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import BasketballGlyph from "@/components/basketball/BasketballGlyph.vue"
 import { computed, onMounted, reactive, ref, watch } from "vue"
 import { invoke } from "@tauri-apps/api/core"
 import { useRouter } from "vue-router"
@@ -446,6 +447,7 @@ onMounted(() => {
                         </div>
 
                         <div v-else class="templates-empty">
+                            <BasketballGlyph name="template" />
                             <p class="templates-empty__title">尚无视频分析结果</p>
                             <p class="templates-empty__body">
                                 上传完整投篮视频并完成分析后，即可保存动作模板。
@@ -698,6 +700,7 @@ onMounted(() => {
                         </div>
 
                         <div v-else-if="!loadError" class="templates-empty">
+                            <BasketballGlyph name="template" />
                             <p class="templates-empty__title">模板库仍为空</p>
                             <p class="templates-empty__body">
                                 先用完整投篮视频保存一个球星模板，后续球星对比页才能给出更稳定的整段动作匹配结果。

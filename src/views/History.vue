@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import BasketballGlyph from "@/components/basketball/BasketballGlyph.vue"
 import { ref, onMounted, computed } from "vue"
 import { useRouter } from "vue-router"
 import { Button } from "@/components/ui/button"
@@ -464,7 +465,7 @@ const isExpanded = (sourceIdentifier: string) => !expandedGroups.value.has(sourc
                         v-if="groupedHistory.length === 0 && !historyError"
                         class="history-empty-state"
                     >
-                        <Clock class="w-12 h-12 text-[var(--text-muted)] mb-4" />
+                        <BasketballGlyph name="history" />
                         <h2 class="history-empty-state__title">
                             {{ hasActiveFilters ? "未找到匹配的记录" : "还没有投篮档案记录" }}
                         </h2>

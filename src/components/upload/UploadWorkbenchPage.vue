@@ -4,7 +4,9 @@ import { useRouter } from "vue-router"
 import { open } from "@tauri-apps/plugin-dialog"
 import { readFile } from "@tauri-apps/plugin-fs"
 import { basename } from "@tauri-apps/api/path"
-import { Film, Upload as UploadIcon, Play, Pause, AlertCircle, Trash2 } from "lucide-vue-next"
+import BasketballGlyph from "@/components/basketball/BasketballGlyph.vue"
+import CourtIllustration from "@/components/basketball/CourtIllustration.vue"
+import { AlertCircle, Trash2 } from "lucide-vue-next"
 import { Button } from "@/components/ui/button"
 import { navigateWithFogTransition } from "@/composables/useFogRouteTransition"
 import { useAnalysisStore } from "@/stores/analysis"
@@ -383,7 +385,7 @@ onUnmounted(() => {
         >
             <div v-if="!hasVideo" class="upload-workbench__dropzone">
                 <div class="upload-workbench__dropzone-icon">
-                    <Film class="h-10 w-10" />
+                    <CourtIllustration />
                 </div>
                 <p class="upload-workbench__dropzone-title">
                     {{ uploadMode === "video" ? "选择一次完整的投篮动作" : "拖拽投篮图片到此处" }}
@@ -400,7 +402,7 @@ onUnmounted(() => {
                     :disabled="isBusy"
                     @click="uploadMode === 'video' ? pickVideo() : pickImage()"
                 >
-                    <UploadIcon class="h-4 w-4" />
+                    <BasketballGlyph name="upload" />
                     {{ uploadMode === "video" ? "选择视频" : "选择图片" }}
                 </Button>
                 <p class="upload-workbench__dropzone-exts">
@@ -442,8 +444,8 @@ onUnmounted(() => {
                                 type="button"
                                 :aria-label="isPlaying ? '暂停预览' : '播放预览'"
                             >
-                                <Play v-if="!isPlaying" class="h-6 w-6" />
-                                <Pause v-else class="h-6 w-6" />
+                                <BasketballGlyph v-if="!isPlaying" name="play" />
+                                <BasketballGlyph v-else name="pause" />
                             </button>
                         </div>
                     </div>
@@ -499,7 +501,7 @@ onUnmounted(() => {
                             class="upload-workbench__cta"
                             @click="handleStartAnalysis"
                         >
-                            <Play v-if="!isBusy" class="h-4 w-4" />
+                            <BasketballGlyph v-if="!isBusy" name="ball" />
                             {{ hasTauriRuntime() ? "开始分析" : "请在桌面端分析" }}
                         </Button>
                     </div>

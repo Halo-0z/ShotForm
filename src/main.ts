@@ -4,6 +4,7 @@ import App from "./App.vue"
 import router from "./router"
 import "./assets/index.css"
 import "./assets/workbench.css"
+import "./assets/basketball-game.css"
 
 const app = createApp(App)
 

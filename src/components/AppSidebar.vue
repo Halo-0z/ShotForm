@@ -1,17 +1,8 @@
 <script setup lang="ts">
 import { ref } from "vue"
 import { useRoute, useRouter } from "vue-router"
-import {
-    Home,
-    Upload,
-    Activity,
-    History,
-    GitCompareArrows,
-    Layers,
-    Settings,
-    PanelLeftClose,
-    PanelLeftOpen,
-} from "lucide-vue-next"
+import { PanelLeftClose, PanelLeftOpen } from "lucide-vue-next"
+import BasketballGlyph from "@/components/basketball/BasketballGlyph.vue"
 import { navigateWithFogTransition } from "@/composables/useFogRouteTransition"
 import AppSettings from "@/components/AppSettings.vue"
 const route = useRoute(),
@@ -19,21 +10,18 @@ const route = useRoute(),
 const settingsOpen = ref(false)
 const collapsed = ref(false)
 const navItems = [
-    { label: "首页", path: "/", icon: Home },
-    { label: "上传素材", path: "/upload", icon: Upload },
-    { label: "动作分析", path: "/analysis", icon: Activity },
-    { label: "训练历史", path: "/history", icon: History },
-    { label: "球星对比", path: "/compare", icon: GitCompareArrows },
-    { label: "模板管理", path: "/templates", icon: Layers },
-]
+    { label: "首页", path: "/", icon: "court" },
+    { label: "上传素材", path: "/upload", icon: "upload" },
+    { label: "动作分析", path: "/analysis", icon: "replay" },
+    { label: "训练历史", path: "/history", icon: "history" },
+    { label: "球星对比", path: "/compare", icon: "compare" },
+    { label: "模板管理", path: "/templates", icon: "template" },
+] as const
 </script>
 <template>
     <aside class="app-sidebar" :class="{ 'app-sidebar--collapsed': collapsed }" aria-label="主导航">
         <RouterLink class="app-sidebar__brand" to="/" aria-label="ShotForm 首页">
-            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <circle cx="12" cy="12" r="9" />
-                <path d="M3 12h18M12 3v18M6 5c6 4 6 10 0 14M18 5c-6 4-6 10 0 14" /></svg
-            ><span>ShotForm</span>
+            <BasketballGlyph name="ball" /><span>ShotForm</span>
         </RouterLink>
         <nav class="app-sidebar__nav">
             <button
@@ -47,7 +35,7 @@ const navItems = [
                 :title="item.label"
                 @click="navigateWithFogTransition(router, item.path)"
             >
-                <component :is="item.icon" aria-hidden="true" /><span>{{ item.label }}</span>
+                <BasketballGlyph :name="item.icon" /><span>{{ item.label }}</span>
             </button>
         </nav>
         <div class="app-sidebar__footer">
@@ -58,7 +46,7 @@ const navItems = [
                 title="设置"
                 @click="settingsOpen = true"
             >
-                <Settings aria-hidden="true" /><span>设置</span>
+                <BasketballGlyph name="settings" /><span>设置</span>
             </button>
             <button
                 type="button"

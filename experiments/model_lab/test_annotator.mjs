@@ -14,7 +14,21 @@ try {
     const errors = []
     page.on("pageerror", (e) => errors.push(e.message))
     await page.goto(pathToFileURL(input).href)
-    await page.waitForFunction(() => document.querySelector("canvas").width === 592)
+    const payload = JSON.parse(await page.locator("#payload").textContent())
+    const { width, height } = payload.dataset.frames[0]
+    if (payload.target_description) {
+        assert.ok(
+            (await page.locator("#targetDescription").textContent()).includes(
+                payload.target_description,
+            ),
+        )
+    }
+    assert.ok(
+        payload.dataset.frames.every(
+            (f) => !f.reviewed_at && Object.keys(f.manual_keypoints).length === 0,
+        ),
+    )
+    await page.waitForFunction((w) => document.querySelector("canvas").width === w, width)
     await page.locator("#annotator").fill("SYNTHETIC BROWSER TEST")
     await page.locator("#present").selectOption("true")
     await page.locator("#occlusion").selectOption("other")
@@ -23,13 +37,13 @@ try {
     const click = async (x, y) => {
         const current = await page.locator("canvas").boundingBox()
         await page.mouse.click(
-            current.x + (x / 592) * current.width,
-            current.y + (y / 1280) * current.height,
+            current.x + (x / width) * current.width,
+            current.y + (y / height) * current.height,
         )
     }
-    await page.mouse.move(box.x + (50 / 592) * box.width, box.y + (100 / 1280) * box.height)
+    await page.mouse.move(box.x + (50 / width) * box.width, box.y + (100 / height) * box.height)
     await page.mouse.down()
-    await page.mouse.move(box.x + (400 / 592) * box.width, box.y + (1000 / 1280) * box.height)
+    await page.mouse.move(box.x + (400 / width) * box.width, box.y + (1000 / height) * box.height)
     await page.mouse.up()
     await page.locator("#review").click()
     assert.equal(
@@ -52,6 +66,10 @@ try {
     const waiting = page.waitForEvent("download")
     await page.locator("#export").click()
     const download = await waiting
+    assert.equal(
+        download.suggestedFilename(),
+        payload.dataset.frames[0].sample_id + "-annotations.json",
+    )
     const saved = JSON.parse(await readFile(await download.path(), "utf8"))
     assert.equal(saved.frames[0].annotator, "SYNTHETIC BROWSER TEST")
     assert.ok(Math.abs(saved.frames[0].manual_keypoints["11"].x - 200) < 1)
@@ -64,23 +82,19 @@ try {
     assert.equal(saved.frames[0].notes, "<script>测试中文 & 引号</script>")
     await page.locator("#notes").fill("changed")
     assert.equal(await page.locator("#review").isChecked(), false, "Edit invalidates review")
-    await page
-        .locator("#import")
-        .setInputFiles({
-            name: "resume.json",
-            mimeType: "application/json",
-            buffer: Buffer.from(JSON.stringify(saved)),
-        })
+    await page.locator("#import").setInputFiles({
+        name: "resume.json",
+        mimeType: "application/json",
+        buffer: Buffer.from(JSON.stringify(saved)),
+    })
     await page.getByText("已导入；原图片及帧元数据保持一致").waitFor()
     assert.equal(await page.locator("#review").isChecked(), true)
     saved.frames[0].sha256 = "tampered"
-    await page
-        .locator("#import")
-        .setInputFiles({
-            name: "bad.json",
-            mimeType: "application/json",
-            buffer: Buffer.from(JSON.stringify(saved)),
-        })
+    await page.locator("#import").setInputFiles({
+        name: "bad.json",
+        mimeType: "application/json",
+        buffer: Buffer.from(JSON.stringify(saved)),
+    })
     await page.getByText("导入失败：帧身份、哈希或来源已改变").waitFor()
     assert.equal(
         await page.locator("#review").isChecked(),
@@ -90,7 +104,7 @@ try {
     assert.deepEqual(errors, [])
     // Restore an untouched page for the inspection screenshot (no test labels in user artifact).
     await page.reload()
-    await page.waitForFunction(() => document.querySelector("canvas").width === 592)
+    await page.waitForFunction((w) => document.querySelector("canvas").width === w, width)
     await page.screenshot({
         path: path.join(path.dirname(input), "annotator-preview.png"),
         fullPage: true,

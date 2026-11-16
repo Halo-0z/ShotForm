@@ -155,9 +155,10 @@
         <header>
             <h1>实验人工标注</h1>
             <p>
-                先框定同一投篮者，再标 12
-                个关节中心。左右以人物自身为准；遮挡且无法判断时选“未知”。此页不显示模型预测。
+                先框定同一投篮者，只标能可靠定位的关节。左右以人物自身为准，不是屏幕左右；
+                宽松衣物、遮挡、出画或模糊导致无法定位时设“未知”，不强凑12个坐标。此页不显示模型预测。
             </p>
+            <p id="targetDescription"></p>
         </header>
         <main>
             <section>
@@ -247,6 +248,9 @@
             const $ = (id) => document.getElementById(id),
                 canvas = $("canvas"),
                 ctx = canvas.getContext("2d")
+            $("targetDescription").textContent = payload.target_description
+                ? "标注对象（任务说明，仍需逐帧确认）：" + payload.target_description
+                : ""
             const joints = [
                 ["11", "左肩"],
                 ["12", "右肩"],
@@ -546,7 +550,12 @@
                         url = URL.createObjectURL(blob),
                         a = document.createElement("a")
                     a.href = url
-                    a.download = "annotations.json"
+                    const sampleIds = [...new Set(data.frames.map((f) => f.sample_id))]
+                    const prefix =
+                        sampleIds.length === 1
+                            ? sampleIds[0].replace(/[^a-zA-Z0-9_-]/g, "_")
+                            : "dataset"
+                    a.download = prefix + "-annotations.json"
                     a.click()
                     setTimeout(() => URL.revokeObjectURL(url), 1000)
                     message("已导出；请保留 JSON，用于继续标注及合并验证")

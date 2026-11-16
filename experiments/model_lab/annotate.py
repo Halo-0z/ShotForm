@@ -70,7 +70,7 @@ def merge_labels(base, incoming):
     return result
 
 
-def build(dataset_path, output):
+def build(dataset_path, output, target_description=''):
     data = read(dataset_path)
     if not data['frames']:
         raise ValueError('Empty dataset')
@@ -81,7 +81,8 @@ def build(dataset_path, output):
         if sha(path) != frame['sha256']:
             raise ValueError('Image hash mismatch: ' + frame['id'])
         images.append('data:image/png;base64,' + base64.b64encode(path.read_bytes()).decode('ascii'))
-    payload = json.dumps({'dataset': data, 'images': images}, ensure_ascii=False, allow_nan=False).replace('<', '\\u003c')
+    payload = json.dumps({'dataset': data, 'images': images, 'target_description': target_description},
+                         ensure_ascii=False, allow_nan=False).replace('<', '\\u003c')
     template = Path(__file__).with_name('annotator.html').read_text(encoding='utf-8')
     with output.open('x', encoding='utf-8') as stream:
         stream.write(template.replace('/*__PAYLOAD__*/', payload))
@@ -93,9 +94,10 @@ if __name__ == '__main__':
     p.add_argument('--html', type=Path)
     p.add_argument('--import-labels', type=Path)
     p.add_argument('--output', type=Path)
+    p.add_argument('--target-description', default='', help='Task instructions only; never fills manual presence/box/points')
     a = p.parse_args()
     if a.html and not a.import_labels:
-        build(a.dataset, a.html)
+        build(a.dataset, a.html, a.target_description)
     elif a.import_labels and a.output and not a.html:
         # Keep PNG references valid even if the downloaded JSON came from Downloads.
         if a.output.resolve().parent != a.dataset.resolve().parent:

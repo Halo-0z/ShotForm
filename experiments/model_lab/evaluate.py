@@ -31,6 +31,7 @@ def evaluate(dataset, predictions):
         raise ValueError('Duplicate frame ID')
     report, accepted_errors = {}, {}
     review_required = dataset.get('annotation_review_required', False)
+    temporal_enabled = dataset.get('temporal_labels_confirmed') is True
     def reviewed(frame):
         return bool(frame.get('annotator', '').strip()) and (not review_required or bool(frame.get('reviewed_at')))
     for name, prediction in predictions.items():
@@ -69,33 +70,45 @@ def evaluate(dataset, predictions):
                 accepted_errors[name][(frame_id, joint)] = error
                 occlusion_errors.setdefault(frame.get('occlusion', 'unlabeled'), []).append(error)
                 residuals[frame_id] = valid - expected
-            # Adjacent sampled frames only: missing/low confidence breaks the pair.
+            # Explicitly confirmed dense labels only; sparse trial frames are not a jitter sequence.
             temporal = []
-            for sample_id in {f['sample_id'] for f in frames.values() if f['kind'] == 'video'}:
+            for sample_id in ({f['sample_id'] for f in frames.values() if f['kind'] == 'video'} if temporal_enabled else set()):
                 sequence = sorted([f for f in frames.values() if f['sample_id'] == sample_id],
                                   key=lambda f: f['timestamp_ms'])
                 for before, after in zip(sequence, sequence[1:]):
                     dt = (after['timestamp_ms'] - before['timestamp_ms']) / 1000
-                    if dt > 0 and before['id'] in residuals and after['id'] in residuals:
+                    consecutive = (isinstance(before.get('frame_index'), int)
+                                   and after.get('frame_index') == before['frame_index'] + 1)
+                    if consecutive and dt > 0 and before['id'] in residuals and after['id'] in residuals:
                         temporal.append(abs(residuals[after['id']] - residuals[before['id']]) / dt)
             errors[joint] = {'all_finite_mae_degrees': summary(all_errors),
                              'accepted_mae_degrees': summary(accepted),
                              'labeled_angles': labeled_count, 'accepted_angles': len(accepted),
                              'coverage': len(accepted) / labeled_count if labeled_count else None,
                              'rejected_reasons': dict(joint_skips), 'coverage_by_occlusion': groups,
+                             'temporal_status': 'confirmed_dense_labels' if temporal_enabled else 'not_enabled_without_confirmed_dense_labels',
                              'temporal_residual_change_deg_per_s': summary(temporal)}
         labeled = [f for f in frames.values() if f.get('subject_present') is True and reviewed(f)]
         absent = [f for f in frames.values() if f.get('subject_present') is False and reviewed(f)]
         missing = sum(not indexed[f['id']]['points'] for f in labeled)
+        unavailable_reasons = Counter(indexed[f['id']]['selection_reason'] or 'missing_selected_points'
+                                      for f in labeled if not indexed[f['id']]['points'])
         occlusion_coverage = {}
         for group in {f.get('occlusion', 'unlabeled') for f in labeled}:
             subset = [f for f in labeled if f.get('occlusion', 'unlabeled') == group]
             occlusion_coverage[group] = {'labeled_present': len(subset),
-                'missed_targets': sum(not indexed[f['id']]['points'] for f in subset)}
+                'target_unavailable_frames': sum(not indexed[f['id']]['points'] for f in subset)}
         report[name] = {'frames': len(rows), 'selected_frames': sum(bool(r['points']) for r in rows),
                         'selection_failures': dict(Counter(r['selection_reason'] for r in rows if r['selection_reason'])),
-                        'annotated_present_frames': len(labeled), 'missed_target_frames': missing if labeled else None,
-                        'miss_rate': missing / len(labeled) if labeled else None,
+                        'annotated_present_frames': len(labeled),
+                        'target_unavailable_frames': missing if labeled else None,
+                        'target_unavailable_rate': missing / len(labeled) if labeled else None,
+                        'target_unavailable_reasons': dict(unavailable_reasons),
+                        'no_detection_frames': unavailable_reasons.get('no_detection', 0) if labeled else None,
+                        'ambiguous_target_frames': (unavailable_reasons.get('ambiguous_multiple_people', 0)
+                                                    + unavailable_reasons.get('target_unmatched_or_ambiguous', 0)) if labeled else None,
+                        'miss_rate': None,
+                        'miss_rate_status': 'not_inferred_from_selection_failure; review identity and distinguish no detection from ambiguity',
                         'annotated_absent_frames': len(absent),
                         'false_positive_frames': sum(indexed[f['id']]['person_count'] > 0 for f in absent) if absent else None,
                         'angles': errors, 'skips': dict(skips),
@@ -107,7 +120,23 @@ def evaluate(dataset, predictions):
     pairs = []
     for left, right in combinations(accepted_errors, 2):
         shared = accepted_errors[left].keys() & accepted_errors[right].keys()
+        by_joint = {}
+        for joint in TRIPLES:
+            truth_n = report[left]['angles'][joint]['labeled_angles']
+            common_joint = {k for k in shared if k[1] == joint}
+            counts = {n: report[n]['angles'][joint]['accepted_angles'] for n in (left, right)}
+            by_joint[joint] = {
+                'human_definable_n': truth_n, 'model_valid_n': counts,
+                'model_failed_n': {n: truth_n - count for n, count in counts.items()},
+                'model_coverage': {n: count / truth_n if truth_n else None for n, count in counts.items()},
+                'model_failure_reasons': {n: report[n]['angles'][joint]['rejected_reasons'] for n in (left, right)},
+                'common_valid_n': len(common_joint),
+                'common_coverage': len(common_joint) / truth_n if truth_n else None,
+                'each_model_mae_p95_degrees': {n: report[n]['angles'][joint]['accepted_mae_degrees'] for n in (left, right)},
+                'paired_mae_p95_degrees': {n: summary([accepted_errors[n][k] for k in common_joint]) for n in (left, right)},
+            }
         pairs.append({'models': [left, right], 'common_angles': len(shared),
+                      'by_joint': by_joint,
                       'mae_degrees': {n: summary([accepted_errors[n][k] for k in shared]) for n in (left, right)},
                       'right_minus_left_absolute_error_degrees': summary([
                           accepted_errors[right][k] - accepted_errors[left][k] for k in shared])})
@@ -117,7 +146,7 @@ def evaluate(dataset, predictions):
             'paired_by_joint': {joint: {name: summary([values[k] for k in common if k[1] == joint])
                                for name, values in accepted_errors.items()} for joint in TRIPLES},
             'decision': 'No automatic model switch; require labeled paired results and target-machine acceptance',
-            'temporal_definition': 'Mean absolute adjacent change of (predicted angle - manual angle)/dt; not raw motion jitter'}
+            'temporal_definition': 'Only when temporal_labels_confirmed=true and source frame indices differ by exactly one: mean absolute adjacent residual change/dt; sparse/unreviewed/missing labels never imply jitter'}
 
 
 if __name__ == '__main__':

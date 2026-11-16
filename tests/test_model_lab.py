@@ -89,10 +89,12 @@ class ModelLabTests(unittest.TestCase):
 
     def test_unknown_middle_frame_breaks_temporal_pairs(self):
         dataset, predictions = self.fixture()
+        dataset['temporal_labels_confirmed'] = True
         dataset['frames'][0]['kind'] = 'video'
+        dataset['frames'][0]['frame_index'] = 0
         for frame_id, ms in [('g', 100), ('h', 200)]:
             f = copy.deepcopy(dataset['frames'][0])
-            f.update(id=frame_id, timestamp_ms=ms)
+            f.update(id=frame_id, timestamp_ms=ms, frame_index=ms // 100)
             if frame_id == 'g':
                 f['manual_keypoints']['11']['state'] = 'unknown'
             dataset['frames'].append(f)
@@ -116,7 +118,9 @@ class ModelLabTests(unittest.TestCase):
         predictions['b']['rows'][0]['points'] = {}
         predictions['b']['rows'][0]['selection_reason'] = 'no_detection'
         result = evaluate(dataset, predictions)
-        self.assertEqual(result['models']['b']['miss_rate'], 1)
+        self.assertEqual(result['models']['b']['target_unavailable_rate'], 1)
+        self.assertEqual(result['models']['b']['no_detection_frames'], 1)
+        self.assertIsNone(result['models']['b']['miss_rate'])
         self.assertEqual(result['models']['a']['angles']['left_elbow']['accepted_mae_degrees']['n'], 1)
 
     def test_multiple_false_detections_in_absent_frame_are_not_hidden(self):
@@ -151,9 +155,11 @@ class ModelLabTests(unittest.TestCase):
 
     def test_temporal_metric_requires_adjacent_labeled_residuals(self):
         dataset, predictions = self.fixture()
+        dataset['temporal_labels_confirmed'] = True
         dataset['frames'][0]['kind'] = 'video'
+        dataset['frames'][0]['frame_index'] = 30
         second = copy.deepcopy(dataset['frames'][0])
-        second.update(id='g', timestamp_ms=100)
+        second.update(id='g', timestamp_ms=100, frame_index=31)
         dataset['frames'].append(second)
         for prediction in predictions.values():
             row = copy.deepcopy(prediction['rows'][0])

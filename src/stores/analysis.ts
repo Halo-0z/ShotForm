@@ -78,9 +78,10 @@ export const useAnalysisStore = defineStore("analysis", () => {
         rule: emptyCoachingSource(),
         ai: emptyCoachingSource(),
     })
-    const currentAnalysisKey = () => currentAnalysis.value
-        ? `${analysisRevision.value}:${currentAnalysis.value.timestamp}:${currentVideoAnalysis.value ? currentVideoFrameIndex.value : "image"}`
-        : null
+    const currentAnalysisKey = () =>
+        currentAnalysis.value
+            ? `${analysisRevision.value}:${currentAnalysis.value.timestamp}:${currentVideoAnalysis.value ? currentVideoFrameIndex.value : "image"}`
+            : null
     const currentRuleSuggestions = computed(() =>
         coachingSources.rule.state === "done" &&
         coachingSources.rule.analysisKey !== null &&
@@ -151,7 +152,9 @@ export const useAnalysisStore = defineStore("analysis", () => {
     }
 
     const setCurrentComparisonSnapshot = (snapshot: ComparisonWorkbenchSnapshot | null) => {
-        applyCurrentComparisonSnapshot(normalizeComparisonSnapshot(snapshot, currentHistoryId.value))
+        applyCurrentComparisonSnapshot(
+            normalizeComparisonSnapshot(snapshot, currentHistoryId.value),
+        )
     }
 
     const clearCurrentComparisonState = () => {
@@ -296,7 +299,11 @@ export const useAnalysisStore = defineStore("analysis", () => {
         )
     }
 
-    const applyVideoFrameSelection = (analysis: VideoShotAnalysis | null, frameIndex: number, loadRules = true) => {
+    const applyVideoFrameSelection = (
+        analysis: VideoShotAnalysis | null,
+        frameIndex: number,
+        loadRules = true,
+    ) => {
         coachingSources.rule = emptyCoachingSource()
         if (!analysis || !analysis.frames.length) {
             currentVideoFrameIndex.value = 0
@@ -423,7 +430,8 @@ export const useAnalysisStore = defineStore("analysis", () => {
         coachingSources.rule = { ...emptyCoachingSource(), analysisKey, state: "loading" }
         // Each request owns a separate source object, even when returning to the same frame.
         const source = coachingSources.rule
-        const isCurrent = () => source === coachingSources.rule && analysisKey === currentAnalysisKey()
+        const isCurrent = () =>
+            source === coachingSources.rule && analysisKey === currentAnalysisKey()
 
         try {
             const suggestions = await invoke<CorrectionSuggestion[]>("get_correction_suggestions", {
@@ -726,7 +734,7 @@ export const useAnalysisStore = defineStore("analysis", () => {
         const args = JSON.parse(
             JSON.stringify({
                 imagePath,
-                annotatedImagePath: annotatedImagePath || imagePath,
+                annotatedImagePath,
                 analysis: currentAnalysis.value,
                 comparison: buildHistoryComparisonPayload(currentComparisonSnapshot.value, {
                     historyId: null,

@@ -65,10 +65,23 @@ const buildOption = () => {
         textStyle: { color: color("--text-secondary"), fontFamily: "HarmonyOS Sans SC" },
         tooltip: {
             trigger: "axis",
-            formatter: (params: Array<{ name: string; seriesName: string; value: number }>) => {
+            formatter: (
+                params: Array<{
+                    dataIndex: number
+                    name: string
+                    seriesName: string
+                    value: number
+                }>,
+            ) => {
                 const point = params[0]
                 if (!point) return ""
-                return `${point.name}<br/>${point.seriesName}: ${point.value.toFixed(1)}°`
+                const record = dataPoints[point.dataIndex]
+                if (!record) return ""
+                const id = Number.isFinite(record.recordId)
+                    ? `记录 #${Number(record.recordId)}`
+                    : "训练记录"
+                const time = new Date(record.createdAt).toLocaleString("zh-CN", { hour12: false })
+                return `${point.name}<br/>${id} · ${time}<br/>${point.seriesName}: ${point.value.toFixed(1)}°`
             },
         },
         grid: { top: 44, right: 20, bottom: 24, left: 48 },

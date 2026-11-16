@@ -51,11 +51,15 @@ export function trainingTrendPoints(records, angleName) {
     return records.flatMap((record) => {
         const angle = record.analysis.angles.find((a) => a.name === angleName)
         if (!angle || angle.status === "low_confidence" || !Number.isFinite(angle.value)) return []
-        return [{
-            time: record.trainingDate
-                ? new Date(record.trainingDate + "T12:00:00").getTime()
-                : record.createdAt,
-            value: angle.value,
-        }]
+        return [
+            {
+                recordId: record.id,
+                createdAt: record.createdAt,
+                time: record.trainingDate
+                    ? new Date(record.trainingDate + "T12:00:00").getTime()
+                    : record.createdAt,
+                value: angle.value,
+            },
+        ]
     })
 }

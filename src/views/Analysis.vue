@@ -393,11 +393,65 @@ watch(stageRef, (stage) => {
         stageObserver.observe(stage)
     }
 })
-const imageSource = computed(() =>
-    showPose.value
-        ? analysisStore.currentAnnotatedImage || analysisStore.currentImage
-        : analysisStore.currentImage || analysisStore.currentAnnotatedImage,
+const failedOriginal = ref(false)
+const failedOverlay = ref(false)
+const imageRevision = ref(0)
+const originalAvailable = computed(
+    () => Boolean(analysisStore.currentImage) && !failedOriginal.value,
 )
+const overlayAvailable = computed(
+    () => Boolean(analysisStore.currentAnnotatedImage) && !failedOverlay.value,
+)
+const imageSource = computed(() => {
+    if (showPose.value) return overlayAvailable.value ? analysisStore.currentAnnotatedImage : ""
+    return originalAvailable.value ? analysisStore.currentImage : ""
+})
+watch(
+    [
+        analysis,
+        () => analysisStore.currentHistoryId,
+        () => analysisStore.currentImage,
+        () => analysisStore.currentAnnotatedImage,
+        videoAnalysis,
+    ],
+    () => {
+        imageRevision.value++
+        failedOriginal.value = false
+        failedOverlay.value = false
+        if (!frames.value.length) showPose.value = overlayAvailable.value
+    },
+    { immediate: true, flush: "pre" },
+)
+watch(
+    videoAnalysis,
+    () => {
+        ++drawRequestId // Invalidate old draws before frame watchers start the new record.
+        frameImageError.value = false
+        if (frames.value.length) showPose.value = true
+    },
+    { flush: "sync" },
+)
+const handleImageError = (event: Event) => {
+    const image = event.currentTarget as HTMLImageElement
+    if (image.dataset.revision !== String(imageRevision.value)) return
+    const overlay = image.dataset.mode === "overlay"
+    if (overlay) failedOverlay.value = true
+    else failedOriginal.value = true
+    showPose.value = overlay
+        ? !originalAvailable.value && overlayAvailable.value
+        : overlayAvailable.value
+}
+const imageNotice = computed(() => {
+    if (frames.value.length) return ""
+    const messages: string[] = []
+    if (failedOverlay.value) messages.push("姿态叠加图加载失败。")
+    else if (!analysisStore.currentAnnotatedImage) messages.push("此记录没有可用的姿态叠加图。")
+    if (failedOriginal.value) messages.push("原图加载失败。")
+    else if (!analysisStore.currentImage) messages.push("此记录没有可用的原图。")
+    if (messages.length && imageSource.value)
+        messages.push(showPose.value ? "当前显示姿态叠加图。" : "当前显示原始画面。")
+    return messages.join("")
+})
 const frameLabel = computed(() =>
     videoAnalysis.value
         ? `分析帧 ${currentFrameIndex.value + 1} / ${frames.value.length}`
@@ -474,15 +528,23 @@ onUnmounted(() => {
                     <div class="replay-toolbar">
                         <div class="replay-modes" role="group" aria-label="画面显示方式">
                             <button
-                                :aria-pressed="!showPose"
-                                :class="{ active: !showPose }"
+                                :aria-pressed="
+                                    !showPose && (frames.length > 0 || originalAvailable)
+                                "
+                                :class="{
+                                    active: !showPose && (frames.length > 0 || originalAvailable),
+                                }"
+                                :disabled="!frames.length && !originalAvailable"
                                 @click="showPose = false"
                             >
                                 原始画面
                             </button>
                             <button
-                                :aria-pressed="showPose"
-                                :class="{ active: showPose }"
+                                :aria-pressed="showPose && (frames.length > 0 || overlayAvailable)"
+                                :class="{
+                                    active: showPose && (frames.length > 0 || overlayAvailable),
+                                }"
+                                :disabled="!frames.length && !overlayAvailable"
                                 @click="showPose = true"
                             >
                                 姿态叠加
@@ -494,12 +556,17 @@ onUnmounted(() => {
                                 : "单张图片"
                         }}</span>
                     </div>
+                    <p v-if="imageNotice" class="ui-notice" role="status">{{ imageNotice }}</p>
                     <div ref="stageRef" class="analysis-workbench__video-player">
                         <p
                             v-if="frames.length && frameImageError"
                             class="replay-missing replay-image-error"
                         >
-                            原始帧图像无法加载，当前仅显示可用的姿态关键点。
+                            {{
+                                showPose
+                                    ? "原始帧图像无法加载，当前仅显示可用的姿态关键点。"
+                                    : "原始帧图像无法加载，请切换姿态叠加查看可用关键点，或重新导入素材。"
+                            }}
                         </p>
                         <canvas
                             v-if="frames.length"
@@ -510,9 +577,13 @@ onUnmounted(() => {
                         />
                         <img
                             v-else-if="imageSource"
+                            :key="`${imageRevision}-${showPose}-${imageSource}`"
+                            :data-revision="imageRevision"
+                            :data-mode="showPose ? 'overlay' : 'original'"
                             :src="imageSource"
                             alt="图片姿态分析"
                             class="analysis-image"
+                            @error="handleImageError"
                         />
                         <p v-else class="replay-missing">
                             此记录没有可显示的图像，仍可查看已保存的分析数据。

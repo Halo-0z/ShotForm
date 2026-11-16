@@ -18,4 +18,4 @@ export function compareTrainingAngles(
 export function trainingTrendPoints(
     records: AnalysisHistory[],
     angleName: string,
-): { time: number; value: number }[]
+): { time: number; value: number; recordId: number; createdAt: number }[]

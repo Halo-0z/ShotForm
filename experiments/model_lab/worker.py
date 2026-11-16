@@ -120,6 +120,11 @@ def main(a):
                 elapsed = (time.perf_counter() - started) * 1000
                 rows.append({'frame_id': frame['id'], 'sha256': frame['sha256'], 'repeat': repeat,
                              'person_count': len(people), 'selection_reason': reason,
+                             # Preserve every mapped raw prediction even when target selection fails.
+                             # These are model outputs, never human labels or cross-frame track IDs.
+                             'people': people,
+                             'selected_person_index': next((i for i, p in enumerate(people)
+                                                            if p is selected), None),
                              'points': selected or {}, 'angles': computed, 'pipeline_ms': elapsed,
                              'stages': stages})
     finally:

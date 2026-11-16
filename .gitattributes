@@ -1,3 +1,4 @@
 # Keep recorded evidence byte-identical so dataset SHA-256 survives Git checkout.
 docs/experiments/model-lab-smoke/*.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
 docs/experiments/model-lab-controlled/**/*.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+docs/experiments/shooting-review-20261116/*.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
